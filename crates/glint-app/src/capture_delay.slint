@@ -1,0 +1,34 @@
+import { Motion } from "widgets/motion.slint";
+import { Button, Palette } from "widgets/widgets.slint";
+export component CaptureCountdown inherits Window {
+    in-out property <bool> reduce-motion <=> Motion.reduced;
+    title: root.heading;
+    no-frame: true;
+    preferred-width: 440px; preferred-height: 240px;
+    background: root.dark ? #1c2432 : #ffffff;
+    in property <bool> dark;
+    function sync-palette() { Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+    init => { root.sync-palette(); }
+    changed dark => { root.sync-palette(); }
+    in property <color> accent;
+    in property <string> heading;
+    in property <string> hint;
+    in property <string> cancel-label;
+    in-out property <int> seconds;
+    callback cancel;
+    forward-focus: keys;
+    keys := FocusScope {
+        key-pressed(event) => { if event.text == Key.Escape { root.cancel(); return accept; } return reject; }
+        Rectangle {
+            border-width: 2px; border-color: root.accent; border-radius: 10px;
+            background: root.background;
+            VerticalLayout {
+                padding: 20px; spacing: 10px;
+                Text { text: root.heading; color: root.dark ? #e7ebf3 : #202b42; font-size: 18px; font-weight: 600; horizontal-alignment: center; }
+                Text { text: root.seconds; color: root.accent; font-size: 42px; horizontal-alignment: center; }
+                Text { text: root.hint; color: root.dark ? #a8b3c8 : #69758b; wrap: word-wrap; horizontal-alignment: center; }
+                Button { text: root.cancel-label; clicked => { root.cancel(); } }
+            }
+        }
+    }
+}

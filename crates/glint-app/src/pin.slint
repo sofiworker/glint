@@ -1,0 +1,128 @@
+import { Motion } from "widgets/motion.slint";
+import { Button, Slider, ScrollView, Palette } from "widgets/widgets.slint";
+export struct PinLabels { pin: string, locked: string, close: string, top: string, unlock: string, lock: string, hide: string, planned: string, copy: string, save: string, retry: string, dismiss: string, pass: string, pass_off: string, pass_title: string, pass_body: string, pass_enable: string, cancel: string, rotate: string, edit: string }
+export component DesktopPin inherits Window {
+    in-out property <bool> reduce-motion <=> Motion.reduced;
+    in property <float> interface-scale;
+    title: "Glint Pin " + root.identity;
+    no-frame: true; background: transparent;
+    preferred-width: 480px; preferred-height: 360px;
+    in property <int> identity;
+    in property <image> picture;
+    in-out property <image> rotation-result;
+    in property <float> picture-wide;
+    in property <float> picture-high;
+    in property <bool> english;
+    in property <bool> wheel-opacity;
+    in property <bool> snap-enabled;
+    in-out property <bool> geometry-pending;
+    in property <PinLabels> labels;
+    in property <bool> dark;
+    function sync-palette() { Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+    init => { root.sync-palette(); }
+    changed dark => { root.sync-palette(); }
+    in property <color> accent;
+    in-out property <float> alpha: 1;
+    in-out property <int> zoom: 100;
+    in-out property <int> quarter-turns;
+    in-out property <bool> on-top: true;
+    in-out property <bool> locked;
+    in-out property <bool> ready;
+    in-out property <string> status;
+    in-out property <bool> busy;
+    changed busy => { if !root.busy && root.geometry-pending { root.action("geometry-ready"); } }
+    in-out property <bool> passthrough;
+    in-out property <bool> rescue-ready;
+    in-out property <bool> confirm-pass;
+    in-out property <string> rescue-shortcut;
+    in-out property <bool> output-error;
+    in-out property <bool> last-save;
+    in-out property <bool> message-open;
+    in-out property <string> details;
+    property <color> ink: root.dark ? #e7ebf3 : #202b42;
+    property <color> surface: root.dark ? #1c2432 : #ffffff;
+    callback action(string);
+    callback change-opacity(float);
+    callback drag(int);
+    callback wheel(float, bool);
+    Rectangle {
+        x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
+        opacity: root.alpha; border-width: 1px; border-color: root.accent;
+        Rectangle {
+            x: 0px; y: 0px; width: parent.width; height: 34px; background: root.surface;
+            TouchArea { enabled: root.ready; mouse-cursor: root.locked ? default : move;
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left && !root.locked { root.drag(0); }
+                    if event.kind == PointerEventKind.up && event.button == PointerEventButton.right { root.action("menu"); }
+                }
+                moved => { if self.pressed { root.drag(1); } }
+                changed pressed => { if !self.pressed { root.drag(2); } }
+            }
+            Text { x: 10px; y: 0px; width: parent.width - 100px; height: parent.height;
+                text: root.labels.pin + " " + root.identity + (root.locked ? " · " + root.labels.locked : "");
+                color: root.ink; vertical-alignment: center; overflow: elide;
+            }
+            Button { x: parent.width - 80px; width: 36px; height: 30px; text: "···"; enabled: root.ready; clicked => { root.action("menu"); } }
+            Button { x: parent.width - 40px; width: 36px; height: 30px; text: "×"; accessible-label: root.labels.close; enabled: root.ready; clicked => { root.action("close"); } }
+        }
+        Image { x: (parent.width - self.width)/2; y: 34px + (parent.height - 108px - self.height)/2; width: root.picture-wide * 1px; height: root.picture-high * 1px; source: root.picture; image-fit: contain; }
+        TouchArea {
+            x: 0px; y: 34px; width: parent.width; height: max(0px, parent.height - 108px); enabled: root.ready;
+            pointer-event(event) => { if event.kind == PointerEventKind.up && event.button == PointerEventButton.right { root.action("menu"); } }
+            scroll-event(event) => {
+                if root.busy || root.menu-open || root.message-open || root.confirm-pass || root.passthrough { return reject; }
+                if event.delta-y == 0px { return reject; }
+                root.wheel(event.delta-y / 1px, event.modifiers.control);
+                return accept;
+            }
+        }
+        Rectangle {
+            y: parent.height - 74px; height: 74px; background: root.surface;
+            Text { x: 10px; y: 4px; width: parent.width - 20px; height: 28px; text: root.status; color: root.ink; font-size: 11px; overflow: elide; wrap: word-wrap; }
+            TouchArea { x: 10px; y: 4px; width: parent.width - 20px; height: 28px; enabled: root.details != ""; clicked => { root.message-open = true; } }
+            Text { x: 10px; y: 38px; width: 42px; height: 28px; text: round(root.alpha*100) + "%"; color: root.ink; vertical-alignment: center; }
+            Slider { x: 55px; y: 38px; width: max(40px, parent.width - 230px); height: 28px; minimum: 20; maximum: 100; value: root.alpha*100; enabled: root.ready; changed(value) => { root.change-opacity(value); } }
+            Button { x: parent.width - 168px; y: 38px; width: 40px; height: 28px; text: "−"; enabled: root.ready; clicked => { root.action("smaller"); } }
+            Text { x: parent.width - 126px; y: 38px; width: 65px; height: 28px; text: root.zoom + "%"; color: root.ink; horizontal-alignment: center; vertical-alignment: center; }
+            Button { x: parent.width - 55px; y: 38px; width: 40px; height: 28px; text: "+"; enabled: root.ready; clicked => { root.action("larger"); } }
+        }
+    }
+        if root.menu-open: Rectangle {
+            x: 12px; y: 42px; width: parent.width - 24px; height: min(230px,parent.height - 52px);
+            background: root.surface; border-width: 1px; border-color: root.accent;
+            ScrollView { x: 0px; y: 0px; width: parent.width; height: parent.height; content-width: self.visible-width; content-height: 420px;
+            Rectangle { x: 0px; y: 0px; width: parent.width; height: 420px;
+            Button { x: 10px; y: 10px; width: parent.width - 20px; height: 32px; text: root.labels.top; clicked => { root.action("top"); } }
+            Button { x: 10px; y: 48px; width: parent.width - 20px; height: 32px; text: root.locked ? root.labels.unlock : root.labels.lock; clicked => { root.action("lock"); } }
+            Button { x: 10px; y: 86px; width: parent.width - 20px; height: 32px; text: root.labels.hide; clicked => { root.action("hide"); } }
+            Button { x: 10px; y: 124px; width: parent.width - 20px; height: 32px; text: root.labels.copy; enabled: !root.busy; clicked => { root.action("copy"); } }
+            Button { x: 10px; y: 162px; width: parent.width - 20px; height: 32px; text: root.labels.save; enabled: !root.busy; clicked => { root.action("save"); } }
+            Button { x: 10px; y: 200px; width: parent.width - 20px; height: 32px; text: root.passthrough ? root.labels.pass_off : root.labels.pass; enabled: root.ready && !root.busy; clicked => { root.action("pass"); } }
+            Button { x: 10px; y: 238px; width: parent.width - 20px; height: 32px; text: root.labels.rotate; enabled: root.ready && !root.busy; clicked => { root.action("rotate"); } }
+            Button { x: 10px; y: 276px; width: parent.width - 20px; height: 32px; text: root.labels.edit; enabled: root.ready && !root.busy; clicked => { root.action("edit"); } }
+            Text { x: 10px; y: 318px; width: parent.width - 20px; height: 88px; text: root.labels.planned; color: root.ink; font-size: 12px; wrap: word-wrap; }
+            }
+            }
+        }
+        if root.message-open: Rectangle {
+            x: 12px; y: 42px; width: parent.width - 24px; height: parent.height - 52px;
+            background: root.surface; border-width: 1px; border-color: root.accent;
+            TouchArea {}
+            ScrollView { x: 10px; y: 10px; width: parent.width - 20px; height: parent.height - 64px; content-width: self.visible-width;
+                Text { x: 0px; y: 0px; width: parent.width; text: root.details; color: root.ink; wrap: word-wrap; font-size: 12px; }
+            }
+            Button { x: 8px; y: parent.height - 44px; width: (parent.width - 24px)/2; height: 34px; text: root.labels.dismiss; clicked => { root.message-open = false; } }
+            if root.output-error: Button { x: parent.width/2 + 4px; y: parent.height - 44px; width: (parent.width - 24px)/2; height: 34px; text: root.labels.retry; enabled: !root.busy; clicked => { root.action(root.last-save ? "save-elsewhere" : "copy"); } }
+        }
+        if root.confirm-pass: Rectangle {
+            x: 12px; y: 42px; width: parent.width - 24px; height: parent.height - 52px;
+            background: root.surface; border-width: 1px; border-color: root.accent;
+            TouchArea {}
+            ScrollView { x: 10px; y: 10px; width: parent.width - 20px; height: parent.height - 64px; content-width: self.visible-width;
+                Text { x: 0px; y: 0px; width: parent.width; text: root.labels.pass_title + "\n\n" + root.rescue-shortcut + "\n\n" + root.labels.pass_body; wrap: word-wrap; color: root.ink; font-size: 12px; }
+            }
+            Button { x: 8px; y: parent.height - 44px; width: (parent.width - 24px)/2; height: 34px; text: root.labels.cancel; clicked => { root.action("cancel-pass"); } }
+            Button { x: parent.width/2 + 4px; y: parent.height - 44px; width: (parent.width - 24px)/2; height: 34px; text: root.labels.pass_enable; enabled: root.rescue-ready && !root.busy; clicked => { root.action("confirm-pass"); } }
+        }
+    in-out property <bool> menu-open;
+}

@@ -1,0 +1,603 @@
+import { FontPicker, FontLabels } from "font_picker.slint";
+import { Motion } from "widgets/motion.slint";
+import { ToolbarEditor, ToolbarAssets, ToolbarRow } from "toolbar_editor.slint";
+import { Button, ComboBox, LineEdit, Palette, ScrollView } from "widgets/widgets.slint";
+export struct LayerTile { x: float, y: float, w: float, h: float, picture: image }
+export struct WindowRegion { left: float, top: float, wide: float, high: float }
+export struct ObjectGrip { x: float, y: float }
+export struct CaptureLabels { color-picker: string, magnifier: string, pin: string, save-elsewhere: string, toolbar-customize: string, toolbar-title: string, toolbar-more: string, toolbar-both: string, toolbar-icons: string, toolbar-follow: string, toolbar-top: string, toolbar-bottom: string, toolbar-groups: string, toolbar-order-hint: string, toolbar-preview-hint: string, toolbar-apply: string, toolbar-reset: string,  title: string, select: string, pen: string, redact: string, rectangle: string, arrow: string, highlight: string, undo: string, redo: string, save: string, copy: string, cancel: string, stroke: string, pen-hint: string, select-hint: string, object-hint: string, object-text-hint: string, object-delete: string, arrow-filled: string, arrow-open: string, text-edit: string, redact-hint: string, rectangle-hint: string, arrow-hint: string, highlight-hint: string, pixelate: string, pixelate-hint: string, text: string, text-hint: string, text-place: string, text-cancel: string, text-size: string, text-font: string, text-limit: string, picker: string, picker-hint: string, copy-hex: string, copy-rgb: string }
+struct CaptureAction { label: string, tool: int, action: string, enabled: bool }
+// Internal lifecycle evidence, never user text or image content.
+export enum CaptureExit { open, api-cancel, escape-key, secondary-click, toolbar-cancel, window-request, copy, save, pin, color-copy, pin-update, direct }
+export component CaptureProbe inherits Window {
+    in-out property <bool> font-open;
+    in property <bool> font-english;
+    in property <bool> font-busy;
+    in property <bool> font-failed;
+    in property <[string]> font-names;
+    in property <string> font-current;
+    in-out property <string> font-query;
+    in property <string> font-title;
+    in property <string> font-search;
+    in property <string> font-status;
+    in property <string> font-cancel;
+    in property <string> font-retry;
+    in property <string> font-button;
+    callback font-command(string, string);
+    callback focus-font;
+    focus-font => { font-picker.focus-search(); }
+    in-out property <bool> reduce-motion <=> Motion.reduced;
+    in property <float> interface-scale;
+    title: root.labels.title;
+    no-frame: true;
+    background: #202b42;
+    default-font-family: "Microsoft YaHei UI";
+    default-font-size: 12px;
+    in property <bool> magnifier-enabled: true;
+    in property <bool> dimensions: true;
+    in property <string> region-metrics;
+    in property <int> dim-percent: 52;
+    in property <bool> loupe-valid;
+    in property <image> loupe-image;
+    in property <string> loupe-hex;
+    in property <string> loupe-position;
+    in property <float> loupe-source-x;
+    in property <float> loupe-source-y;
+    callback canvas-left;
+    function loupe-clamp(x: float, y: float) -> ObjectGrip {
+        return {x: max(4, min(root.width / 1px - 180, x)), y: max(4, min(root.height / 1px - 188, y))};
+    }
+    function loupe-free(p: ObjectGrip) -> bool {
+        return root.width >= 184px && root.height >= 192px
+            && !(root.loupe-source-x * root.sx >= p.x - 8 && root.loupe-source-x * root.sx <= p.x + 184 && root.loupe-source-y * root.sy >= p.y - 8 && root.loupe-source-y * root.sy <= p.y + 192)
+            && (!root.selected || p.x + 180 <= root.toolbar-x / 1px || p.x >= (root.toolbar-x + root.toolbar-width) / 1px + 4 || p.y + 188 <= root.toolbar-y / 1px || p.y >= (root.toolbar-y + root.toolbar-total-height) / 1px + 4)
+            && (!capture-info.visible || p.x + 180 <= capture-info.x / 1px || p.x >= (capture-info.x + capture-info.width) / 1px + 4 || p.y + 188 <= capture-info.y / 1px || p.y >= (capture-info.y + capture-info.height) / 1px + 4)
+            && (!selection-metrics.visible || p.x + 180 <= selection-metrics.x / 1px || p.x >= (selection-metrics.x + selection-metrics.width) / 1px + 4 || p.y + 188 <= selection-metrics.y / 1px || p.y >= (selection-metrics.y + selection-metrics.height) / 1px + 4);
+    }
+    property <ObjectGrip> loupe-a: root.loupe-clamp(root.loupe-source-x * root.sx + 20, root.loupe-source-y * root.sy + 20);
+    property <ObjectGrip> loupe-b: root.loupe-clamp(root.loupe-source-x * root.sx - 196, root.loupe-source-y * root.sy + 20);
+    property <ObjectGrip> loupe-c: root.loupe-clamp(root.loupe-source-x * root.sx + 20, root.loupe-source-y * root.sy - 204);
+    property <ObjectGrip> loupe-d: root.loupe-clamp(root.loupe-source-x * root.sx - 196, root.loupe-source-y * root.sy - 204);
+    property <ObjectGrip> loupe-e: root.loupe-clamp(4, 4);
+    property <ObjectGrip> loupe-f: root.loupe-clamp(root.width / 1px - 180, 4);
+    property <ObjectGrip> loupe-g: root.loupe-clamp(4, root.height / 1px - 188);
+    property <ObjectGrip> loupe-h: root.loupe-clamp(root.width / 1px - 180, root.height / 1px - 188);
+    property <ObjectGrip> loupe-at: root.loupe-free(root.loupe-a) ? root.loupe-a : root.loupe-free(root.loupe-b) ? root.loupe-b : root.loupe-free(root.loupe-c) ? root.loupe-c : root.loupe-free(root.loupe-d) ? root.loupe-d : root.loupe-free(root.loupe-e) ? root.loupe-e : root.loupe-free(root.loupe-f) ? root.loupe-f : root.loupe-free(root.loupe-g) ? root.loupe-g : root.loupe-free(root.loupe-h) ? root.loupe-h : {x: -1, y: -1};
+    out property <float> loupe-x: root.loupe-at.x;
+    out property <float> loupe-y: root.loupe-at.y;
+    out property <bool> loupe-visible: root.magnifier-enabled && root.loupe-valid && root.loupe-x >= 0 && !root.busy && !root.text-editing && !root.text-busy && root.toolbar-modal == 0;
+    in property <bool> english: false;
+    in property <bool> dark: false;
+    in property <bool> contrast: false;
+    in property <color> accent: #4b5cfa;
+    in property <CaptureLabels> labels;
+    in property <string> appearance-notice;
+    out property <color> surface: root.dark ? #1c2432 : #ffffff;
+    property <color> ink: root.dark ? #e7ebf3 : #202b42;
+    property <color> muted: root.dark ? #a8b3c8 : #69758b;
+    property <color> line: root.contrast ? root.ink : root.dark ? #354054 : #dce1ea;
+    public function apply-theme() { Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+    forward-focus: keys;
+    in property <image> desktop;
+    in property <float> source-w;
+    in property <float> source-h;
+    in-out property <float> left;
+    in-out property <float> top;
+    in-out property <float> wide;
+    in-out property <float> high;
+    in-out property <bool> selected: false;
+    in-out property <bool> has-region: false;
+    in-out property <int> tool: 0;
+    in-out property <int> cursor;
+    in-out property <int> stroke-width: 3;
+    in-out property <color> mark-color: #ed6571;
+    in property <color> default-mark-color: #ed6571;
+    property <[color]> mark-palette: root.default-mark-color == #ed6571 || root.default-mark-color == #4b5cfa || root.default-mark-color == #13a88a || root.default-mark-color == #ffb347 || root.default-mark-color == #ffffff || root.default-mark-color == #202b42 ? [#ed6571, #4b5cfa, #13a88a, #ffb347, #ffffff, #202b42] : [root.default-mark-color, #ed6571, #4b5cfa, #13a88a, #ffb347, #ffffff, #202b42];
+    property <length> color-controls-x: 22px + root.mark-palette.length * 31px;
+    in property <bool> filled-arrows: true;
+    in-out property <string> text-font: "Microsoft YaHei UI";
+    in-out property <int> text-size: 22;
+    in-out property <string> text-value;
+    in property <bool> text-editing;
+    in property <bool> text-busy;
+    in property <string> text-feedback;
+    in property <float> text-anchor-x;
+    in property <float> text-anchor-y;
+    public function focus-text() { text-input.focus(); }
+    out property <bool> text-input-focused: text-input.has-focus;
+    out property <bool> text-cancel-focused: text-cancel.has-focus;
+    public function focus-canvas() { keys.focus(); }
+    in property <bool> sample-valid;
+    in property <string> sample-hex: "—";
+    in property <string> sample-rgb: "—";
+    in property <string> sample-position;
+    in property <color> sample-color: transparent;
+    in property <bool> picker-busy;
+    in property <string> picker-feedback;
+    in property <[LayerTile]> tiles;
+    in property <[WindowRegion]> window-regions;
+    in property <int> object-count;
+    in property <bool> object-selected;
+    in property <[ObjectGrip]> object-grips;
+    in property <int> object-tool;
+    in property <color> object-color;
+    in property <float> object-stroke-width: 3;
+    in property <bool> object-filled;
+    in property <float> object-left;
+    in property <float> object-top;
+    in property <float> object-wide;
+    in property <float> object-high;
+    in property <bool> can-undo;
+    in property <bool> can-redo;
+    in property <bool> output-ready: true;
+    in property <bool> diagnostic: true;
+    in property <bool> color-only;
+    in-out property <string> status;
+    in-out property <string> service-notice;
+    out property <string> info-text: (root.service-notice == "" ? "" : root.service-notice + "\n") + root.status + (root.repeat-notice == "" ? "" : "\n" + root.repeat-notice) + (root.appearance-notice == "" ? "" : "\n" + root.appearance-notice);
+    in-out property <bool> auto-save-failed;
+    in-out property <bool> output-error-open;
+    in-out property <string> output-error-details;
+    in-out property <string> output-retry-action;
+    in property <string> output-error-title;
+    in property <string> output-error-dismiss;
+    in property <string> output-error-retry;
+    callback focus-output-error;
+    focus-output-error => { output-dismiss.focus(); }
+    in-out property <bool> busy: false;
+    in-out property <int> save-dialog-generation;
+    callback pointer(int, float, float);
+    callback hover(float, float);
+    callback action(string);
+    callback object-style(color, float, bool);
+    callback frame-completed;
+    callback finished;
+    callback request-pin(image, int, int);
+    callback output-succeeded(int, int, int, int);
+    // Content-free internal diagnostic signal; failure text stays in the editor.
+    callback output-failed();
+    callback closed-event();
+    in-out property <WindowRegion> pending-region;
+    in-out property <string> repeat-notice;
+    in-out property <bool> pin-enabled;
+    in property <int> pin-turns;
+    in property <bool> pin-editing;
+    in property <bool> local-image;
+    in-out property <bool> closed;
+    in-out property <CaptureExit> exit-reason: open;
+    in property <int> feedback-mode;
+    in-out property <int> completion-kind;
+    callback toolbar-command(string, int, int);
+    in property <[int]> toolbar-items;
+    in property <[int]> toolbar-hidden;
+    in property <[ToolbarRow]> toolbar-rows;
+    in property <bool> toolbar-icons;
+    in property <int> toolbar-position;
+    in property <bool> toolbar-groups;
+    in-out property <int> toolbar-modal;
+    in property <string> toolbar-feedback;
+    property <[image]> toolbar-images: ToolbarAssets.images;
+    in property <[string]> toolbar-editor-labels;
+    in property <[string]> toolbar-names;
+    out property <bool> background-active: !root.font-open && root.toolbar-modal == 0 && !root.output-error-open;
+    function metrics-free(y: length) -> bool {
+        return y >= 4px && y + selection-metrics.height <= root.height - 4px
+            && (!capture-info.visible || selection-metrics.x + selection-metrics.width <= capture-info.x - 4px || selection-metrics.x >= capture-info.x + capture-info.width + 4px || y + selection-metrics.height <= capture-info.y - 4px || y >= capture-info.y + capture-info.height + 4px)
+            && (!root.selected || selection-metrics.x + selection-metrics.width <= root.toolbar-x - 4px || selection-metrics.x >= root.toolbar-x + root.toolbar-width + 4px || y + selection-metrics.height <= root.toolbar-y - 4px || y >= root.toolbar-y + root.toolbar-total-height + 4px);
+    }
+    public function focus-toolbar-dialog() { modal-cancel.focus(); }
+    out property <bool> toolbar-dialog-cancel-focused: modal-cancel.has-focus;
+    out property <bool> toolbar-dialog-apply-focused: modal-apply.has-focus;
+    out property <bool> toolbar-dialog-mode-focused: editor.mode-focused;
+    out property <bool> toolbar-dialog-reset-focused: editor.reset-focused;
+    out property <length> toolbar-editor-scroll: editor-scroll.viewport-y;
+    out property <length> toolbar-editor-visible-height: editor-scroll.visible-height;
+    Rectangle {
+        visible: root.toolbar-modal > 0;
+        // Declared below the canvas in visual stacking using z below.
+        z: 10; width: root.width; height: root.height; background: #00000066;
+        TouchArea { }
+        Rectangle {
+            x: (root.width - self.width) / 2; y: (root.height - self.height) / 2;
+            width: min(520px, root.width - 24px); height: min(root.toolbar-modal == 1 ? 660px : 420px, root.height - 24px);
+            background: root.surface; border-width: 1px; border-color: root.line; border-radius: 8px;
+            FocusScope {
+                focus-on-tab-navigation: false; focus-on-click: false;
+                key-pressed(event) => { if event.text == Key.Escape { root.toolbar-command("cancel", 0, 0); return accept; } return reject; }
+                Text { x: 12px; y: 10px; width: parent.width - 24px; height: 28px; text: root.toolbar-modal == 1 ? (root.labels.toolbar-title) : (root.labels.toolbar-more); color: root.ink; font-size: 16px; }
+                editor-scroll := ScrollView {
+                    visible: root.toolbar-modal == 1;
+                    x: 8px; y: 44px; width: parent.width - 16px; height: parent.height - 136px;
+                    content-height: editor.editor-height; content-width: self.visible-width;
+                    editor := ToolbarEditor {
+                        width: parent.width; height: self.editor-height;
+                        rows: root.toolbar-rows; items: root.toolbar-items; labels: root.toolbar-editor-labels; names: root.toolbar-names;
+                        icons: root.toolbar-icons; position: root.toolbar-position; groups: root.toolbar-groups;
+                        ink: root.ink; muted: root.muted; line: root.line;
+                        command(name, row, value) => { root.toolbar-command(name, row, value); }
+                    }
+                }
+                if root.toolbar-modal == 2: ScrollView {
+                    x: 12px; y: 44px; width: parent.width - 24px; height: parent.height - 90px;
+                    content-height: root.toolbar-hidden.length * 38px;
+                    for catalog-index[index] in root.toolbar-hidden: Button {
+                        x: 0px; y: index * 38px; width: parent.width; height: 34px;
+                        text: root.actions[catalog-index].label;
+                        clicked => { root.toolbar-command("cancel", 0, 0); if root.text-editing { root.action("cancel-text"); } root.action("deselect-object"); root.tool = root.actions[catalog-index].tool; keys.focus(); }
+                    }
+                }
+                if root.toolbar-modal == 1: Text { x: 12px; y: parent.height - 88px; width: parent.width - 24px; height: 42px; text: root.toolbar-feedback == "" ? (root.labels.toolbar-preview-hint) : root.toolbar-feedback; color: root.ink; wrap: word-wrap; overflow: elide; }
+                modal-cancel := Button { x: root.toolbar-modal == 1 ? parent.width - 188px : parent.width - 100px; y: parent.height - 40px; width: 88px; height: 30px; text: root.labels.cancel; clicked => { root.toolbar-command("cancel", 0, 0); } }
+                modal-apply := Button { visible: root.toolbar-modal == 1; x: parent.width - 96px; y: parent.height - 40px; width: 84px; height: 30px; text: root.labels.toolbar-apply; clicked => { root.toolbar-command("apply", 0, 0); } }
+            }
+        }
+    }
+    property <float> sx: root.width / 1px / source-w;
+    property <float> sy: root.height / 1px / source-h;
+    out property <length> toolbar-width: root.color-only ? min(680px, max(0px,root.width - 24px)) : min(root.toolbar-icons ? root.toolbar-items.length * 40px + 14px : 1120px, max(0px, root.width - 24px));
+    property <int> columns: min(root.toolbar-items.length, root.toolbar-icons ? max(1, floor((root.toolbar-width - 14px) / 40px)) : root.toolbar-width >= 1070px ? 12 : root.toolbar-width >= 680px ? 7 : 4);
+    property <length> row-height: root.toolbar-width < 380px ? 26px : 36px;
+    out property <int> toolbar-focus-index: -1;
+    property <int> toolbar-hover-index: -1;
+    property <int> toolbar-hint-index: root.toolbar-icons && root.toolbar-focus-index >= 0 ? root.toolbar-focus-index : root.toolbar-hover-index;
+    out property <bool> toolbar-hint-visible: root.selected && !root.color-only && root.background-active && root.toolbar-modal == 0 && root.toolbar-hint-index >= 0 && root.toolbar-hint-index < root.toolbar-items.length && root.actions[root.toolbar-items[root.toolbar-hint-index]].enabled;
+    out property <string> toolbar-hint-label: root.toolbar-hint-visible ? root.actions[root.toolbar-items[root.toolbar-hint-index]].label : "";
+    property <length> hint-button-x: root.toolbar-x + 7px + mod(max(0, root.toolbar-hint-index), max(1, root.columns)) * (root.toolbar-width - 14px) / max(1, root.columns);
+    property <length> hint-button-y: root.toolbar-y + 7px + floor(max(0, root.toolbar-hint-index) / max(1, root.columns)) * root.row-height;
+    out property <length> toolbar-hint-x: max(4px, min(root.hint-button-x, root.width - toolbar-hint.width - 4px));
+    out property <length> toolbar-hint-y: max(4px, min(root.hint-button-y >= 32px ? root.hint-button-y - 28px : root.hint-button-y + root.row-height, root.height - 28px));
+    out property <length> toolbar-height: root.color-only ? 42px : ceil(root.toolbar-items.length / max(1, root.columns)) * root.row-height + 14px;
+    property <bool> compact: root.toolbar-width < 520px;
+    property <bool> color-tool: root.tool == 8 || root.tool == 2 || (root.tool >= 3 && root.tool <= 5);
+    property <bool> object-panel: root.tool == 0 && root.object-selected;
+    property <bool> object-compact: root.toolbar-width < 700px;
+    property <bool> object-line: root.object-tool == 2 || root.object-tool == 3 || root.object-tool == 4;
+    property <length> panel-height: root.object-panel ? (root.object-compact && (root.object-line || root.object-tool == 8) ? 96px : 76px) : root.tool == 6 ? (root.compact ? 96px : 76px) : root.color-tool && root.tool != 5 && root.compact ? 76px : 46px;
+    out property <length> toolbar-total-height: root.toolbar-height + 8px + root.panel-height;
+    out property <length> toolbar-x: !root.color-only && root.toolbar-position == 0 ? max(12px, min(root.left * root.sx * 1px, root.width - root.toolbar-width - 12px)) : (root.width - root.toolbar-width) / 2;
+    property <length> below: (root.top + root.high) * root.sy * 1px + 12px;
+    property <length> above: root.top * root.sy * 1px - root.toolbar-total-height - 12px;
+    property <length> safe-top: max(12px, min(70px, root.height - root.toolbar-total-height - 12px));
+    out property <length> toolbar-y: root.color-only ? max(12px,root.height - root.toolbar-total-height - 12px) : root.toolbar-position == 1 ? root.safe-top : root.toolbar-position == 2 ? max(12px, root.height - root.toolbar-total-height - 12px) : max(root.safe-top, min(root.below + root.toolbar-total-height <= root.height - 12px ? root.below : root.above >= 70px ? root.above : root.height - root.toolbar-total-height - 12px, root.height - root.toolbar-total-height - 12px));
+    property <[CaptureAction]> actions: [
+        { label: root.labels.select, tool: 0, action: "", enabled: !root.busy },
+        { label: root.labels.rectangle, tool: 3, action: "", enabled: !root.busy },
+        { label: root.labels.arrow, tool: 4, action: "", enabled: !root.busy },
+        { label: root.labels.pen, tool: 2, action: "", enabled: !root.busy },
+        { label: root.labels.text, tool: 8, action: "", enabled: !root.busy },
+        { label: root.labels.highlight, tool: 5, action: "", enabled: !root.busy },
+        { label: root.labels.redact, tool: 1, action: "", enabled: !root.busy },
+        { label: root.labels.pixelate, tool: 7, action: "", enabled: !root.busy },
+        { label: root.labels.picker, tool: 6, action: "", enabled: !root.busy },
+        { label: root.labels.undo, tool: -1, action: "undo", enabled: !root.busy && root.can-undo },
+        { label: root.labels.redo, tool: -1, action: "redo", enabled: !root.busy && root.can-redo },
+        { label: root.labels.save, tool: -1, action: "save", enabled: !root.busy && root.output-ready },
+        { label: root.labels.copy, tool: -1, action: "copy", enabled: !root.busy && root.output-ready },
+        { label: root.labels.cancel, tool: -1, action: "cancel-toolbar", enabled: true },
+        { label: root.labels.toolbar-more, tool: -1, action: "toolbar-more", enabled: !root.busy },
+        { label: root.labels.toolbar-customize, tool: -1, action: "toolbar-customize", enabled: !root.busy && !root.text-editing },
+        { label: root.labels.pin, tool: -1, action: "pin", enabled: root.pin-enabled && !root.busy && root.output-ready }
+    ];
+    function activate-toolbar(catalog-index: int) {
+        if root.font-open || root.toolbar-modal > 0 || !root.actions[catalog-index].enabled { return; }
+        if root.actions[catalog-index].tool >= 0 {
+            if root.text-editing { root.action("cancel-text"); }
+            root.action("deselect-object"); root.tool = root.actions[catalog-index].tool;
+        } else if catalog-index == 14 { root.toolbar-command("more", 0, 0); }
+        else if catalog-index == 15 { root.toolbar-command("open", 0, 0); }
+        else { root.action(root.actions[catalog-index].action); }
+        if root.toolbar-modal == 0 { keys.focus(); } else { root.focus-toolbar-dialog(); }
+    }
+    toolbar-hint := Rectangle {
+        visible: root.toolbar-hint-visible;
+        z: 9; x: root.toolbar-hint-x; y: root.toolbar-hint-y;
+        width: min(max(76px, hint-label.preferred-width + 12px), max(0px, root.width - 8px)); height: 24px;
+        background: root.surface; border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 4px;
+        hint-label := Text { x: 6px; width: parent.width - 12px; height: parent.height; text: root.toolbar-hint-label; color: root.ink; horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+    }
+    Image { source: root.desktop; width: parent.width; height: parent.height; image-fit: fill; }
+    Rectangle {
+        x: root.left * root.sx * 1px; y: root.top * root.sy * 1px;
+        width: root.wide * root.sx * 1px; height: root.high * root.sy * 1px;
+        clip: true;
+        for tile in root.tiles: Image {
+            x: tile.x * root.sx * 1px; y: tile.y * root.sy * 1px;
+            width: tile.w * root.sx * 1px; height: tile.h * root.sy * 1px;
+            source: tile.picture; image-fit: fill;
+        }
+    }
+    Rectangle { x: 0px; y: 0px; width: parent.width; height: root.has-region ? root.top * root.sy * 1px : parent.height; background: #0a1427.with-alpha(root.dim-percent / 100.0); }
+    if root.has-region: Rectangle { x: 0px; y: (root.top + root.high) * root.sy * 1px; width: parent.width; height: parent.height - self.y; background: #0a1427.with-alpha(root.dim-percent / 100.0); }
+    if root.has-region: Rectangle { x: 0px; y: root.top * root.sy * 1px; width: root.left * root.sx * 1px; height: root.high * root.sy * 1px; background: #0a1427.with-alpha(root.dim-percent / 100.0); }
+    if root.has-region: Rectangle { x: (root.left + root.wide) * root.sx * 1px; y: root.top * root.sy * 1px; width: parent.width - self.x; height: root.high * root.sy * 1px; background: #0a1427.with-alpha(root.dim-percent / 100.0); }
+    if root.has-region && !root.color-only: Rectangle {
+        x: root.left * root.sx * 1px; y: root.top * root.sy * 1px;
+        width: root.wide * root.sx * 1px; height: root.high * root.sy * 1px;
+        border-width: root.contrast ? 3px : 2px; border-color: root.accent; background: transparent;
+    }
+    if root.selected && root.tool == 0 && !root.pin-editing: Rectangle {
+        x: root.left * root.sx * 1px; y: root.top * root.sy * 1px;
+        width: root.wide * root.sx * 1px; height: root.high * root.sy * 1px;
+        for position in [{x: 0.0, y: 0.0}, {x: 0.5, y: 0.0}, {x: 1.0, y: 0.0}, {x: 0.0, y: 0.5}, {x: 1.0, y: 0.5}, {x: 0.0, y: 1.0}, {x: 0.5, y: 1.0}, {x: 1.0, y: 1.0}]: Rectangle {
+            x: min(root.width - 7px, max(0px, parent.x + parent.width * position.x - 3.5px)) - parent.x;
+            y: min(root.height - 7px, max(0px, parent.y + parent.height * position.y - 3.5px)) - parent.y;
+            width: 7px; height: 7px; background: #ffffff; border-width: 1px; border-color: root.accent;
+        }
+    }
+    if root.selected && root.tool == 0 && root.object-selected: Rectangle {
+        x: (root.left + root.object-left) * root.sx * 1px; y: (root.top + root.object-top) * root.sy * 1px;
+        width: root.object-wide * root.sx * 1px; height: root.object-high * root.sy * 1px;
+        border-width: 1px; border-color: root.accent; background: transparent;
+    }
+    if root.selected && root.tool == 0 && root.object-selected: Rectangle {
+        for grip in root.object-grips: Rectangle {
+            x: min(root.width - 7px, max(0px, (root.left + grip.x) * root.sx * 1px - 3.5px));
+            y: min(root.height - 7px, max(0px, (root.top + grip.y) * root.sy * 1px - 3.5px));
+            width: 7px; height: 7px; background: #ffffff; border-width: 1px; border-color: root.accent;
+        }
+    }
+    keys := FocusScope {
+        focus-on-tab-navigation: root.background-active; focus-on-click: root.background-active;
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if root.font-open { if event.text == Key.Escape { root.font-command("cancel", ""); } return accept; }
+            if root.toolbar-modal > 0 {
+                if event.text == Key.Escape { root.toolbar-command("cancel", 0, 0); }
+                return accept;
+            }
+            if (event.text == Key.Escape) { root.action("cancel-escape"); return accept; }
+            if (event.text == Key.Return) { root.action(root.text-editing ? "commit-text" : "finish"); return accept; }
+            if root.text-editing { return reject; }
+            if (event.text == Key.Delete && root.tool == 0) { root.action("delete-object"); return accept; }
+            if (event.modifiers.control && (event.text == "z" || event.text == "Z")) { root.action(event.modifiers.shift ? "redo" : "undo"); return accept; }
+            if (event.modifiers.control && (event.text == "y" || event.text == "Y")) { root.action("redo"); return accept; }
+            return reject;
+        }
+        TouchArea {
+            enabled: root.background-active && (!root.busy && root.toolbar-modal == 0);
+            mouse-cursor: root.tool != 0 || root.cursor == 0 ? crosshair : root.cursor == 1 ? move : root.cursor == 2 ? ew-resize : root.cursor == 3 ? ns-resize : root.cursor == 4 ? nwse-resize : nesw-resize;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.cancel { root.pointer(3, 0, 0); }
+                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) { root.pointer(0, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); }
+                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) { root.pointer(2, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); }
+                if (event.button == PointerEventButton.right && event.kind == PointerEventKind.up) { root.action("cancel-pointer"); }
+            }
+            moved => { if (self.pressed) { root.pointer(1, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); } else { root.hover(self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); } }
+            changed has-hover => { if !self.has-hover { root.canvas-left(); } }
+            double-clicked => { if root.selected && root.tool == 0 { root.action("finish"); } }
+        }
+        capture-info := Rectangle {
+            visible: root.service-notice != "" || !(root.selected && root.tool == 6 && root.height < 300px);
+            x: (parent.width - self.width) / 2; y: root.height < 300px ? 4px : 18px; width: min(parent.width - 40px, 1000px); height: min(root.height < 300px ? (root.auto-save-failed ? 78px : 38px) : parent.height / 3, info.preferred-height + 24px + (root.auto-save-failed ? 40px : 0px));
+            background: root.surface; border-radius: 6px; border-width: root.contrast ? 2px : 1px; border-color: root.line;
+            info := Text { x: 12px; y: 12px; width: parent.width - 24px; height: parent.height - 24px - (root.auto-save-failed ? 40px : 0px); text: root.info-text; color: root.ink; wrap: word-wrap; overflow: elide; }
+            if root.auto-save-failed: Button { x: 12px; y: parent.height - 44px; height: 32px; width: min(parent.width - 24px, 420px); text: root.labels.save-elsewhere; enabled: root.background-active && (!root.busy); clicked => { root.action("save-without-auto"); } }
+        }
+        selection-metrics := Rectangle {
+            visible: root.dimensions && root.has-region && !root.color-only && !root.text-editing && root.background-active;
+            width: min(metrics-text.preferred-width + 16px, max(0px, root.width - 8px)); height: 24px;
+            x: max(4px, min(root.left * root.sx * 1px, root.width - self.width - 4px));
+            property <length> above: root.top * root.sy * 1px - self.height - 4px;
+            property <length> inside: root.top * root.sy * 1px + 8px;
+            property <length> after-help: capture-info.y + capture-info.height + 8px;
+            property <length> before-toolbar: root.toolbar-y - self.height - 8px;
+            y: root.metrics-free(self.above) ? self.above : root.metrics-free(self.inside) ? self.inside : root.metrics-free(self.after-help) ? self.after-help : root.metrics-free(self.before-toolbar) ? self.before-toolbar : max(4px, min(self.inside, root.height - self.height - 4px));
+            background: root.surface; border-radius: 4px; border-width: root.contrast ? 2px : 1px; border-color: root.line;
+            metrics-text := Text { x: 8px; width: parent.width - 16px; height: parent.height; text: root.region-metrics; color: root.ink; vertical-alignment: center; overflow: elide; font-size: 12px; }
+        }
+        if root.selected: Rectangle {
+            x: root.toolbar-x; y: root.toolbar-y;
+            width: root.toolbar-width; height: root.toolbar-height;
+            background: root.surface; border-radius: 7px; border-width: root.contrast ? 2px : 1px; border-color: root.line;
+            TouchArea { enabled: root.background-active && (!root.color-only); pointer-event(event) => { if event.button == PointerEventButton.right && event.kind == PointerEventKind.up { root.toolbar-command("open", 0, 0); } } }
+            if root.color-only: Text { x: 12px; y: 6px; width: max(0px,parent.width - 124px); height: 30px; text: root.labels.color-picker; color: root.ink; vertical-alignment: center; overflow: elide; }
+            if root.color-only: Button { enabled: root.background-active; x: parent.width - 100px; y: 6px; width: 88px; height: 30px; text: root.labels.cancel; clicked => { root.action("cancel-toolbar"); } }
+            for catalog-index[index] in root.color-only ? [] : root.toolbar-items: Rectangle {
+                property <CaptureAction> item: root.actions[catalog-index];
+                forward-focus: item-focus;
+                accessible-role: button;
+                accessible-label: self.item.label;
+                accessible-enabled: root.background-active && self.item.enabled && root.toolbar-modal == 0;
+                accessible-checkable: self.item.tool >= 0;
+                accessible-checked: self.item.tool >= 0 && root.tool == self.item.tool;
+                accessible-action-default => { root.activate-toolbar(catalog-index); }
+                x: 7px + mod(index, root.columns) * (parent.width - 14px) / root.columns;
+                y: 7px + floor(index / root.columns) * root.row-height;
+                width: (parent.width - 14px) / root.columns - 4px; height: root.row-height - 4px;
+                border-radius: 5px; border-width: item-focus.has-focus || (self.item.tool >= 0 && root.tool == self.item.tool) ? 2px : 0px;
+                border-color: root.accent; background: transparent;
+                item-focus := FocusScope {
+                    enabled: root.background-active && (parent.item.enabled && root.toolbar-modal == 0);
+                    changed has-focus => { if self.has-focus { root.toolbar-focus-index = index; } else if root.toolbar-focus-index == index { root.toolbar-focus-index = -1; } }
+                    key-pressed(event) => { if event.text == Key.Return || event.text == " " { root.activate-toolbar(catalog-index); return accept; } return reject; }
+                }
+                if root.toolbar-groups && (catalog-index == 9 || catalog-index == 16): Rectangle { width: 1px; height: parent.height - 6px; y: 3px; background: root.line; }
+                Image { x: root.toolbar-icons ? (parent.width - 17px) / 2 : 5px; y: (parent.height - 17px) / 2; width: 17px; height: 17px; source: root.toolbar-images[catalog-index]; colorize: root.ink; opacity: parent.item.enabled ? 1 : 0.4; }
+                if !root.toolbar-icons: Text { x: 25px; width: max(0px, parent.width - 28px); height: parent.height; text: parent.item.label; color: root.ink; opacity: parent.item.enabled ? 1 : 0.4; vertical-alignment: center; overflow: elide; font-size: root.toolbar-width < 380px ? 10px : 12px; }
+                tool-touch := TouchArea {
+                    enabled: root.background-active && (parent.item.enabled && root.toolbar-modal == 0);
+                    changed has-hover => { if self.has-hover { root.toolbar-hover-index = index; } else if root.toolbar-hover-index == index { root.toolbar-hover-index = -1; } }
+                    clicked => { root.activate-toolbar(catalog-index); }
+                    pointer-event(event) => { if event.button == PointerEventButton.right && event.kind == PointerEventKind.up { root.toolbar-command("open", 0, 0); } }
+                }
+            }
+            Rectangle {
+                y: parent.height + 8px; width: parent.width; height: root.panel-height;
+                background: root.surface; border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 6px;
+                if !root.color-tool && root.tool != 6 && !root.object-panel: Text {
+                    x: 12px; y: 6px; width: parent.width - (root.tool == 0 && root.object-selected ? 132px : 24px); height: parent.height - 12px;
+                    text: root.tool == 0 ? (root.object-selected ? root.labels.object-hint : root.labels.select-hint) : root.tool == 7 ? root.labels.pixelate-hint : root.labels.redact-hint;
+                    color: root.muted; wrap: word-wrap; vertical-alignment: center;
+                }
+                if root.object-panel: Rectangle {
+                    property <bool> editable: !root.busy && !root.text-editing && !root.text-busy;
+                    Text { x: 12px; y: 4px; width: parent.width - 24px; height: 24px;
+                        text: root.object-tool == 8 ? root.labels.object-text-hint : root.labels.object-hint; color: root.muted; overflow: elide; vertical-alignment: center;
+                    }
+                    if root.object-tool != 7: Rectangle {
+                        for shade[index] in root.mark-palette: Rectangle {
+                            x: 12px + index * (root.mark-palette.length > 6 ? 23px : 27px); y: 34px;
+                            width: root.mark-palette.length > 6 ? 20px : 22px; height: self.width; border-radius: self.width / 2;
+                            background: shade; border-width: root.object-color == shade ? 3px : 1px; border-color: root.object-color == shade ? root.accent : root.muted;
+                            TouchArea { enabled: root.background-active && (!root.busy && !root.text-editing && !root.text-busy); clicked => { root.object-style(shade, root.object-stroke-width, root.object-filled); keys.focus(); } }
+                        }
+                    }
+                    if root.object-line: Text { x: root.object-compact ? 12px : 184px; y: root.object-compact ? 64px : 34px; height: 26px; text: root.labels.stroke; color: root.muted; vertical-alignment: center; }
+                    if root.object-line: ComboBox {
+                        x: root.object-compact ? 64px : 236px; y: root.object-compact ? 62px : 32px; width: 76px; height: 30px;
+                        model: ["1 px", "2 px", "3 px", "4 px", "5 px", "6 px", "7 px", "8 px", "9 px", "10 px", "11 px", "12 px"];
+                        current-index: round(root.object-stroke-width) - 1; enabled: root.background-active && (parent.editable);
+                        selected(value) => { root.object-style(root.object-color, self.current-index + 1, root.object-filled); keys.focus(); }
+                    }
+                    if root.object-tool == 4: ComboBox {
+                        x: root.object-compact ? 150px : 326px; y: root.object-compact ? 62px : 32px; width: 134px; height: 30px;
+                        model: [root.labels.arrow-filled, root.labels.arrow-open]; current-index: root.object-filled ? 0 : 1; enabled: root.background-active && (parent.editable);
+                        selected(value) => { root.object-style(root.object-color, root.object-stroke-width, self.current-index == 0); keys.focus(); }
+                    }
+                    if root.object-tool == 8: Button {
+                        x: root.object-compact ? 12px : parent.width - 224px; y: root.object-compact ? 62px : 32px; width: 100px; height: 30px;
+                        text: root.labels.text-edit; enabled: root.background-active && (parent.editable);
+                        clicked => { root.action("edit-object-text"); }
+                    }
+                    Button {
+                        x: parent.width - 112px; y: 32px; width: 100px; height: 30px;
+                        text: root.labels.object-delete; enabled: root.background-active && (parent.editable);
+                        clicked => { root.action("delete-object"); keys.focus(); }
+                    }
+                }
+                if root.tool == 6: Rectangle {
+                    Rectangle { x: 12px; y: 10px; width: 26px; height: 26px; border-radius: 4px;
+                        background: root.sample-color; border-width: 1px; border-color: root.line;
+                        opacity: root.sample-valid ? 1 : 0.4;
+                    }
+                    Text { x: 50px; y: 7px; width: root.compact ? 80px : parent.width - 300px; height: 30px;
+                        text: root.sample-hex + (root.compact ? "" : "  " + root.sample-rgb + " · " + root.sample-position);
+                        color: root.ink; vertical-alignment: center; overflow: elide;
+                    }
+                    if root.compact: Text { x: 134px; y: 7px; width: parent.width - 146px; height: 30px;
+                        text: root.sample-rgb; color: root.ink; vertical-alignment: center; overflow: elide;
+                    }
+                    Button { x: root.compact ? 12px : parent.width - 236px; y: root.compact ? 36px : 7px; width: 108px; height: 30px;
+                        text: root.labels.copy-hex; enabled: root.background-active && (root.sample-valid && !root.picker-busy && !root.busy);
+                        clicked => { root.action("copy-color-hex"); keys.focus(); }
+                    }
+                    Button { x: root.compact ? 132px : parent.width - 120px; y: root.compact ? 36px : 7px; width: 108px; height: 30px;
+                        text: root.labels.copy-rgb; enabled: root.background-active && (root.sample-valid && !root.picker-busy && !root.busy);
+                        clicked => { root.action("copy-color-rgb"); keys.focus(); }
+                    }
+                    Text { x: 12px; y: root.compact ? 68px : 43px; width: parent.width - 24px; height: root.compact ? 24px : 28px;
+                        text: root.picker-feedback == "" ? root.labels.picker-hint : root.picker-feedback;
+                        color: root.muted; wrap: word-wrap; overflow: elide; vertical-alignment: center;
+                    }
+                }
+                if root.color-tool: Rectangle {
+                    if root.tool == 8: Text { x: root.compact ? 10px : root.color-controls-x; y: root.compact ? 42px : 10px; height: 26px; text: root.labels.text-size; color: root.muted; vertical-alignment: center; }
+                    if root.tool == 8: ComboBox { x: root.compact ? 72px : root.color-controls-x + 62px; y: root.compact ? 39px : 7px; width: 90px; height: 30px;
+                        model: ["12 px", "13 px", "14 px", "15 px", "16 px", "17 px", "18 px", "19 px", "20 px", "21 px", "22 px", "23 px", "24 px", "25 px", "26 px", "27 px", "28 px", "29 px", "30 px", "31 px", "32 px", "33 px", "34 px", "35 px", "36 px", "37 px", "38 px", "39 px", "40 px", "41 px", "42 px", "43 px", "44 px", "45 px", "46 px", "47 px", "48 px"]; current-index: root.text-size - 12; enabled: root.background-active && (!root.busy && !root.text-busy);
+                        selected(value) => { root.text-size = self.current-index + 12; keys.focus(); }
+                    }
+                    if root.tool == 8 && root.toolbar-width >= 620px: Text { x: root.color-controls-x + 172px; y: 7px; width: parent.width - self.x - 12px; height: 32px; text: root.text-font + " · " + root.labels.text-hint; color: root.muted; wrap: word-wrap; vertical-alignment: center; }
+                    for shade[index] in root.mark-palette: Rectangle {
+                        x: 10px + index * 31px; y: 10px;
+                        width: 26px; height: 26px; background: shade; border-radius: 13px;
+                        border-width: root.mark-color == shade ? 3px : 1px;
+                        border-color: root.mark-color == shade ? root.accent : root.muted;
+                        TouchArea { enabled: root.background-active && (!root.busy); clicked => { root.mark-color = shade; keys.focus(); } }
+                    }
+                    if root.tool != 5 && root.tool != 8: Text { x: root.compact ? 10px : root.color-controls-x; y: root.compact ? 42px : 10px; height: 26px; text: root.labels.stroke; color: root.muted; vertical-alignment: center; }
+                    if root.tool != 5 && root.tool != 8: ComboBox { x: root.compact ? 72px : root.color-controls-x + 62px; y: root.compact ? 39px : 7px; width: 90px; height: 30px;
+                        model: ["1 px", "2 px", "3 px", "4 px", "5 px", "6 px", "7 px", "8 px", "9 px", "10 px", "11 px", "12 px"]; current-index: root.stroke-width - 1; enabled: root.background-active && (!root.busy);
+                        selected(value) => { root.stroke-width = self.current-index + 1; keys.focus(); }
+                    }
+                    if root.toolbar-width >= 620px && root.tool != 8: Text { x: root.tool == 5 ? root.color-controls-x : root.color-controls-x + 172px; y: 7px; width: parent.width - self.x - 12px; height: 32px; text: root.tool == 3 ? root.labels.rectangle-hint : root.tool == 4 ? root.labels.arrow-hint : root.tool == 5 ? root.labels.highlight-hint : root.labels.pen-hint; color: root.muted; wrap: word-wrap; vertical-alignment: center; }
+                }
+            }
+        }
+        Rectangle {
+            visible: root.text-editing;
+            x: max(12px, min(root.text-anchor-x * root.sx * 1px, root.width - self.width - 12px));
+            y: max(12px, min(root.text-anchor-y * root.sy * 1px, root.height - self.height - 12px));
+            width: min(480px, root.width - 24px); height: 202px;
+            background: root.surface; border-width: 2px; border-color: root.accent; border-radius: 6px;
+            text-input := LineEdit { x: 12px; y: 12px; width: parent.width - 24px; height: 34px; text <=> root.text-value; placeholder-text: root.labels.text-hint; enabled: root.background-active && (!root.text-busy); accepted => { root.action("commit-text"); } }
+            Text { x: 12px; y: 50px; width: 60px; height: 28px; text: root.labels.text-font; color: root.muted; vertical-alignment: center; }
+            LineEdit { x: 76px; y: 50px; width: max(50px, parent.width - 198px); height: 28px; text <=> root.text-font; enabled: root.background-active && (!root.text-busy); accepted => { root.action("commit-text"); } }
+            Button { x: parent.width - 116px; y: 50px; width: 104px; height: 28px; text: root.font-button; enabled: root.background-active && (!root.text-busy); clicked => { root.font-command("open", root.text-font); } }
+            Text { x: 12px; y: 80px; width: 40px; height: 26px; text: root.labels.text-size; color: root.muted; vertical-alignment: center; }
+            ComboBox { x: 54px; y: 78px; width: 68px; height: 28px; enabled: root.background-active && (!root.text-busy);
+                model: ["12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48"]; current-index: root.text-size - 12;
+                selected(value) => { root.text-size = self.current-index + 12; }
+            }
+            for shade[index] in root.mark-palette: Rectangle {
+                x: 130px + index * min(24px, max(0px, (parent.width - 142px) / root.mark-palette.length)); y: 82px; width: 20px; height: 20px; border-radius: 10px;
+                background: shade; border-width: root.mark-color == shade ? 3px : 1px; border-color: root.mark-color == shade ? root.accent : root.muted;
+                TouchArea { enabled: root.background-active && (!root.text-busy); clicked => { root.mark-color = shade; } }
+            }
+            Button { x: 12px; y: 108px; width: 108px; height: 28px; text: root.labels.text-place; enabled: root.background-active && (!root.text-busy); clicked => { root.action("commit-text"); } }
+            text-cancel := Button { enabled: root.background-active; x: 132px; y: 108px; width: 108px; height: 28px; text: root.labels.text-cancel; clicked => { root.action("cancel-text"); } }
+            Text { x: 12px; y: 142px; width: parent.width - 24px; height: 48px; text: root.text-feedback == "" ? root.labels.text-limit : root.text-feedback; color: root.ink; wrap: word-wrap; overflow: elide; }
+        }
+    }
+    if root.loupe-visible: Rectangle {
+        x: root.loupe-x * 1px; y: root.loupe-y * 1px; width: 176px; height: 184px;
+        background: root.surface; border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 6px;
+        Text { x: 4px; y: 6px; width: parent.width - 8px; height: 18px; text: root.labels.magnifier; color: root.ink; horizontal-alignment: center; font-size: 11px; }
+        Rectangle { x: 33px; y: 28px; width: 110px; height: 110px; background: root.muted;
+            Image { width: 110px; height: 110px; source: root.loupe-image; image-rendering: pixelated; }
+            Rectangle { x: 50px; y: 50px; width: 10px; height: 10px; border-width: 1px; border-color: #ed6571; }
+        }
+        Text { x: 4px; y: 141px; width: parent.width - 8px; height: 18px; text: root.loupe-hex; color: root.ink; horizontal-alignment: center; font-size: 11px; }
+        Text { x: 4px; y: 161px; width: parent.width - 8px; height: 18px; text: root.loupe-position; color: root.muted; horizontal-alignment: center; font-size: 11px; }
+    }
+
+    font-picker := FontPicker {
+        visible: root.font-open;
+        width: parent.width; height: parent.height;
+        query <=> root.font-query;
+        names: root.font-names; busy: root.font-busy; failed: root.font-failed; current: root.font-current;
+        labels: {title: root.font-title, search: root.font-search, status: root.font-status, cancel: root.font-cancel, retry: root.font-retry};
+        surface: root.surface; ink: root.ink; muted: root.muted; accent: root.accent;
+        command(action, value) => { root.font-command(action, value); }
+    }
+    Rectangle {
+        visible: root.output-error-open;
+        z: 20; width: root.width; height: root.height; background: #00000066;
+        TouchArea { }
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: min(640px, root.width - 24px); height: min(400px, root.height - 24px);
+            background: root.surface; border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 8px;
+            FocusScope {
+                width: parent.width; height: parent.height;
+                key-pressed(event) => {
+                    if event.text == Key.Escape { root.action("dismiss-output-error"); return accept; }
+                    if event.text == Key.Tab {
+                        if event.modifiers.shift {
+                            if output-dismiss.has-focus { output-save.focus(); }
+                            else if output-retry.has-focus { output-dismiss.focus(); }
+                            else if output-alternate.has-focus { output-retry.focus(); }
+                            else if root.auto-save-failed { output-alternate.focus(); }
+                            else { output-retry.focus(); }
+                        } else {
+                            if output-dismiss.has-focus { output-retry.focus(); }
+                            else if output-retry.has-focus { if root.auto-save-failed { output-alternate.focus(); } else { output-save.focus(); } }
+                            else if output-alternate.has-focus { output-save.focus(); }
+                            else { output-dismiss.focus(); }
+                        }
+                        return accept;
+                    }
+                    return reject;
+                }
+                Text { x: 16px; y: 12px; width: parent.width - 32px; height: 28px; text: root.output-error-title; color: root.ink; overflow: elide; font-size: 16px; }
+                ScrollView {
+                    x: 16px; y: 48px; width: parent.width - 32px; height: max(0px, parent.height - (root.auto-save-failed ? 184px : 144px)); content-width: self.visible-width;
+                    Text { width: parent.width; text: root.output-error-details; color: root.ink; wrap: word-wrap; }
+                }
+                output-alternate := Button { visible: root.auto-save-failed; x: 16px; y: parent.height - 128px; width: parent.width - 32px; height: 32px; text: root.labels.save-elsewhere; accessible-label: root.labels.save-elsewhere; enabled: !root.busy; clicked => { root.action("save-without-auto"); } }
+                output-save := Button { x: 16px; y: parent.height - 88px; width: parent.width - 32px; height: 32px; text: root.labels.save; enabled: !root.busy; clicked => { root.action("save"); } }
+                output-dismiss := Button { x: 16px; y: parent.height - 48px; width: (parent.width - 40px) / 2; height: 32px; text: root.output-error-dismiss; clicked => { root.action("dismiss-output-error"); } }
+                output-retry := Button { x: parent.width / 2 + 4px; y: parent.height - 48px; width: (parent.width - 40px) / 2; height: 32px; text: root.output-error-retry; enabled: !root.busy; clicked => { root.action("retry-output"); } }
+            }
+        }
+    }
+}

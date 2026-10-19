@@ -1,0 +1,43 @@
+import { Button, LineEdit, ScrollView, VerticalBox, HorizontalBox } from "widgets/widgets.slint";
+export struct FontLabels { title: string, search: string, status: string, cancel: string, retry: string }
+export component FontPicker inherits Rectangle {
+    in property <[string]> names;
+    in property <FontLabels> labels;
+    in property <bool> busy;
+    in property <bool> failed;
+    in property <string> current;
+    in-out property <string> query;
+    in property <color> surface;
+    in property <color> ink;
+    in property <color> muted;
+    in property <color> accent;
+    callback command(string, string);
+    callback focus-search;
+    focus-search => { search.focus(); }
+    background: #101827aa;
+    TouchArea {}
+    FocusScope {
+    width: parent.width; height: parent.height;
+    key-pressed(event) => { if event.text == Key.Escape { root.command("cancel", ""); return accept; } return reject; }
+    dialog := Rectangle {
+        x: (parent.width - self.width)/2; y: (parent.height - self.height)/2;
+        width: min(560px, parent.width - 24px); height: min(500px, parent.height - 24px);
+        background: root.surface; border-width: 2px; border-color: root.accent; border-radius: 8px;
+        VerticalBox { padding: 16px; spacing: 10px;
+            Text { text: root.labels.title; color: root.ink; font-size: 20px; vertical-stretch: 0; }
+            search := LineEdit { text <=> root.query; placeholder-text: root.labels.search; edited(value) => { root.command("filter", value); } }
+            Text { text: root.current; color: root.muted; wrap: word-wrap; vertical-stretch: 0; }
+            ScrollView { content-width: self.visible-width;
+                VerticalBox { padding: 0px; spacing: 4px; alignment: start;
+                    for name in root.names: Button { text: name; enabled: !root.busy; clicked => { root.command("choose", name); } }
+                }
+            }
+            Text { text: root.labels.status; color: root.muted; wrap: word-wrap; vertical-stretch: 0; }
+            HorizontalBox { height: 34px; padding: 0px; spacing: 10px;
+                if root.failed: Button { text: root.labels.retry; enabled: !root.busy; clicked => { root.command("retry", ""); } }
+                Button { text: root.labels.cancel; clicked => { root.command("cancel", ""); } }
+            }
+        }
+    }
+    }
+}

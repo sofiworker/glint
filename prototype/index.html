@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>拾光 Glint · 全流程交互原型</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<header class="prototype-bar"><strong>拾光 <span>Glint</span></strong><span class="prototype-label">HTML 交互原型 · 示意桌面 · 不截取真实屏幕</span><nav aria-label="原型场景">
+<button data-route="onboarding/welcome">首次引导</button><button data-route="idle">常驻</button><button data-route="capture">截图浮层</button><button data-route="pins">贴图</button><button data-route="tray">托盘</button><button data-route="settings/general">设置</button><button data-route="workbench">辅助工作台</button><button data-route="feedback">异常反馈</button>
+</nav><button data-action="theme" title="切换原型主题">明 / 暗</button></header>
+<main id="app"></main><div id="modal-root"></div><div id="toast" role="status" aria-live="polite"></div>
+<script src="toolbar.js"></script><script src="i18n.js"></script><script src="i18n-en.js"></script><script src="objects.js"></script>
+<script src="app.js"></script>
+</body></html>

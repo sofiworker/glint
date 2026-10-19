@@ -1,0 +1,86 @@
+import { Button, CheckBox, ComboBox } from "widgets/widgets.slint";
+component ToolbarToggle inherits Rectangle {
+    in property <string> text;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    in property <color> ink;
+    in property <color> line;
+    callback toggled(bool);
+    forward-focus: check;
+    check := CheckBox {
+        x: 0px; y: 0px; width: parent.width; height: parent.height;
+        text: ""; checked: root.checked; enabled: root.enabled;
+        accessible-label: root.text;
+        toggled => { root.toggled(!root.checked); }
+    }
+    changed checked => { check.checked = root.checked; }
+    Text { x: 28px; y: 0px; width: max(0px, parent.width - 28px); height: parent.height; text: root.text; color: root.ink; opacity: root.enabled ? 1 : 0.45; vertical-alignment: center; overflow: elide; }
+
+}
+export struct ToolbarRow { label: string, tool: int, shown: bool }
+export global ToolbarAssets {
+    out property <[image]> images: [@image-url("icons/select.svg"), @image-url("icons/rect.svg"), @image-url("icons/arrow.svg"), @image-url("icons/pen.svg"), @image-url("icons/text.svg"), @image-url("icons/highlight.svg"), @image-url("icons/redact.svg"), @image-url("icons/mosaic.svg"), @image-url("icons/picker.svg"), @image-url("icons/undo.svg"), @image-url("icons/redo.svg"), @image-url("icons/save.svg"), @image-url("icons/copy.svg"), @image-url("icons/close.svg"), @image-url("icons/more.svg"), @image-url("icons/settings.svg"), @image-url("icons/pin.svg")];
+}
+// labels: both, icons, follow, top, bottom, groups, order hint, preview, reset, preview hint, mode, position.
+export component ToolbarEditor inherits Rectangle {
+    in property <[ToolbarRow]> rows;
+    in property <[int]> items;
+    in property <[string]> labels;
+    in property <[string]> names;
+    in property <bool> icons;
+    in property <int> position;
+    in property <bool> groups;
+    in property <bool> writable: true;
+    in property <color> ink;
+    in property <color> muted;
+    in property <color> line;
+    callback command(string, int, int);
+    out property <bool> mode-focused: mode.has-focus;
+    out property <bool> reset-focused: reset.has-focus;
+    property <int> preview-columns: root.icons ? max(1, floor((root.width - 8px) / 40px)) : root.width >= 440px ? 5 : 3;
+    out property <length> editor-height: 598px + ceil(root.items.length / root.preview-columns) * 44px;
+    preferred-height: root.editor-height; min-height: root.editor-height; vertical-stretch: 0;
+    Text { x: 4px; y: 0px; width: 96px; height: 30px; text: root.labels[10]; color: root.ink; vertical-alignment: center; }
+    mode := ComboBox { x: 104px; y: 0px; width: parent.width - 108px; accessible-label: root.labels[10]; height: 30px; model: [root.labels[0], root.labels[1]]; current-index: root.icons ? 1 : 0; enabled: root.writable; selected(value) => { root.command("mode", 0, self.current-index); } }
+    Text { x: 4px; y: 38px; width: 96px; height: 30px; text: root.labels[11]; color: root.ink; vertical-alignment: center; }
+    placement := ComboBox { x: 104px; y: 38px; width: parent.width - 108px; accessible-label: root.labels[11]; height: 30px; model: [root.labels[2], root.labels[3], root.labels[4]]; current-index: root.position; enabled: root.writable; selected(value) => { root.command("position", 0, self.current-index); } }
+    changed icons => { mode.current-index = root.icons ? 1 : 0; }
+    changed position => { placement.current-index = root.position; }
+    ToolbarToggle { x: 4px; y: 76px; width: parent.width - 8px; height: 30px; text: root.labels[5]; checked: root.groups; enabled: root.writable; ink: root.ink; line: root.line; toggled(value) => { root.command("groups", 0, value ? 1 : 0); } }
+    Text { x: 4px; y: 108px; width: parent.width - 8px; height: 36px; text: root.labels[6]; color: root.muted; wrap: word-wrap; }
+    for row[index] in root.rows: Rectangle {
+        x: 4px; y: 150px + index * 38px; width: parent.width - 8px; height: 36px;
+        Text { x: 0px; width: 24px; height: parent.height; text: "≡"; color: root.muted; horizontal-alignment: center; vertical-alignment: center; }
+        TouchArea { x: 0px; width: 24px; mouse-cursor: move; enabled: root.writable;
+            property <bool> armed;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.cancel { self.armed = false; }
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.down { self.armed = true; }
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                    if self.armed { self.armed = false; root.command("move", index, max(0, min(8, floor(index + self.mouse-y / 38px)))); }
+                }
+            }
+        }
+        Image { x: 26px; y: 9px; width: 17px; height: 17px; source: ToolbarAssets.images[row.tool]; colorize: root.ink; }
+        ToolbarToggle { x: 50px; width: max(60px, parent.width - 138px); height: 34px; text: row.label; checked: row.shown; enabled: root.writable && row.tool != 0; ink: root.ink; line: root.line; toggled(value) => { root.command("visible", index, value ? 1 : 0); } }
+        Button { x: parent.width - 80px; width: 36px; height: 32px; text: "↑"; enabled: root.writable && index > 0; clicked => { root.command("move", index, index - 1); } }
+        Button { x: parent.width - 40px; width: 36px; height: 32px; text: "↓"; enabled: root.writable && index < 8; clicked => { root.command("move", index, index + 1); } }
+    }
+    Text { x: 4px; y: 506px; height: 30px; text: root.labels[7]; color: root.ink; font-weight: 600; }
+    reset := Button { x: parent.width - 104px; y: 502px; width: 100px; height: 30px; text: root.labels[8]; enabled: root.writable; clicked => { root.command("reset", 0, 0); } }
+    Rectangle {
+        x: 4px; y: 542px; width: parent.width - 8px; height: ceil(root.items.length / root.preview-columns) * 44px;
+        border-width: 1px; border-color: root.line; border-radius: 5px;
+        for item[index] in root.items: Rectangle {
+            x: mod(index, root.preview-columns) * parent.width / root.preview-columns;
+            y: floor(index / root.preview-columns) * 44px;
+            width: parent.width / root.preview-columns; height: 44px;
+            if root.groups && (item == 9 || item == 16): Rectangle { x: 1px; y: 4px; width: 1px; height: 36px; background: root.line; }
+            Image { x: (parent.width - 17px) / 2; y: root.icons ? 13px : 4px; width: 17px; height: 17px; source: ToolbarAssets.images[item]; colorize: root.ink; }
+            if !root.icons: Text { x: 3px; y: 24px; width: parent.width - 6px; height: 16px; text: root.names[item]; color: root.ink; horizontal-alignment: center; font-size: 10px; overflow: elide; }
+            hover := TouchArea { }
+            if root.icons && hover.has-hover: Rectangle { z: 1; x: min(0px, root.width - parent.x - self.width - 8px); y: -25px; width: max(80px, name.preferred-width + 12px); height: 24px; background: root.line; border-radius: 4px; name := Text { text: root.names[item]; color: root.ink; horizontal-alignment: center; vertical-alignment: center; } }
+        }
+    }
+    Text { x: 4px; y: root.editor-height - 48px; width: parent.width - 8px; height: 44px; text: root.labels[9]; color: root.muted; wrap: word-wrap; font-size: 12px; }
+}

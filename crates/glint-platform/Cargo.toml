@@ -1,0 +1,19 @@
+[package]
+name = "glint-platform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = ["windows-bindings"]
+windows-bindings = ["dep:windows"]
+clipboard = ["dep:arboard"]
+input-probe = []
+
+[dependencies]
+arboard = { workspace = true, optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, optional = true }

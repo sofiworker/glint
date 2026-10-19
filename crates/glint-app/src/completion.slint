@@ -1,0 +1,18 @@
+export component CompletionToast inherits Window {
+    title: "Glint"; no-frame: true; always-on-top: true;
+    preferred-width: 380px; preferred-height: root.fallback ? 112px : 76px;
+    default-font-family: "Microsoft YaHei UI"; default-font-size: 14px;
+    in property <string> message;
+    in property <string> hint;
+    in property <bool> fallback;
+    in property <bool> dark;
+    in property <color> accent;
+    background: root.dark ? #1c2432 : #ffffff;
+    Rectangle {
+        border-width: 2px; border-color: root.accent;
+        VerticalLayout { padding: 16px; spacing: 8px;
+            Text { text: root.message; color: root.dark ? #e7ebf3 : #202b42; wrap: word-wrap; }
+            if root.fallback: Text { text: root.hint; color: root.dark ? #a8b3c8 : #69758b; font-size: 12px; wrap: word-wrap; }
+        }
+    }
+}

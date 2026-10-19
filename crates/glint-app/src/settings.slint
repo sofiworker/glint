@@ -1,0 +1,501 @@
+import { FontPicker, FontLabels } from "font_picker.slint";
+import { Motion } from "widgets/motion.slint";
+import { Button, CheckBox, ComboBox, LineEdit, Slider, ScrollView, HorizontalBox, VerticalBox, Palette } from "widgets/widgets.slint";
+import { ToolbarEditor, ToolbarRow } from "toolbar_editor.slint";
+
+component AccentButton inherits Rectangle {
+    in property <string> text;
+    in property <color> accent;
+    in property <bool> enabled: true;
+    out property <bool> has-focus: focus.has-focus;
+    callback clicked;
+    min-width: 130px; min-height: 35px;
+    border-radius: 6px; background: root.accent.with-alpha(root.enabled ? 1 : 0.35);
+    forward-focus: focus;
+    accessible-role: button; accessible-label: root.text; accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    Text { x: 6px; y: 0px; width: parent.width - 12px; height: parent.height; text: root.text; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+    focus := FocusScope { enabled: root.enabled; key-pressed(event) => { if event.text == " " || event.text == Key.Return { root.clicked(); return accept; } return reject; } }
+    // Keep the pointer hit target above the keyboard focus scope.
+    TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { focus.focus(); root.clicked(); } }
+    if focus.has-focus: Rectangle { x: -3px; y: -3px; width: parent.width + 6px; height: parent.height + 6px; border-radius: 8px; border-width: 1px; border-color: root.accent; background: transparent; }
+}
+component GlintCheck inherits Rectangle {
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    in property <color> accent;
+    in property <color> line;
+    in property <string> label;
+    callback toggled(bool);
+    width: 24px; height: 24px;
+    forward-focus: check;
+    check := CheckBox {
+        x: 0px; y: 0px; width: parent.width; height: parent.height;
+        text: ""; checked: root.checked; enabled: root.enabled;
+        accessible-label: root.label;
+        toggled => { root.toggled(!root.checked); }
+    }
+    changed checked => { check.checked = root.checked; }
+}
+
+export struct SettingRow { key: string, section: string, title: string, description: string, kind: int, editable: bool, checked: bool, text: string, options: [string], colors: [color], selected: int, number: float, minimum: float, maximum: float }
+component GlintChoice inherits Rectangle {
+    in property <[string]> choices;
+    in property <int> selected-index;
+    in property <bool> enabled;
+    callback selected(string);
+    forward-focus: choice;
+    choice := ComboBox {
+        width: parent.width; height: parent.height; enabled: root.enabled;
+        model: root.choices; current-index: root.selected-index;
+        current-value: root.choices[root.selected-index];
+        selected(value) => { root.selected(value); }
+    }
+    callback sync;
+    sync => { choice.current-index = root.selected-index; choice.current-value = root.choices[root.selected-index]; }
+    changed selected-index => { root.sync(); }
+    changed choices => { root.sync(); }
+}
+export component SettingsWindow inherits Window {
+    in-out property <bool> font-open;
+    in property <bool> font-english;
+    in property <bool> folder-busy;
+    in property <string> folder-label;
+    in property <string> filename-preview;
+    in property <bool> font-busy;
+    in property <bool> font-failed;
+    in property <[string]> font-names;
+    in property <string> font-current;
+    in-out property <string> font-query;
+    in property <string> font-title;
+    in property <string> font-search;
+    in property <string> font-status;
+    in property <string> font-cancel;
+    in property <string> font-retry;
+    in property <string> font-button;
+    callback font-command(string, string);
+    callback focus-font;
+    focus-font => { font-picker.focus-search(); }
+    in-out property <bool> reduce-motion <=> Motion.reduced;
+    in property <float> interface-scale;
+    property <bool> compact-form: root.width < 900px;
+    in property <string> session-help;
+    in property <string> session-clear-label;
+    in property <string> session-restore-label;
+    in property <string> session-retry-label;
+    in property <string> session-exit-label;
+    in property <string> session-cancel-label;
+    in property <string> session-status;
+    in property <bool> session-busy;
+    in property <bool> session-can-restore;
+    in property <bool> session-quit-failed;
+    in-out property <bool> workbench;
+    in property <string> workbench-title;
+    in property <string> workbench-hint;
+    in property <string> workbench-note;
+    in property <string> local-open-label;
+    in property <string> workbench-capture-label;
+    in property <string> workbench-settings-label;
+    in property <string> workbench-output-label;
+    in property <string> transfer-import-label;
+    in property <string> transfer-export-label;
+    in property <string> transfer-title;
+    in property <string> transfer-hint;
+    in property <string> transfer-body;
+    in property <string> transfer-status;
+    in property <string> transfer-select-label;
+    in property <string> transfer-apply-label;
+    in property <string> transfer-cancel-label;
+    in property <bool> transfer-busy;
+    in property <bool> transfer-can-apply;
+    in property <string> diagnostics-title;
+    in property <string> diagnostics-hint;
+    in property <string> diagnostics-refresh;
+    in property <string> diagnostics-body;
+    in property <bool> diagnostics-busy;
+    in-out property <int> guide-step: -1;
+    in property <string> guide-title;
+    in property <string> guide-open-label;
+    in property <string> guide-back-label;
+    in property <string> guide-next-label;
+    in property <string> guide-practice-label;
+    in property <string> guide-skip-label;
+    in property <bool> diagnostic-marker: false;
+    title: "拾光 · Glint";
+    preferred-width: 1040px; preferred-height: 760px; min-width: 650px; min-height: 360px;
+    default-font-family: "Microsoft YaHei UI"; default-font-size: 14px;
+    in property <bool> dark;
+    in property <bool> contrast;
+    in property <color> accent: #4b5cfa;
+    property <color> surface: root.dark ? #1c2432 : #ffffff;
+    property <color> side: root.dark ? #19212f : #edf0f6;
+    property <color> ink: root.dark ? #e7ebf3 : #202b42;
+    property <color> muted: root.dark ? #a8b3c8 : #69758b;
+    property <color> line: root.contrast ? root.ink : root.dark ? #354054 : #dce1ea;
+    background: root.dark ? #141b27 : #f5f6fa;
+    in property <[string]> categories;
+    in property <[SettingRow]> rows;
+    in property <[ToolbarRow]> toolbar-rows;
+    in property <[int]> toolbar-items;
+    in property <[string]> toolbar-labels;
+    in property <[string]> toolbar-names;
+    in property <bool> toolbar-icons;
+    in property <int> toolbar-position;
+    in property <bool> toolbar-groups;
+    callback toolbar-command(string, int, int);
+    in-out property <int> category;
+    in property <string> heading;
+    in property <string> subtitle;
+    in property <string> page-note;
+    in property <string> status;
+    in property <string> stage-label;
+    in property <string> log-help;
+    in property <string> log-status;
+    in property <string> log-clear;
+    in property <string> log-retry;
+    in property <bool> log-enabled;
+    in property <bool> log-failed;
+    in property <string> close-label;
+    in property <string> save-label;
+    in property <string> cancel-label;
+    in property <string> reset-label;
+    in property <string> unbound-label;
+    in property <bool> dirty;
+    in property <bool> can-save;
+    in property <bool> writable;
+    in-out property <int> modal;
+    in property <string> modal-title;
+    in property <string> modal-body;
+    in property <string> continue-label;
+    in property <string> discard-label;
+    in property <string> save-leave-label;
+    in property <string> clear-label;
+    in property <bool> can-clear;
+    in property <bool> can-accept;
+    in property <string> accept-key-label;
+    callback action(string);
+    callback change(string, string);
+    callback choose-page(int);
+    in-out property <int> navigation-focus-index: -1;
+    in-out property <length> page-scroll-y;
+    changed category => { root.page-scroll-y = 0px; }
+    callback record(string);
+    callback shortcut-input(string, bool, bool, bool, bool);
+    callback registered-shortcut(int);
+    public function apply-theme(value: bool) { Palette.color-scheme = value ? ColorScheme.dark : ColorScheme.light; }
+    public function focus-recorder() { if root.modal == 3 { shortcut-recorder.focus(); } else { recorder.focus(); } }
+    out property <bool> shortcut-recorder-focused: shortcut-recorder.has-focus;
+    out property <bool> shortcut-clear-focused: shortcut-clear.has-focus;
+    out property <bool> shortcut-accept-focused: shortcut-accept.has-focus;
+    property <bool> background-active: !root.font-open && root.modal == 0;
+    out property <bool> modal-cancel-focused: root.modal == 4 ? transfer-cancel.has-focus : decision-cancel.has-focus;
+    out property <bool> modal-action-focused: root.modal == 4 ? (transfer-select.has-focus || transfer-apply.has-focus) : (decision-confirm.has-focus || decision-discard.has-focus || decision-save.has-focus);
+    public function show-modal(kind: int) {
+        // Move focus before disabling its old owner (Slint FocusOut needs enabled).
+        let previous = root.modal;
+        recorder.focus();
+        root.modal = kind;
+        if kind == 0 {
+            if previous == 2 && root.guide-step < 0 && !root.workbench { settings-reset.focus(); }
+            else { header-close.focus(); }
+        }
+        else if kind == 4 { transfer-cancel.focus(); }
+        else if kind == 3 { shortcut-recorder.focus(); }
+        else { decision-cancel.focus(); }
+    }
+
+    Rectangle { x: 0px; y: 0px; width: parent.width; height: 92px; background: root.surface;
+        Text { x: 28px; y: 18px; text: root.heading; color: root.ink; font-size: 24px; font-weight: 600; }
+        Text { x: 28px; y: 55px; width: parent.width - 260px; text: root.subtitle; color: root.muted; font-size: 12px; }
+        header-close := Button { x: parent.width - 192px; y: 27px; width: 164px; text: root.close-label; enabled: root.background-active; clicked => { root.action("close"); } }
+        Rectangle { x: 0px; width: parent.width; y: parent.height - 1px; height: 1px; background: root.line; }
+    }
+    if root.guide-step < 0 && !root.workbench: Rectangle { x: 0px; y: 92px; height: parent.height - 160px; width: 190px; background: root.side;
+        ScrollView { x: 0px; y: 0px; width: parent.width; height: parent.height; content-width: self.visible-width;
+            VerticalBox { padding: 14px; spacing: 5px;
+                for name[index] in root.categories: Rectangle {
+                    height: 35px; border-radius: 5px;
+                    accessible-role: button; accessible-label: name; accessible-enabled: root.background-active;
+                    accessible-action-default => { if root.background-active { root.choose-page(index); } }
+                    forward-focus: category-keys;
+                    background: root.category == index ? root.surface : transparent;
+                    border-width: category-keys.has-focus ? 2px : root.category == index ? 1px : 0px; border-color: root.accent;
+                    Text { x: 14px; width: parent.width - 28px; font-size: 12px; wrap: word-wrap; text: name; color: root.category == index ? root.accent : root.ink; vertical-alignment: center; }
+                    category-keys := FocusScope {
+                        enabled: root.background-active;
+                        changed has-focus => {
+                            if self.has-focus { root.navigation-focus-index = index; }
+                            else if root.navigation-focus-index == index { root.navigation-focus-index = -1; }
+                        }
+                        key-pressed(event) => {
+                            if event.text == Key.Return || event.text == " " { root.choose-page(index); return accept; }
+                            return reject;
+                        }
+                    }
+                    TouchArea { enabled: root.background-active; mouse-cursor: pointer; clicked => { category-keys.focus(); root.choose-page(index); } }
+                }
+            }
+        }
+    }
+    if !root.workbench: ScrollView { x: root.guide-step < 0 ? 190px : 0px; y: 92px; width: parent.width - self.x; height: parent.height - 160px; content-width: self.visible-width;
+        viewport-y <=> root.page-scroll-y;
+        VerticalBox { padding: 28px; spacing: 14px; alignment: start;
+            Text { vertical-stretch: 0; text: root.guide-step < 0 ? root.categories[root.category] : root.guide-title; color: root.ink; font-size: 21px; font-weight: 600; }
+            Text { vertical-stretch: 0; text: root.page-note; color: root.muted; wrap: word-wrap; }
+            if root.guide-step < 0 && root.category == 10: VerticalBox {
+                padding: 16px; spacing: 12px;
+                Text { vertical-stretch: 0; text: root.diagnostics-title; color: root.ink; font-weight: 600; }
+                Text { vertical-stretch: 0; text: root.diagnostics-hint; color: root.muted; wrap: word-wrap; }
+                Button { text: root.diagnostics-refresh; enabled: root.background-active && (!root.diagnostics-busy); clicked => { root.action("diagnostics-refresh"); } }
+                Text { vertical-stretch: 0; text: root.diagnostics-body; color: root.ink; wrap: word-wrap; }
+            }
+            if root.guide-step == 1: HorizontalBox { spacing: 12px; padding: 0px;
+                for chord in ["Ctrl+Shift+S", "F1", "Ctrl+Alt+A"]: Button { text: chord; enabled: root.background-active && (root.writable && root.modal == 0); clicked => { root.change("shortcuts.capture", chord); } }
+            }
+            if root.guide-step == 4: AccentButton { height: 38px; text: root.guide-practice-label; accent: root.accent; enabled: root.background-active && (root.writable && root.modal == 0); clicked => { root.action("guide-practice"); } }
+            if root.guide-step < 0 && root.category == 0: Button { text: root.guide-open-label; enabled: root.background-active && (root.writable); clicked => { root.action("guide-open"); } }
+            if root.guide-step < 0 && root.category == 12: HorizontalBox { padding: 0px; spacing: 12px;
+                Button { text: root.transfer-export-label; enabled: root.background-active && (root.writable && !root.transfer-busy); clicked => { root.action("config-export"); } }
+                Button { text: root.transfer-import-label; enabled: root.background-active && (root.writable && !root.transfer-busy); clicked => { root.action("config-import"); } }
+            }
+            if root.category == 3 && root.guide-step < 0: ToolbarEditor {
+                rows: root.toolbar-rows; items: root.toolbar-items; labels: root.toolbar-labels; names: root.toolbar-names;
+                icons: root.toolbar-icons; position: root.toolbar-position; groups: root.toolbar-groups;
+                writable: root.background-active && root.writable; ink: root.ink; muted: root.muted; line: root.line;
+                command(name, row, value) => { root.toolbar-command(name, row, value); }
+            }
+            for row in (root.category == 3 && root.guide-step < 0 ? [] : root.rows): VerticalBox {
+                padding: 0px; spacing: 10px;
+                if root.guide-step < 0 && row.section != "": Text {
+                    vertical-stretch: 0; text: row.section; color: root.ink;
+                    font-size: 16px; font-weight: 600; wrap: word-wrap;
+                }
+                Rectangle {
+                    vertical-stretch: 0;
+                    height: row.kind == 5 ? 164px : root.compact-form ? max(164px, field-title.preferred-height + field-description.preferred-height + 100px) : max(94px, field-description.y + field-description.preferred-height + 16px); background: root.surface;
+                    border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 7px;
+                    field-title := Text { x: 18px; y: 16px; width: row.kind == 5 || root.compact-form ? parent.width - 36px : parent.width - 316px; text: row.title; color: root.ink; font-weight: 600; wrap: word-wrap; }
+                    field-description := Text { visible: row.kind != 5; x: 18px; y: max(root.compact-form ? 0px : 46px, field-title.y + field-title.preferred-height + 8px); width: root.compact-form ? parent.width - 36px : parent.width - 316px; text: row.description; color: root.muted; font-size: 12px; wrap: word-wrap; }
+                    if row.kind == 0: GlintCheck { x: parent.width - 58px; y: root.compact-form ? parent.height - 48px : 30px; label: row.title; accent: root.accent; line: root.line; enabled: root.background-active && (row.editable); checked: row.checked; toggled(value) => { root.change(row.key, value ? "true" : "false"); } }
+                    if row.kind == 1: GlintChoice { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; height: 32px; enabled: root.background-active && (row.editable); choices: row.options; selected-index: row.selected; selected(value) => { root.change(row.key, value); } }
+                    if row.kind == 2 && row.key != "annotation.text_font" && row.key != "output.directory": LineEdit { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; enabled: root.background-active && (row.editable); text: row.text; edited(value) => { root.change(row.key, value); } }
+                    if row.kind == 2 && row.key == "annotation.text_font": HorizontalBox {
+                        x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px;
+                        width: root.compact-form ? parent.width - 36px : 262px; height: 32px; padding: 0px; spacing: 6px;
+                        LineEdit { text: row.text; enabled: root.background-active && (row.editable); edited(value) => { root.change(row.key, value); } }
+                        Button { text: root.font-button; enabled: root.background-active && (row.editable && root.modal == 0); clicked => { root.font-command("open", row.text); } }
+                    }
+                    if row.kind == 2 && row.key == "output.directory": HorizontalBox {
+                        x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px;
+                        width: root.compact-form ? parent.width - 36px : 262px; height: 32px; padding: 0px; spacing: 6px;
+                        LineEdit { text: row.text; enabled: root.background-active && row.editable && !root.folder-busy; edited(value) => { root.change(row.key, value); } }
+                        Button { text: root.folder-label; enabled: root.background-active && row.editable && !root.folder-busy && root.modal == 0; clicked => { root.action("output-folder"); } }
+                    }
+                    if row.kind == 3: HorizontalBox { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; height: 36px; padding: 0px;
+                        Slider { enabled: root.background-active && (row.editable); minimum: row.minimum; maximum: row.maximum; value: row.number; changed(value) => { root.change(row.key, round(value) + ""); } }
+                        Text { width: 48px; text: round(row.number); color: root.ink; horizontal-alignment: right; vertical-alignment: center; }
+                    }
+                    if row.kind == 4: Button { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; enabled: root.background-active && (row.editable); text: row.text == "" ? root.unbound-label : row.text; clicked => { root.record(row.key); } }
+                    if row.kind == 5: Text { x: 18px; y: 48px; width: parent.width - 36px; height: parent.height - 64px; text: row.text; color: root.muted; wrap: word-wrap; }
+                    if row.kind == 6: HorizontalBox { x: root.compact-form ? 18px : parent.width - 220px; y: root.compact-form ? parent.height - 48px : 30px; width: 200px; height: 34px; padding: 0px; spacing: 12px;
+                        for color[index] in row.colors: Rectangle { width: 32px; height: 32px; background: color; border-radius: 16px; border-width: 3px; border-color: row.selected == index ? root.ink : transparent;
+                            accessible-role: button; accessible-label: row.options[index]; accessible-enabled: root.background-active && row.editable;
+                            accessible-action-default => { if root.background-active && row.editable { root.change(row.key, row.options[index]); } }
+                            focus := FocusScope { enabled: root.background-active && (row.editable); key-pressed(event) => { if event.text == " " || event.text == Key.Return { root.change(row.key, row.options[index]); return accept; } return reject; } }
+                            TouchArea { enabled: root.background-active && (row.editable); mouse-cursor: pointer; clicked => { focus.focus(); root.change(row.key, row.options[index]); } }
+                            if focus.has-focus: Rectangle { border-radius: 18px; border-width: 1px; border-color: root.accent; background: transparent; }
+                        }
+                    }
+                }
+                }
+            if root.guide-step < 0 && root.category == 7: VerticalBox { padding: 16px; spacing: 12px; alignment: start;
+                Text { text: root.log-help; wrap: word-wrap; color: root.muted; vertical-stretch: 0; }
+                Text { text: root.log-status; wrap: word-wrap; color: root.ink; vertical-stretch: 0; }
+                HorizontalBox { height: 36px; padding: 0px; spacing: 10px;
+                    Button { text: root.log-clear; enabled: root.background-active && root.modal == 0; clicked => { root.action("log-clear"); } }
+                    Button { text: root.log-retry; enabled: root.background-active && root.modal == 0 && root.log-enabled; clicked => { root.action("log-retry"); } }
+                }
+            }
+            if root.guide-step < 0 && root.category == 5: Rectangle {
+                height: max(80px, filename-info.preferred-height + 28px); background: root.side; border-radius: 5px;
+                filename-info := Text { x: 14px; y: 14px; width: parent.width - 28px; text: root.filename-preview; wrap: word-wrap; color: root.ink; }
+            }
+            if root.guide-step < 0 && root.category == 6: VerticalBox { padding: 16px; spacing: 12px; alignment: start;
+                Text { text: root.session-help; wrap: word-wrap; color: root.muted; vertical-stretch: 0; }
+                Text { text: root.session-status; wrap: word-wrap; color: root.ink; vertical-stretch: 0; }
+                HorizontalBox { height: 36px; padding: 0px; spacing: 10px;
+                    Button { text: root.session-clear-label; enabled: root.background-active && (root.writable && !root.session-busy); clicked => { root.action("pin-session-clear"); } }
+                    Button { text: root.session-restore-label; enabled: root.background-active && (root.session-can-restore); clicked => { root.action("pin-session-restore"); } }
+                }
+                if root.session-quit-failed: HorizontalBox { height: 36px; padding: 0px; spacing: 10px;
+                    Button { text: root.session-retry-label; enabled: root.background-active && (!root.session-busy); clicked => { root.action("pin-session-retry-exit"); } }
+                    Button { text: root.session-exit-label; enabled: root.background-active && (!root.session-busy); clicked => { root.action("pin-session-exit-without"); } }
+                }
+            }
+            Rectangle { height: 46px; background: root.side; border-radius: 5px;
+                Text { x: 14px; width: parent.width - 28px; text: root.stage-label; color: root.muted; wrap: word-wrap; vertical-alignment: center; font-size: 12px; }
+            }
+        }
+    }
+    if root.workbench: Rectangle { x: 28px; y: 120px; width: parent.width - 56px; height: parent.height - 216px;
+        background: root.surface; border-radius: 8px; border-width: 1px; border-color: root.line;
+        ScrollView { width: parent.width; height: parent.height; content-width: self.visible-width;
+        VerticalBox { padding: 28px; spacing: 22px; alignment: start;
+            Text { text: root.workbench-title; color: root.ink; font-size: 22px; vertical-stretch: 0; }
+            Text { text: root.workbench-note; color: root.muted; wrap: word-wrap; vertical-stretch: 0; }
+            HorizontalBox { height: 38px; padding: 0px; spacing: 14px;
+                AccentButton { text: root.local-open-label; accent: root.accent; enabled: root.background-active && (root.modal == 0); clicked => { root.action("open-local"); } }
+                Button { text: root.workbench-capture-label; enabled: root.background-active && (root.modal == 0); clicked => { root.action("capture"); } }
+                Button { text: root.workbench-settings-label; enabled: root.background-active && (root.modal == 0); clicked => { root.action("workbench-privacy"); } }
+            }
+            Button { height: 35px; text: root.workbench-output-label; enabled: root.background-active && (root.modal == 0); clicked => { root.action("workbench-output"); } }
+        }
+        }
+    }
+    Rectangle { x: 0px; width: parent.width; y: parent.height - 68px; height: 68px; background: root.surface;
+        Rectangle { x: 0px; y: 0px; width: parent.width; height: 1px; background: root.line; }
+        Text { x: 26px; width: parent.width - 480px; height: parent.height; text: root.status; color: root.muted; wrap: word-wrap; vertical-alignment: center; font-size: 12px; }
+        HorizontalBox { visible: root.guide-step < 0 && !root.workbench; x: parent.width - 448px; y: 17px; width: 420px; height: 35px; padding: 0px; spacing: 8px;
+            settings-reset := Button { text: root.reset-label; enabled: root.background-active && (root.writable); clicked => { root.action("reset"); } }
+            Button { text: root.cancel-label; enabled: root.background-active && (root.dirty); clicked => { root.action("cancel"); } }
+            AccentButton { text: root.save-label; accent: root.accent; enabled: root.background-active && (root.can-save && root.writable); clicked => { root.action("save"); } }
+        }
+        if root.guide-step >= 0: HorizontalBox { x: parent.width - 448px; y: 17px; width: 420px; height: 35px; padding: 0px; spacing: 8px;
+            Button { text: root.guide-back-label; enabled: root.background-active && (root.guide-step > 0 && root.modal == 0); clicked => { root.action("guide-back"); } }
+            if root.guide-step == 4: Button { text: root.guide-skip-label; enabled: root.background-active; clicked => { root.action("guide-next"); } }
+            AccentButton { text: root.guide-next-label; accent: root.accent; enabled: root.background-active && (root.modal == 0 && (root.guide-step < 5 || root.writable)); clicked => { root.action(root.guide-step == 5 ? "guide-complete" : "guide-next"); } }
+        }
+    }
+        recorder := FocusScope { width: parent.width; height: parent.height; focus-on-tab-navigation: false; focus-on-click: false;
+            key-pressed(event) => {
+                if root.font-open { if event.text == Key.Escape { root.font-command("cancel", ""); } return accept; }
+                if event.text == Key.Escape { root.action("continue"); return accept; }
+                return reject;
+            }
+        }
+    if root.diagnostic-marker: Rectangle { x: 24px; y: 100px; width: 64px; height: 32px; background: #f10cde; }
+    modal-keys := FocusScope {
+        width: parent.width; height: parent.height;
+        focus-on-tab-navigation: false; focus-on-click: false;
+        key-pressed(event) => {
+            if root.modal == 0 { return reject; }
+            if event.text == Key.Escape {
+                root.action(root.modal == 4 ? "config-transfer-cancel" : "continue"); return accept;
+            }
+            if event.text == Key.Tab || event.text == Key.Backtab {
+                if root.modal == 3 {
+                    if event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
+                    if shortcut-recorder.has-focus {
+                        if !event.modifiers.shift { decision-cancel.focus(); }
+                        else if root.can-accept { shortcut-accept.focus(); }
+                        else if root.can-clear { shortcut-clear.focus(); }
+                        else { decision-cancel.focus(); }
+                    } else if decision-cancel.has-focus {
+                        if event.modifiers.shift { shortcut-recorder.focus(); }
+                        else if root.can-clear { shortcut-clear.focus(); }
+                        else if root.can-accept { shortcut-accept.focus(); }
+                        else { shortcut-recorder.focus(); }
+                    } else if shortcut-clear.has-focus {
+                        if event.modifiers.shift { decision-cancel.focus(); }
+                        else if root.can-accept { shortcut-accept.focus(); }
+                        else { shortcut-recorder.focus(); }
+                    } else if event.modifiers.shift {
+                        if root.can-clear { shortcut-clear.focus(); } else { decision-cancel.focus(); }
+                    } else { shortcut-recorder.focus(); }
+                } else if root.modal == 4 {
+                    if root.transfer-busy { transfer-cancel.focus(); }
+                    else if transfer-cancel.has-focus {
+                        if event.modifiers.shift && root.transfer-can-apply { transfer-apply.focus(); }
+                        else { transfer-select.focus(); }
+                    } else if transfer-select.has-focus {
+                        if !event.modifiers.shift && root.transfer-can-apply { transfer-apply.focus(); }
+                        else { transfer-cancel.focus(); }
+                    } else if event.modifiers.shift { transfer-select.focus(); }
+                    else { transfer-cancel.focus(); }
+                } else if root.modal == 1 {
+                    if decision-cancel.has-focus {
+                        if event.modifiers.shift && root.writable { decision-save.focus(); }
+                        else { decision-discard.focus(); }
+                    } else if decision-discard.has-focus {
+                        if !event.modifiers.shift && root.writable { decision-save.focus(); }
+                        else { decision-cancel.focus(); }
+                    } else if event.modifiers.shift { decision-discard.focus(); }
+                    else { decision-cancel.focus(); }
+                } else if decision-cancel.has-focus { decision-confirm.focus(); }
+                else { decision-cancel.focus(); }
+                return accept;
+            }
+            return reject;
+        }
+    Rectangle { visible: root.modal == 4; width: parent.width; height: parent.height; background: #10182799;
+        TouchArea {}
+        Rectangle { x: 36px; y: 36px; width: parent.width - 72px; height: parent.height - 72px; background: root.surface; border-radius: 9px; border-width: 1px; border-color: root.line;
+            Text { x: 24px; y: 20px; width: parent.width - 48px; height: 30px; text: root.transfer-title; color: root.ink; font-size: 22px; font-weight: 600; }
+            if root.height >= 650px: Text { x: 24px; y: 60px; width: parent.width - 48px; height: 112px; text: root.transfer-hint; wrap: word-wrap; color: root.muted; font-size: 13px; }
+            if root.height >= 650px: ScrollView { x: 24px; y: 180px; width: parent.width - 48px; height: parent.height - 326px; content-width: self.visible-width;
+                VerticalBox { padding: 12px; alignment: start;
+                    Text { text: root.transfer-body; color: root.ink; wrap: word-wrap; font-family: "Cascadia Mono"; font-size: 12px; vertical-stretch: 0; }
+                }
+            }
+            if root.height >= 650px: Text { x: 24px; y: parent.height - 136px; width: parent.width - 48px; height: 64px; text: root.transfer-status; wrap: word-wrap; color: root.ink; font-size: 12px; }
+            if root.height < 650px: ScrollView { x: 24px; y: 60px; width: parent.width - 48px; height: parent.height - 136px; content-width: self.visible-width;
+                VerticalBox { padding: 8px; spacing: 14px; alignment: start;
+                    Text { text: root.transfer-hint; wrap: word-wrap; color: root.muted; font-size: 13px; vertical-stretch: 0; }
+                    Text { text: root.transfer-body; color: root.ink; wrap: word-wrap; font-family: "Cascadia Mono"; font-size: 12px; vertical-stretch: 0; }
+                    Text { text: root.transfer-status; wrap: word-wrap; color: root.ink; font-size: 12px; vertical-stretch: 0; }
+                }
+            }
+            HorizontalBox { x: 24px; y: parent.height - 56px; width: parent.width - 48px; height: 35px; padding: 0px; spacing: 10px;
+                transfer-cancel := Button { text: root.transfer-cancel-label; clicked => { root.action("config-transfer-cancel"); } }
+                transfer-select := Button { text: root.transfer-select-label; enabled: !root.font-open && (!root.transfer-busy); clicked => { root.action("config-transfer-select"); } }
+                transfer-apply := AccentButton { visible: root.transfer-can-apply; enabled: root.transfer-can-apply && !root.transfer-busy; text: root.transfer-apply-label; accent: root.accent; clicked => { root.action("config-transfer-apply"); } }
+            }
+        }
+    }
+    Rectangle { visible: root.modal > 0 && root.modal != 4; x: 0px; y: 0px; width: parent.width; height: parent.height; background: #10182799;
+        TouchArea {}
+        Rectangle { x: (parent.width - self.width)/2; y: (parent.height - self.height)/2; width: 580px; height: 250px;
+            background: root.surface; border-radius: 9px; border-width: 1px; border-color: root.line;
+            Text { x: 24px; y: 24px; width: parent.width - 48px; text: root.modal-title; color: root.ink; font-size: 20px; font-weight: 600; }
+            Text { x: 24px; y: 70px; width: parent.width - 48px; height: 95px; text: root.modal-body; color: root.muted; wrap: word-wrap; }
+            shortcut-recorder := FocusScope {
+                x: 24px; y: 66px; width: parent.width - 48px; height: 108px;
+                visible: root.modal == 3;
+                focus-on-tab-navigation: false; focus-on-click: false;
+                accessible-role: groupbox; accessible-label: root.modal-title;
+                TouchArea { clicked => { shortcut-recorder.focus(); } }
+                if shortcut-recorder.has-focus: Rectangle { border-width: 1px; border-color: root.accent; border-radius: 4px; background: transparent; }
+                key-pressed(event) => {
+                    if event.text == Key.Escape { return reject; }
+                    if (event.text == Key.Tab || event.text == Key.Backtab) && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta { return reject; }
+                    root.shortcut-input(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                    return accept;
+                }
+            }
+            Rectangle { x: 24px; y: parent.height - 62px; width: parent.width - 48px; height: 36px;
+                decision-cancel := Button { x: 0px; width: 136px; height: 36px; text: root.modal == 1 ? root.continue-label : (root.modal == 5 || root.modal == 6) ? root.session-cancel-label : root.cancel-label; clicked => { root.action("continue"); } }
+                decision-discard := Button { x: 144px; width: 142px; height: 36px; visible: root.modal == 1; text: root.discard-label; clicked => { root.action("discard-leave"); } }
+                decision-save := AccentButton { x: 294px; width: parent.width - 294px; height: 36px; visible: root.modal == 1; text: root.save-leave-label; accent: root.accent; enabled: !root.font-open && (root.writable); clicked => { root.action("save-leave"); } }
+                decision-confirm := Button {
+                    x: parent.width - 160px; width: 160px; height: 36px;
+                    visible: root.modal == 2 || root.modal == 5 || root.modal == 6 || root.modal == 7;
+                    text: root.modal == 5 ? root.session-clear-label : root.modal == 6 ? root.session-exit-label : root.modal == 7 ? root.log-clear : root.reset-label;
+                    clicked => { root.action(root.modal == 5 ? "pin-session-clear-confirm" : root.modal == 6 ? "pin-session-exit-confirm" : root.modal == 7 ? "log-clear-confirm" : "confirm-reset"); }
+                }
+                shortcut-clear := Button { visible: root.modal == 3; x: 144px; width: 142px; height: 36px; text: root.clear-label; enabled: !root.font-open && root.can-clear; clicked => { root.action("clear-key"); } }
+                shortcut-accept := AccentButton { visible: root.modal == 3; x: 294px; width: parent.width - 294px; height: 36px; text: root.accept-key-label; accent: root.accent; enabled: !root.font-open && root.can-accept; clicked => { root.action("accept-key"); } }
+            }
+        }
+    }
+    }
+    font-picker := FontPicker {
+        visible: root.font-open;
+        width: parent.width; height: parent.height;
+        query <=> root.font-query;
+        names: root.font-names; busy: root.font-busy; failed: root.font-failed; current: root.font-current;
+        labels: {title: root.font-title, search: root.font-search, status: root.font-status, cancel: root.font-cancel, retry: root.font-retry};
+        surface: root.surface; ink: root.ink; muted: root.muted; accent: root.accent;
+        command(action, value) => { root.font-command(action, value); }
+    }
+}
+

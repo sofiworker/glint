@@ -1,0 +1,23 @@
+[package]
+name = "glint-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = []
+native-shell = ["dep:slint", "dep:image", "glint-platform/clipboard", "dep:raw-window-handle", "dep:tray-icon"]
+input-probe = ["native-shell", "glint-platform/input-probe"]
+
+[dependencies]
+glint-core.workspace = true
+glint-platform.workspace = true
+toml.workspace = true
+slint = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+raw-window-handle = { workspace = true, optional = true }
+
+[target.'cfg(windows)'.dependencies]
+tray-icon = { workspace = true, optional = true }

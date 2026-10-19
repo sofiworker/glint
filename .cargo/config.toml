@@ -1,0 +1,6 @@
+[alias]
+check-shell = "check --workspace --features glint-app/native-shell"
+lint = "clippy --workspace --all-targets --features glint-app/native-shell -- -D warnings"
+
+[env]
+SLINT_STYLE = "fluent"

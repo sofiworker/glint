@@ -1,0 +1,226 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+// Modified by Glint contributors, 2026-10-19; see ../README.md.
+
+import { Motion } from "../motion.slint";
+
+import { FluentPalette, Icons } from "styling.slint";
+
+component ScrollViewButton inherits TouchArea {
+    in property <image> icon;
+    in property <bool> horizontal;
+
+    width: root.horizontal ? 6px : 8px;
+    height: root.horizontal ? 8px : 6px;
+
+    icon := Image {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        private property <length> motion-target-width: parent.width;
+        private property <length> motion-animated-width: self.motion-target-width;
+        width: Motion.reduced ? self.motion-target-width : self.motion-animated-width;
+        source: root.icon;
+        private property <brush> motion-target-colorize: FluentPalette.border;
+        private property <brush> motion-animated-colorize: self.motion-target-colorize;
+        colorize: Motion.reduced ? self.motion-target-colorize : self.motion-animated-colorize;
+        accessible-role: none;
+
+        animate motion-animated-colorize { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; }
+        animate motion-animated-width { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; easing: ease-out; }
+    }
+
+    states [
+        pressed when root.pressed : {
+            opacity: 1;
+            icon.motion-target-width: root.width - 2px;
+        }
+        hover when root.has-hover : {
+            opacity: 1;
+            icon.motion-target-colorize: FluentPalette.text-secondary;
+        }
+    ]
+}
+
+component ScrollBar inherits Rectangle {
+    in-out property <bool> horizontal;
+    in-out property <length> maximum;
+    in-out property <length> page-size;
+    in-out property <length> value;
+    in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
+    in property <bool> enabled;
+
+    callback scrolled();
+
+    property <length> offset: 16px;
+    private property <length> motion-target-size: 2px;
+    private property <length> motion-animated-size: self.motion-target-size;
+    property <length> size: Motion.reduced ? self.motion-target-size : self.motion-animated-size;
+    property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
+    property <length> step-size: 10px;
+
+    border-width: 1px;
+    border-radius: 7px;
+    visible: (self.policy == ScrollBarPolicy.always-on) || (self.policy == ScrollBarPolicy.as-needed && self.maximum > 0);
+    clip: true;
+
+    states [
+        hover when touch-area.has-hover || down-scroll-button.has-hover || up-scroll-button.has-hover : {
+            root.background: FluentPalette.alternate-background;
+            root.motion-target-size: 6px;
+            up-scroll-button.opacity: 1;
+            down-scroll-button.opacity: 1;
+        }
+    ]
+
+    animate motion-animated-size { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; easing: ease-out; }
+
+    thumb := Rectangle {
+        private property <length> motion-target-width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(min(16px, root.width), root.track-size * root.page-size / (root.maximum + root.page-size));
+        private property <length> motion-animated-width: self.motion-target-width;
+        width: Motion.reduced ? self.motion-target-width : self.motion-animated-width;
+        private property <length> motion-target-height: root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(min(16px, root.height), root.track-size * (root.page-size / (root.maximum + root.page-size)));
+        private property <length> motion-animated-height: self.motion-target-height;
+        height: Motion.reduced ? self.motion-target-height : self.motion-animated-height;
+        x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
+        y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
+        border-radius: (root.horizontal ? self.height : self.width) / 2;
+        background: FluentPalette.border;
+
+        animate motion-animated-width, motion-animated-height { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; easing: ease-out; }
+    }
+
+    touch-area := TouchArea {
+        property <{pressed-value: length, maximum: length, x:length, y: length}> saved-values;
+
+        width: parent.width;
+        height: parent.height;
+
+        function update-saved-values() {
+            self.saved-values = { pressed-value: -root.value, maximum: root.maximum, x: self.mouse-x, y: self.mouse-y };
+        }
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.update-saved-values();
+            }
+        }
+
+        moved => {
+            if (self.enabled && self.pressed) {
+                // Update reference points when the size of the viewport changes to
+                // avoid 'jumping' during scrolling.
+                // This happens when height estimate of a ListView changes after
+                // new items are loaded.
+                if (self.saved-values.maximum != root.maximum) {
+                    self.update-saved-values();
+                }
+
+                root.value = -max(0px, min(root.maximum, self.saved-values.pressed-value + (
+                    root.horizontal ? (self.mouse-x - self.saved-values.x) * (root.maximum / (root.track-size - thumb.width))
+                               : (self.mouse-y - self.saved-values.y) * (root.maximum / (root.track-size - thumb.height))
+                )));
+                root.scrolled();
+            }
+        }
+
+        scroll-event(event) => {
+            if (root.horizontal && event.delta-x != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-x));
+                return accept;
+            } else if (!root.horizontal && event.delta-y != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-y));
+                return accept;
+            }
+            reject
+        }
+    }
+
+    up-scroll-button := ScrollViewButton {
+        opacity: 0;
+        x: !root.horizontal ? (parent.width - self.width) / 2 : 4px;
+        y: root.horizontal ? (parent.height - self.height) / 2 : 4px;
+        icon: root.horizontal ? Icons.left : Icons.up;
+        horizontal: root.horizontal;
+
+        clicked => {
+            root.value = min(0px, root.value + root.step-size);
+        }
+    }
+
+    down-scroll-button := ScrollViewButton {
+        opacity: 0;
+        x: !root.horizontal ? (parent.width - self.width) / 2 : root.width - self.width - 4px;
+        y: root.horizontal ? (parent.height - self.height) / 2 : root.height - self.height - 4px;
+        icon: root.horizontal ? Icons.right : Icons.down;
+        horizontal: root.horizontal;
+
+        clicked => {
+            root.value = max(-root.maximum, root.value - root.step-size);
+        }
+    }
+}
+
+export component ScrollView {
+    in property <bool> enabled: true;
+    out property <length> visible-width <=> flickable.width;
+    out property <length> visible-height <=> flickable.height;
+    in-out property <length> content-width <=> flickable.content-width;
+    in-out property <length> content-height <=> flickable.content-height;
+    in-out property <length> content-x <=> flickable.content-x;
+    in-out property <length> content-y <=> flickable.content-y;
+    in-out property <length> viewport-width <=> content-width;
+    in-out property <length> viewport-height <=> content-height;
+    in-out property <length> viewport-x <=> content-x;
+    in-out property <length> viewport-y <=> content-y;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy <=> vertical-bar.policy;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> horizontal-bar.policy;
+    in property <bool> mouse-drag-pan-enabled <=> flickable.mouse-drag-pan-enabled;
+
+    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
+    in-out property <bool> has-focus;
+
+    callback scrolled <=> flickable.flicked;
+
+    min-height: 50px;
+    min-width: 50px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    preferred-height: 100%;
+    preferred-width: 100%;
+
+    flickable := Flickable {
+        mouse-drag-pan-enabled: false;
+        content-y <=> vertical-bar.value;
+        content-x <=> horizontal-bar.value;
+        width: parent.width;
+        height: parent.height;
+
+        @children
+    }
+
+    vertical-bar := ScrollBar {
+        enabled: root.enabled;
+        width: 14px;
+        x: flickable.width + flickable.x - self.width;
+        y: flickable.y;
+        height: horizontal-bar.visible ? parent.height - horizontal-bar.height : parent.height;
+        horizontal: false;
+        maximum:  flickable.content-height - flickable.height;
+        page-size:  flickable.height;
+
+        scrolled => {root.scrolled()}
+    }
+
+    horizontal-bar := ScrollBar {
+        enabled: root.enabled;
+        width: vertical-bar.visible ? parent.width - vertical-bar.width : parent.width;
+        height: 14px;
+        y: flickable.height + flickable.y - self.height;
+        x: flickable.x;
+        horizontal: true;
+        maximum:  flickable.content-width - flickable.width;
+        page-size:  flickable.width;
+
+        scrolled => {root.scrolled()}
+    }
+}

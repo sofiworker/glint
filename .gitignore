@@ -1,0 +1,9 @@
+/target/
+/.local/
+/prototype/.qa/
+/tools/__pycache__/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
