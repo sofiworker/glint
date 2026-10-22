@@ -79,6 +79,12 @@ pub enum CaptureExitCause {
 }
 #[derive(Clone, Copy)]
 pub enum Event {
+    RecordingStarted,
+    RecordingPaused,
+    RecordingResumed,
+    RecordingCompleted,
+    RecordingCancelled,
+    RecordingFailed,
     Startup,
     SettingsShown,
     SettingsFocused,
@@ -124,7 +130,8 @@ pub enum Event {
 impl Event {
     fn level(self) -> Level {
         match self {
-            Self::Panic
+            Self::RecordingFailed
+            | Self::Panic
             | Self::StartupFailed
             | Self::CaptureFailed
             | Self::CaptureOutputFailed
@@ -141,6 +148,12 @@ impl Event {
     }
     fn code(self) -> &'static str {
         match self {
+            Self::RecordingStarted => "recording.started",
+            Self::RecordingPaused => "recording.paused",
+            Self::RecordingResumed => "recording.resumed",
+            Self::RecordingCompleted => "recording.completed",
+            Self::RecordingCancelled => "recording.cancelled",
+            Self::RecordingFailed => "recording.failed",
             Self::Startup => "app.startup",
             Self::SettingsShown => "settings.shown",
             Self::SettingsFocused => "settings.focused",
@@ -198,6 +211,12 @@ impl Event {
     }
     fn from_code(code: &str) -> Option<Self> {
         match code {
+            "recording.started" => Some(Self::RecordingStarted),
+            "recording.paused" => Some(Self::RecordingPaused),
+            "recording.resumed" => Some(Self::RecordingResumed),
+            "recording.completed" => Some(Self::RecordingCompleted),
+            "recording.cancelled" => Some(Self::RecordingCancelled),
+            "recording.failed" => Some(Self::RecordingFailed),
             "app.startup" => Some(Self::Startup),
             "settings.shown" => Some(Self::SettingsShown),
             "settings.focused" => Some(Self::SettingsFocused),

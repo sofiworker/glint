@@ -50,6 +50,7 @@ pub struct AppState {
     pub capture_settings_visible: bool,
     pub scale_preview: crate::scale_preview::State,
     pub scroll_capture: Option<crate::scroll_capture::Run>,
+    pub screen_recording: Option<crate::recording::Run>,
     pub capture: Option<crate::probe::CaptureProbe>,
     pub capturing: bool,
     pub capture_output: Option<PathBuf>,
@@ -67,6 +68,7 @@ pub struct AppState {
 }
 pub struct TrayLabels {
     workbench: MenuItem,
+    screen_recording: MenuItem,
     repeat: MenuItem,
     clipboard: MenuItem,
     open: MenuItem,
@@ -90,6 +92,9 @@ impl AppState {
         messages::text(id, self.en()).into()
     }
     pub fn sync(&self, ui: &SettingsWindow) {
+        ui.set_recording_label(
+            settings::fields::label(self.en(), "打开录屏…", "Open screen recorder…").into(),
+        );
         crate::ui_font::set_saved_choice(self.session.preferences.saved().appearance.ui_font);
         crate::diagnostic_log::sync(self, ui);
         crate::output_settings::sync(self, ui);
@@ -120,6 +125,7 @@ impl AppState {
         ui.set_can_save(self.session.preferences.is_dirty() || self.session.repair_pending);
         if let Some(TrayLabels {
             workbench,
+            screen_recording,
             repeat,
             clipboard,
             open,
@@ -138,6 +144,7 @@ impl AppState {
                 &self.languages,
             );
             workbench.set_text(messages::text(Message::Workbench, english));
+            screen_recording.set_text(settings::fields::label(english, "录屏…", "Record screen…"));
             clipboard.set_text(settings::fields::label(
                 english,
                 "贴出剪贴板图像",
@@ -523,6 +530,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         capture_settings_visible: false,
         scale_preview: Default::default(),
         scroll_capture: None,
+        screen_recording: None,
         countdown: None,
         delay_elapsed: false,
         delay_ticket: 0,
@@ -795,6 +803,9 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             glint_platform::diagnostic_log::emit(
                 glint_platform::diagnostic_log::Event::CaptureRequested,
             );
+        }
+        if crate::recording::handle(action.as_str(), &shared, &ui) {
+            return;
         }
         if crate::scroll_capture::handle(action.as_str(), &shared, &ui) {
             return;
@@ -1418,6 +1429,14 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                     })
                     .and_then(|(capture, pin_payload)| {
                         let owner = ui.as_weak();
+                        capture.on_record_start(move |x, y, width, height| {
+                            let _ = owner.upgrade_in_event_loop(move |ui| {
+                                ui.invoke_action(
+                                    format!("record-region:{x}:{y}:{width}:{height}").into(),
+                                )
+                            });
+                        });
+                        let owner = ui.as_weak();
                         capture.on_scroll_start(move |x, y, width, height| {
                             let _ = owner.upgrade_in_event_loop(move |ui| {
                                 ui.invoke_action(
@@ -2028,6 +2047,12 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         true,
         None,
     );
+    let screen_recording = MenuItem::with_id(
+        "record-open",
+        settings::fields::label(english, "录屏…", "Record screen…"),
+        true,
+        None,
+    );
     let window = MenuItem::with_id(
         "window-capture",
         settings::fields::label(english, "窗口截图", "Capture window"),
@@ -2084,6 +2109,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     );
     menu.append_items(&[
         &capture,
+        &screen_recording,
         &window,
         &all_screens,
         &current_screen,
@@ -2100,6 +2126,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     ])?;
     state.borrow_mut().tray_labels = Some(TrayLabels {
         workbench,
+        screen_recording,
         repeat,
         clipboard,
         open,

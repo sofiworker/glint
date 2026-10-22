@@ -1,0 +1,77 @@
+import { Button, ComboBox, LineEdit, ScrollView, Theme, Motion, HorizontalBox, VerticalBox } from "@glint_ui/glint-ui.slint";
+import { CheckBox } from "std-widgets.slint";
+export component RecordingWindow inherits Window {
+    in property <bool> english;
+    title: root.english ? "Glint · Recording" : "拾光 · 录屏";
+    always-on-top: root.active || root.busy;
+    preferred-width: 540px; preferred-height: root.active || root.busy ? 200px : 450px;
+    min-width: 440px; min-height: 350px;
+    default-font-family: Motion.ui-font-family; default-font-size: 13px;
+    background: Theme.background;
+    in property <bool> dark;
+    in property <color> accent;
+    init => { Theme.apply(root.dark, false, root.accent); }
+    in property <[string]> sources;
+    in-out property <int> source;
+    in-out property <int> fps: 1;
+    in-out property <int> format: 0;
+    in-out property <bool> system-audio;
+    in-out property <bool> microphone;
+    in-out property <bool> cursor: true;
+    in-out property <string> directory;
+    in property <bool> active;
+    in property <bool> busy;
+    in property <bool> picking;
+    in property <bool> paused;
+    in property <bool> can-open;
+    in property <bool> region;
+    in property <string> status;
+    in property <string> statistics;
+    callback action(string);
+    ScrollView {
+        width: parent.width; height: parent.height; content-width: self.visible-width;
+        VerticalBox {
+            padding: 18px; spacing: 12px; alignment: start;
+            Text { text: root.english ? (root.format == 1 ? "Screen recording · GIF" : "Screen recording · MP4") : (root.format == 1 ? "屏幕录制 · GIF" : "屏幕录制 · MP4"); color: Theme.ink; font-size: 19px; vertical-stretch: 0; }
+            if !root.active && !root.busy: VerticalBox {
+                padding: 0px; spacing: 10px;
+                Text { text: root.region ? (root.english ? "Selected region (one display)" : "已框选区域（限单屏）") : (root.english ? "Display / window" : "屏幕 / 窗口"); color: Theme.muted; }
+                ComboBox { model: root.sources; current-index <=> root.source; enabled: !root.picking && !root.region; }
+                HorizontalBox {
+                    padding: 0px; spacing: 8px;
+                    Text { text: root.english ? "Format" : "格式"; color: Theme.ink; vertical-alignment: center; }
+                    ComboBox { model: ["MP4", "GIF"]; current-index <=> root.format; enabled: !root.picking; }
+                }
+                HorizontalBox {
+                    padding: 0px; spacing: 8px;
+                    Text { text: root.english ? "Frame rate" : "帧率"; color: Theme.ink; vertical-alignment: center; }
+                    ComboBox { model: ["15 FPS", "30 FPS", "60 FPS", "120 FPS", "144 FPS"]; current-index <=> root.fps; enabled: !root.picking; }
+                    Button { text: root.english ? "Refresh sources" : "刷新目标"; enabled: !root.picking; clicked => { root.action("refresh"); } }
+                }
+                HorizontalBox {
+                    padding: 0px; spacing: 8px;
+                    CheckBox { text: root.english ? "System audio" : "系统声音"; checked <=> root.system-audio; enabled: !root.picking && root.format == 0; }
+                    CheckBox { text: root.english ? "Microphone" : "麦克风"; checked <=> root.microphone; enabled: !root.picking && root.format == 0; }
+                    CheckBox { text: root.english ? "Cursor" : "鼠标指针"; checked <=> root.cursor; enabled: !root.picking; }
+                }
+                Text { text: root.english ? "Save directory" : "保存目录"; color: Theme.muted; }
+                HorizontalBox {
+                    padding: 0px; spacing: 8px;
+                    LineEdit { text <=> root.directory; enabled: !root.picking; }
+                    Button { text: root.english ? "Browse…" : "浏览…"; enabled: !root.picking; clicked => { root.action("directory"); } }
+                }
+                Text { text: root.format == 1 ? (root.english ? "GIF limits: 30 FPS, 30 seconds, 1280 px maximum edge, no audio. GIF uses up to 256 colors per frame; large or detailed scenes may look rough and files can be large." : "GIF 限制：最高 30 FPS、最长 30 秒、最长边 1280 像素、不含声音。每帧最多 256 色；复杂画面可能失真且文件较大。") : (root.english ? "3-second countdown. For a region, select it in capture → More tools → Record this region. 120/144 FPS output depends on display refresh, capture callbacks and system load." : "开始前倒计时 3 秒。区域录屏：截图框选 → 更多工具 → 录制此区域。120/144 FPS 实际输出取决于屏幕刷新率、捕获回调和系统负载。"); color: Theme.muted; wrap: word-wrap; }
+            }
+            Text { text: root.status; color: Theme.ink; wrap: word-wrap; vertical-stretch: 0; }
+            if root.active: Text { text: root.statistics; color: Theme.muted; wrap: word-wrap; vertical-stretch: 0; }
+            HorizontalBox {
+                padding: 0px; spacing: 8px; vertical-stretch: 0;
+                if !root.active && !root.busy: Button { text: root.english ? "Start recording" : "开始录屏"; primary: true; enabled: !root.picking && root.sources.length > 0; clicked => { root.action("start"); } }
+                if root.active: Button { text: root.paused ? (root.english ? "Resume" : "继续") : (root.english ? "Pause" : "暂停"); clicked => { root.action("pause"); } }
+                if root.active: Button { text: root.english ? "Stop and save" : "停止并保存"; primary: true; clicked => { root.action("stop"); } }
+                if root.active || root.busy: Button { text: root.english ? "Discard" : "放弃录制"; enabled: !root.picking; clicked => { root.action("cancel"); } }
+                if root.can-open: Button { text: root.english ? "Open directory" : "打开保存目录"; clicked => { root.action("open"); } }
+            }
+        }
+    }
+}

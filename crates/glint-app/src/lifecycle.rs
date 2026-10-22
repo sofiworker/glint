@@ -78,6 +78,7 @@ pub fn handle(action: &str, state: &mut AppState, ui: &SettingsWindow) -> bool {
         // A scroll capture must never continue acquiring pixels across a suspend
         // boundary. Its frozen original remains subject to the normal policy.
         state.scroll_capture.take();
+        crate::recording::stop_for_desktop(state);
         state.capture_settings_visible = false;
         let clipboard_error = crate::clipboard_pin::cancel_pending(state).err();
         let had_capture = state.capture.is_some() || state.capturing || state.capture_pending;

@@ -11,12 +11,16 @@ default = ["windows-bindings"]
 windows-bindings = ["dep:windows"]
 clipboard = ["dep:arboard"]
 input-probe = []
+recording = ["windows-bindings", "dep:windows-capture"]
 
 [dependencies]
+glint-core.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 file-rotate.workspace = true
+image.workspace = true
 arboard = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
+windows-capture = { workspace = true, optional = true }
 windows = { workspace = true, optional = true }

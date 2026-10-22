@@ -8,6 +8,7 @@ import { SpinBox } from "std-widgets.slint";
 
 export struct SettingRow { key: string, section: string, title: string, description: string, kind: int, editable: bool, checked: bool, text: string, options: [string], colors: [color], selected: int, number: float, minimum: float, maximum: float }
 export component SettingsWindow inherits Window {
+    in property <string> recording-label;
     icon: @image-url("../../../assets/brand/glint-app.svg");
     in-out property <bool> font-open;
     in property <bool> font-english;
@@ -217,6 +218,11 @@ export component SettingsWindow inherits Window {
                 Text { vertical-stretch: 0; text: root.diagnostics-hint; color: root.muted; wrap: word-wrap; }
                 Button { text: root.diagnostics-refresh; enabled: root.background-active && (!root.diagnostics-busy); clicked => { root.action("diagnostics-refresh"); } }
                 Text { vertical-stretch: 0; text: root.diagnostics-body; color: root.ink; wrap: word-wrap; }
+            }
+            if root.guide-step < 0 && root.category == 11: Button {
+                text: root.recording-label;
+                enabled: root.background-active && root.modal == 0;
+                clicked => { root.action("record-open"); }
             }
             if root.guide-step == 1: HorizontalBox { spacing: 12px; padding: 0px;
                 for chord in ["Ctrl+Shift+S", "F1", "Ctrl+Alt+A"]: Button { text: chord; enabled: root.background-active && (root.writable && root.modal == 0); clicked => { root.change("shortcuts.capture", chord); } }

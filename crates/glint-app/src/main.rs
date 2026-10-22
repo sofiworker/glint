@@ -56,6 +56,8 @@ mod preferences;
 #[cfg(feature = "native-shell")]
 mod probe;
 #[cfg(all(feature = "native-shell", windows))]
+mod recording;
+#[cfg(all(feature = "native-shell", windows))]
 mod resident;
 #[cfg(all(feature = "native-shell", windows))]
 mod resident_smoke;

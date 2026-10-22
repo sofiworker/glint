@@ -8,7 +8,7 @@ license.workspace = true
 
 [features]
 default = []
-native-shell = ["dep:slint", "dep:image", "glint-platform/clipboard", "dep:raw-window-handle", "dep:tray-icon"]
+native-shell = ["dep:slint", "dep:image", "glint-platform/clipboard", "glint-platform/recording", "dep:raw-window-handle", "dep:tray-icon"]
 input-probe = ["native-shell", "glint-platform/input-probe"]
 
 [dependencies]

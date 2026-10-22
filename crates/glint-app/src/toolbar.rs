@@ -44,11 +44,17 @@ pub fn position(toolbar: &Toolbar) -> i32 {
 }
 pub fn items(toolbar: &Toolbar) -> Vec<i32> {
     let mut items = Vec::new();
-    if toolbar.show_customize { items.push(15); }
+    if toolbar.show_customize {
+        items.push(15);
+    }
     items.push(0);
-    items.extend(toolbar.order.iter()
-        .filter(|t| **t != Tool::Select && !toolbar.hidden.contains(t))
-        .map(|t| index(*t)));
+    items.extend(
+        toolbar
+            .order
+            .iter()
+            .filter(|t| **t != Tool::Select && !toolbar.hidden.contains(t))
+            .map(|t| index(*t)),
+    );
     if !toolbar.hidden.is_empty() {
         items.push(14);
     }
@@ -80,29 +86,33 @@ pub fn names(english: bool) -> Vec<SharedString> {
 }
 // Indices are the shared ToolbarEditor string interface, independent of displayed language.
 pub fn labels(english: bool) -> ModelRc<SharedString> {
-    ModelRc::new(VecModel::from([
-        Message::ToolbarBoth,
-        Message::ToolbarIcons,
-        Message::ToolbarFollow,
-        Message::ToolbarTop,
-        Message::ToolbarBottom,
-        Message::ToolbarGroups,
-        Message::ToolbarOrderHint,
-        Message::ToolbarPreview,
-        Message::ToolbarReset,
-        Message::ToolbarSettingsPreviewHint,
-        Message::ToolbarMode,
-        Message::ToolbarPosition,
-        Message::ToolbarLayout,
-        Message::ToolbarGrid,
-        Message::ToolbarScroll,
-        Message::ToolbarFixedWidth,
-        Message::ToolbarColumns,
-        Message::ToolbarRows,
-        Message::ToolbarWidth,
-        Message::ToolbarSingleRow,
-        Message::ToolbarWidthHint,
-    ].map(|id| messages::text(id, english).into()).to_vec()))
+    ModelRc::new(VecModel::from(
+        [
+            Message::ToolbarBoth,
+            Message::ToolbarIcons,
+            Message::ToolbarFollow,
+            Message::ToolbarTop,
+            Message::ToolbarBottom,
+            Message::ToolbarGroups,
+            Message::ToolbarOrderHint,
+            Message::ToolbarPreview,
+            Message::ToolbarReset,
+            Message::ToolbarSettingsPreviewHint,
+            Message::ToolbarMode,
+            Message::ToolbarPosition,
+            Message::ToolbarLayout,
+            Message::ToolbarGrid,
+            Message::ToolbarScroll,
+            Message::ToolbarFixedWidth,
+            Message::ToolbarColumns,
+            Message::ToolbarRows,
+            Message::ToolbarWidth,
+            Message::ToolbarSingleRow,
+            Message::ToolbarWidthHint,
+        ]
+        .map(|id| messages::text(id, english).into())
+        .to_vec(),
+    ))
 }
 
 pub fn edit(

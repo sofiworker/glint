@@ -2,6 +2,9 @@ use super::Message;
 
 pub fn text(id: Message) -> Option<&'static str> {
     match id {
+        Message::RecordingPlainRegion => {
+            Some("请先框选至少 32 × 64 像素的实时桌面区域，且不要添加批注；本地图片不能用于录屏。")
+        }
         Message::ScrollTitle => Some("滚动长截图"),
         Message::ScrollHint => Some(
             "手动向下滚动，等待内容静止，再按截图快捷键或点击“采集下一段”。至少保留四分之一屏重叠；选区避开固定页头、侧栏和滚动条。不自动滚动。",

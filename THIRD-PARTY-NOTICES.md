@@ -37,6 +37,7 @@ Glint 自有代码与 HTML 原型采用 `GPL-3.0-only`，全文见 [LICENSE](LIC
 | tracing | 0.1.44 | https://github.com/tokio-rs/tracing | MIT |
 | tracing-subscriber | 0.3.23 | https://github.com/tokio-rs/tracing | MIT |
 | file-rotate | 0.8.0 | https://github.com/kstrafe/file-rotate | MIT |
+| windows-capture | 2.0.1 | https://github.com/NiiightmareXD/windows-capture | MIT |
 | resvg（构建依赖） | 0.48.1 | https://github.com/linebender/resvg | Apache-2.0 OR MIT |
 | winresource（构建依赖） | 0.1.31 | https://github.com/BenjaminRi/winresource | MIT |
 
@@ -49,3 +50,5 @@ tray-icon 在 M0 贴图探针中提供实际系统托盘菜单，raw-window-hand
 本文件记录当前采用的 Slint 许可路径，**不是全部传递依赖的许可清单**。Windows 开发包包含 `DEPENDENCIES.md` / `DEPENDENCIES.json`、原始许可与声明、Rust 标准库版权材料及 `corresponding-source.zip`。源码包保留 Cargo 标准完整 vendoring、校验文件、项目源代码、构建步骤与实际编译器版本；额外的其他平台源码不代表已实现或支持那些平台。`licenses/provenance.json` 对补充上游条款和 SPDX 参考原文记录来源与 SHA-256，打包时校验；参考条款不能替代原始版权归属，完整原始源码也随包提供。
 
 这些材料不等于 M5 发布许可审查或环境验收已完成。发布前仍须复核实际所分发素材、编译器/系统运行库、上游附加说明与依赖变更；本机构建包不包含从系统目录复制的 Windows / Visual C++ DLL。后续引入字体、图标、OCR 模型和编解码器时同样检查与保留对应条款。
+
+Windows 录屏使用 windows-capture 的 Windows Graphics Capture 事件后端；未使用该库的编码器（内部无界通道）。Glint 的有界消费者直接调用系统 Media Foundation H.264/AAC 编码，音频调用 WASAPI。windows-capture 的 rayon/crossbeam 传递依赖采用 MIT OR Apache-2.0；Win32/WinRT 分别使用 windows 0.58/0.62 绑定，系统媒体组件不随包复制。

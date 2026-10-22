@@ -1273,7 +1273,7 @@ fn prepare_capture(
         if ui.get_busy() {
             return;
         }
-        if action == "scroll-start" {
+        if action == "scroll-start" || action == "record-start" {
             let s = state.borrow();
             if s.fixed_selection
                 || !s.edits.marks().is_empty()
@@ -1281,8 +1281,16 @@ fn prepare_capture(
                 || s.selection.width < 32
                 || s.selection.height < 64
             {
-                ui.set_status(text(&ui, Message::ScrollPlainRegion).into());
-                ui.set_service_notice(text(&ui, Message::ScrollPlainRegion).into());
+                let notice = text(
+                    &ui,
+                    if action == "record-start" {
+                        Message::RecordingPlainRegion
+                    } else {
+                        Message::ScrollPlainRegion
+                    },
+                );
+                ui.set_status(notice.into());
+                ui.set_service_notice(notice.into());
                 return;
             }
             let x = i64::from(s.source_origin.0) + i64::from(s.selection.x);
@@ -1293,7 +1301,11 @@ fn prepare_capture(
                 i32::try_from(s.selection.width),
                 i32::try_from(s.selection.height),
             ) {
-                ui.invoke_scroll_start(x, y, w, h);
+                if action == "record-start" {
+                    ui.invoke_record_start(x, y, w, h);
+                } else {
+                    ui.invoke_scroll_start(x, y, w, h);
+                }
             }
             return;
         }

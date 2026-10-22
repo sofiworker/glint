@@ -2,6 +2,9 @@ use super::Message;
 
 pub fn text(id: Message) -> &'static str {
     match id {
+        Message::RecordingPlainRegion => {
+            "Select an unannotated live desktop region first (at least 32 × 64 pixels); local images cannot be recorded."
+        }
         Message::ScrollTitle => "Scrolling capture",
         Message::ScrollHint => {
             "Scroll down manually, wait for content to settle, then use your capture shortcut or Capture next. Keep at least 1/4 screen overlap. Exclude fixed headers, sidebars and scrollbars. No automatic scrolling."

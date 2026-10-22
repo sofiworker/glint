@@ -2,6 +2,7 @@
 
 #[derive(Clone, Copy)]
 pub enum Message {
+    RecordingPlainRegion,
     ScrollTitle,
     ScrollHint,
     ScrollCapture,

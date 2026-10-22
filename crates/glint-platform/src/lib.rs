@@ -176,3 +176,5 @@ pub use pin_window::{
 pub fn capture_desktop() -> Result<DesktopFrame, String> {
     Err("Desktop capture is currently implemented only on Windows".into())
 }
+#[cfg(all(windows, feature = "recording"))]
+pub mod recording;

@@ -273,4 +273,5 @@ mod tests {
         );
     }
 }
+pub mod recording;
 pub mod scroll_capture;

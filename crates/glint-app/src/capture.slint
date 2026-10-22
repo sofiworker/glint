@@ -159,6 +159,7 @@ export component CaptureProbe inherits Window {
     callback finished;
     callback request-pin(image, int, int);
     callback scroll-start(int, int, int, int);
+    callback record-start(int, int, int, int);
     in property <string> scroll-label;
     in property <bool> scroll-editor;
     in-out property <length> image-scroll-y;
@@ -233,7 +234,7 @@ export component CaptureProbe inherits Window {
                 }
                 if root.toolbar-modal == 2: ScrollView {
                     x: 12px; y: 44px; width: parent.width - 24px; height: parent.height - 90px;
-                    content-height: (root.toolbar-hidden.length + (!root.pin-editing && !root.color-only ? 1 : 0)) * 38px;
+                    content-height: (root.toolbar-hidden.length + (!root.pin-editing && !root.color-only ? 2 : 0)) * 38px;
                     for catalog-index[index] in root.toolbar-hidden: Button {
                         x: 0px; y: index * 38px; width: parent.width; height: 34px;
                         text: root.actions[catalog-index].label;
@@ -243,6 +244,11 @@ export component CaptureProbe inherits Window {
                         y: root.toolbar-hidden.length * 38px; width: parent.width; height: 34px;
                         text: root.scroll-label;
                         clicked => { root.toolbar-command("cancel", 0, 0); root.action("scroll-start"); }
+                    }
+                    if !root.pin-editing && !root.color-only: Button {
+                        y: (root.toolbar-hidden.length + 1) * 38px; width: parent.width; height: 34px;
+                        text: root.english ? "Record this region" : "录制此区域";
+                        clicked => { root.toolbar-command("cancel", 0, 0); root.action("record-start"); }
                     }
                 }
                 if root.toolbar-modal == 1: Text { x: 12px; y: parent.height - 88px; width: parent.width - 24px; height: 42px; text: root.toolbar-feedback == "" ? (root.labels.toolbar-preview-hint) : root.toolbar-feedback; color: root.ink; wrap: word-wrap; overflow: elide; }

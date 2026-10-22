@@ -843,10 +843,10 @@ pub fn build(
                     "Unavailable. Recognize text in images.",
                 ),
                 (
-                    "录屏 / GIF / 录后编辑",
-                    "Recording / GIF / editing",
-                    "暂不可用。录制屏幕，导出视频或 GIF。",
-                    "Unavailable. Record the screen and export video or GIF.",
+                    "录屏",
+                    "Screen recording",
+                    "Windows：从托盘或此页打开录屏，选择屏幕或窗口；区域录屏从截图选区的更多工具进入。MP4 支持最高 144 FPS 与可选音频；GIF 限制为 30 FPS、30 秒、最长边 1280 像素且无音频。",
+                    "Windows: open the recorder here or from the tray and choose a display or window. For a region, use More tools in capture. MP4 supports up to 144 FPS and optional audio; GIF is limited to 30 FPS, 30 seconds, 1280 px maximum edge and no audio.",
                 ),
             ],
             _ => vec![

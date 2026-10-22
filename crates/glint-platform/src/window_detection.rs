@@ -126,13 +126,14 @@ fn candidate(window: HWND) -> Option<WindowCandidate> {
         let mut rect = RECT::default();
         // The taskbar is a shell surface, not a decorated application frame.
         // Its window rectangle is the visible bar's capture boundary.
-        let extended_frame_bounds = !taskbar && DwmGetWindowAttribute(
-            window,
-            DWMWA_EXTENDED_FRAME_BOUNDS,
-            (&mut rect as *mut RECT).cast(),
-            std::mem::size_of::<RECT>() as u32,
-        )
-        .is_ok();
+        let extended_frame_bounds = !taskbar
+            && DwmGetWindowAttribute(
+                window,
+                DWMWA_EXTENDED_FRAME_BOUNDS,
+                (&mut rect as *mut RECT).cast(),
+                std::mem::size_of::<RECT>() as u32,
+            )
+            .is_ok();
         if !extended_frame_bounds && GetWindowRect(window, &mut rect).is_err() {
             return None;
         }
