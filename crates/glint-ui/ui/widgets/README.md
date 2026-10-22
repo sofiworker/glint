@@ -8,3 +8,5 @@ No experimental compiler flag, registry patch, custom runtime, background timer 
 
 Upstream sources: https://github.com/slint-ui/slint/tree/v1.18.1/internal/compiler/widgets
 Asset license declaration: https://github.com/slint-ui/slint/blob/v1.18.1/REUSE.toml
+
+Component extraction (2026-10-22): moved unchanged assets and licensing into glint-ui; Motion.fast/normal now supply animation durations without changing defaults or reduced-motion bypass behavior.

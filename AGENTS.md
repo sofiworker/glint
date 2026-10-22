@@ -90,6 +90,7 @@
 - 项目自有代码与 HTML 原型采用 GPL-3.0-only；Cargo 包继承 workspace 许可。Slint 选择 GPL-3.0-only 路径，新增依赖/素材保留原许可并检查兼容性；发布时提供对应源码与第三方声明，参见 LICENSE、THIRD-PARTY-NOTICES.md。
 - 详细选型见 `.local/notes/TECHNICAL.md`、`.local/notes/TECHNOLOGY-DECISIONS.md`。
 - `glint-app`：Slint UI、应用协调、托盘事件及界面状态适配。
+- `glint-ui`：共享 Slint 组件、语义主题、动效与语言协商；不得依赖应用业务或平台集成。应用文案与副作用由 `glint-app` 注入。
 - `glint-core`：平台无关配置、截图会话、几何、标注模型、撤销重做。不得依赖 Slint 或 Win32 类型。
 - `glint-platform`：截图采集、窗口检测、快捷键、剪贴板、DPI、多屏、权限等系统集成。平台差异封装在此，不承诺所有平台能力等价。
 - Slint software 是当前 UI 渲染基线；截图采集、UI 绘制、图像导出和视频编码分别设计与验证。

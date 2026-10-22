@@ -10,12 +10,12 @@ Glint 自有代码与 HTML 原型采用 `GPL-3.0-only`，全文见 [LICENSE](LIC
 - Slint 框架提供 `GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0` 三选一许可。
 - Glint 对 Slint 框架选择 **GPL-3.0-only** 路径；本项目的 GPL 文本取自该版本上游的 `LICENSES/GPL-3.0-only.txt`。
 - Slint 文档、示例和第三方资产可能有独立许可，以各文件声明及上游 REUSE 元数据为准；复制这些内容时保留相应声明。
-- `crates/glint-app/src/widgets/` 包含 Slint v1.18.1 Fluent 控件的有限修改副本（按钮、复选框、下拉框、滑块、滚动区及公共基础），保留原版权和三选一 SPDX 声明，本项目选择 GPL-3.0-only。修改用于按窗口控制动效，并以公开接口替换内部引用；来源、修改说明与升级复核要求见该目录 README。
+- `crates/glint-ui/ui/widgets/` 包含 Slint v1.18.1 Fluent 控件的有限修改副本（按钮、复选框、下拉框、滑块、滚动区及公共基础），保留原版权和三选一 SPDX 声明，本项目选择 GPL-3.0-only。修改用于按窗口控制动效，并以公开接口替换内部引用；来源、修改说明与升级复核要求见该目录 README。
 - 该目录 Fluent SVG 图标来自上游同版本的 `internal/compiler/widgets/fluent/`；上游 REUSE 声明为 Microsoft Corporation 版权所有、MIT 许可。图标保持原样，随附逐文件 `.license` 声明、MIT 全文 `LICENSE-MIT-Fluent-icons.txt` 及上游 REUSE 元数据。
 
 ## 项目图标与字体
 
-- `crates/glint-app/src/icons/*.svg` 的路径来自本项目 `prototype/toolbar.js` 中同名的 `iconPaths`，按项目自有代码的 `GPL-3.0-only` 分发；不属于上述 Microsoft Fluent 图标集合。原型路径与原生资源的对应关系见该目录 README。
+- `crates/glint-ui/ui/icons/*.svg` 的路径来自本项目 `prototype/toolbar.js` 中同名的 `iconPaths`，按项目自有代码的 `GPL-3.0-only` 分发；不属于上述 Microsoft Fluent 图标集合。原型路径与原生资源的对应关系见该目录 README。
 - `assets/brand/*.svg` 是项目原创标志，采用 GPL-3.0-only。构建时从 SVG 生成托盘、窗口及 Windows 可执行文件的图标，不含第三方图标素材。HTML 示例桌面由原型代码绘制，不能作为原生截图资源。
 - 应用界面优先使用用户的系统界面字体；系统字体仅调用，不复制分发。批注字体与界面字体策略独立。
 - 内置回退字体：Noto Sans SC Variable，Copyright 2014–2021 Adobe，Reserved Font Name “Source”；采用 SIL Open Font License 1.1（OFL-1.1），允许随 GPL 应用嵌入与再分发，字体本身继续遵守 OFL。未修改上游字体。原始许可与版权：`assets/fonts/OFL-NotoSansSC.txt`；来源、固定提交及 SHA-256：`assets/fonts/provenance.json`。

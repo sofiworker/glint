@@ -216,3 +216,10 @@ Windows 开发包可使用 Python 3.11+ 执行 `python tools/package_windows.py 
 Glint 自有代码与 HTML 原型采用 [GNU GPL v3.0 only](LICENSE)（`GPL-3.0-only`）。允许使用、修改、再分发和商业收费；分发应用时须遵守 GPLv3，包括提供对应源码及保留许可声明。软件不提供担保。
 
 Slint 1.18.1 在本项目中选择其 GPL-3.0-only 许可路径。第三方依赖仍遵循各自许可，不因 Glint 的许可而改变。来源及分发说明见 [第三方许可说明](THIRD-PARTY-NOTICES.md)。
+
+## Shared UI components
+
+Shared native controls, settings cards, shortcut recording, font and toolbar editors,
+plus theme and motion policies live in [glint-ui](crates/glint-ui/README.md).
+The application supplies copy, state and system effects; the component crate stays
+independent of business configuration and platform integration.

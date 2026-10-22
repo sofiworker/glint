@@ -55,7 +55,7 @@ export component CheckBox {
         }
     ]
 
-    animate motion-animated-text-color { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 200ms; }
+    animate motion-animated-text-color { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.normal; }
 
     layout := HorizontalLayout {
         spacing: 12px;
@@ -69,7 +69,7 @@ export component CheckBox {
             background: Motion.reduced ? self.motion-target-background : self.motion-animated-background;
             border-radius: 2px;
 
-            animate motion-animated-background { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; }
+            animate motion-animated-background { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; }
 
             border := Rectangle {
                 border-color: FluentPalette.control-strong-stroke;
@@ -87,7 +87,7 @@ export component CheckBox {
                 width: 12px;
                 accessible-role: none;
 
-                animate motion-animated-colorize { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; }
+                animate motion-animated-colorize { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; }
             }
         }
 

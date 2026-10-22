@@ -25,8 +25,8 @@ component ScrollViewButton inherits TouchArea {
         colorize: Motion.reduced ? self.motion-target-colorize : self.motion-animated-colorize;
         accessible-role: none;
 
-        animate motion-animated-colorize { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; }
-        animate motion-animated-width { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; easing: ease-out; }
+        animate motion-animated-colorize { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; }
+        animate motion-animated-width { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; easing: ease-out; }
     }
 
     states [
@@ -72,7 +72,7 @@ component ScrollBar inherits Rectangle {
         }
     ]
 
-    animate motion-animated-size { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; easing: ease-out; }
+    animate motion-animated-size { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; easing: ease-out; }
 
     thumb := Rectangle {
         private property <length> motion-target-width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(min(16px, root.width), root.track-size * root.page-size / (root.maximum + root.page-size));
@@ -86,7 +86,7 @@ component ScrollBar inherits Rectangle {
         border-radius: (root.horizontal ? self.height : self.width) / 2;
         background: FluentPalette.border;
 
-        animate motion-animated-width, motion-animated-height { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; easing: ease-out; }
+        animate motion-animated-width, motion-animated-height { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; easing: ease-out; }
     }
 
     touch-area := TouchArea {

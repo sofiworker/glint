@@ -11,7 +11,7 @@ use std::{
 };
 type RecoveryProbe = Rc<dyn Fn() -> Result<Vec<glint_platform::HotkeyBinding>, String>>;
 
-slint::slint! { export { Motion } from "src/widgets/motion.slint"; export { DesktopPin, PinLabels } from "src/pin.slint"; }
+glint_ui::slint! { export { Motion } from "@glint_ui/widgets/motion.slint"; export { DesktopPin, PinLabels } from "src/pin.slint"; }
 pub(crate) fn apply_system_theme(ui: &DesktopPin, dark: bool) {
     ui.set_dark(dark);
 }
@@ -718,11 +718,10 @@ impl Manager {
             edit: tr(Message::PinEdit),
             rotate: tr(Message::PinRotate),
         });
-        ui.set_dark(
-            matches!(config.appearance.theme, glint_core::config::Theme::Dark)
-                || (matches!(config.appearance.theme, glint_core::config::Theme::System)
-                    && glint_platform::system_dark_theme().unwrap_or(false)),
-        );
+        ui.set_dark(crate::appearance::dark(
+            config.appearance.theme,
+            glint_platform::system_dark_theme(),
+        ));
         let rgb = u32::from_str_radix(config.appearance.accent.trim_start_matches('#'), 16)
             .unwrap_or(0x4b5cfa);
         ui.set_accent(slint::Color::from_rgb_u8(

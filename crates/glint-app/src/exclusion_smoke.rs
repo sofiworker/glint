@@ -11,7 +11,7 @@ use std::{
     rc::Rc,
     time::{Duration, Instant},
 };
-slint::slint! {
+glint_ui::slint! {
     export component ExclusionFixture inherits Window {
         title: "Glint exclusion verification";
         width: 160px; height: 120px;

@@ -3,5 +3,8 @@
 export global Motion {
     in-out property <string> ui-font-family;
     in-out property <bool> reduced: true;
+    // Central animation inputs; reduced motion still bypasses interpolation.
+    in-out property <duration> fast: 150ms;
+    in-out property <duration> normal: 200ms;
     pure callback find-index([string], string) -> int;
 }

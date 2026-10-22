@@ -1,5 +1,6 @@
-import { Motion } from "widgets/motion.slint";
-import { Button, Slider, ScrollView, Palette } from "widgets/widgets.slint";
+import { Theme } from "@glint_ui/theme.slint";
+import { Motion } from "@glint_ui/widgets/motion.slint";
+import { Button, Slider, ScrollView } from "@glint_ui/widgets/widgets.slint";
 export struct PinLabels { pin: string, locked: string, close: string, top: string, unlock: string, lock: string, hide: string, planned: string, copy: string, save: string, retry: string, dismiss: string, pass: string, pass_off: string, pass_title: string, pass_body: string, pass_enable: string, cancel: string, rotate: string, edit: string }
 export component DesktopPin inherits Window {
     default-font-family: Motion.ui-font-family;
@@ -19,9 +20,10 @@ export component DesktopPin inherits Window {
     in-out property <bool> geometry-pending;
     in property <PinLabels> labels;
     in property <bool> dark;
-    function sync-palette() { Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+    function sync-palette() { Theme.apply(root.dark, false, root.accent); }
     init => { root.sync-palette(); }
     changed dark => { root.sync-palette(); }
+    changed accent => { root.sync-palette(); }
     in property <color> accent;
     in-out property <float> alpha: 1;
     in-out property <int> zoom: 100;
@@ -40,8 +42,8 @@ export component DesktopPin inherits Window {
     in-out property <bool> last-save;
     in-out property <bool> message-open;
     in-out property <string> details;
-    property <color> ink: root.dark ? #e7ebf3 : #202b42;
-    property <color> surface: root.dark ? #1c2432 : #ffffff;
+    property <color> ink: Theme.ink;
+    property <color> surface: Theme.surface;
     callback action(string);
     callback change-opacity(float);
     callback drag(int);

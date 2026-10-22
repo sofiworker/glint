@@ -102,7 +102,7 @@ export component Slider {
             private property <brush> motion-animated-background: self.motion-target-background;
             background: Motion.reduced ? self.motion-target-background : self.motion-animated-background;
 
-            animate motion-animated-background, motion-animated-width { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; }
+            animate motion-animated-background, motion-animated-width { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; }
         }
     }
 

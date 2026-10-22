@@ -2,26 +2,15 @@ use crate::messages::{self, Message};
 use glint_core::config::{Config, Language, Theme};
 use slint::{Model, ModelRc, VecModel};
 use std::rc::Rc;
-slint::slint! { export { Motion } from "src/widgets/motion.slint"; export { SettingsWindow, SettingRow } from "src/settings.slint"; export { ToolbarRow } from "src/toolbar_editor.slint"; }
+glint_ui::slint! { export { Motion } from "@glint_ui/widgets/motion.slint"; export { SettingsWindow, SettingRow } from "src/settings.slint"; export { ToolbarRow } from "@glint_ui/components/toolbar_editor.slint"; }
 #[path = "settings_fields.rs"]
 pub mod fields;
 
 pub fn detect_language(preferred: &[String]) -> Option<Language> {
-    for tag in preferred {
-        let tag = tag.replace('_', "-").to_ascii_lowercase();
-        let parts: Vec<_> = tag.split('-').collect();
-        if parts[0] == "zh"
-            && !parts
-                .iter()
-                .any(|part| matches!(*part, "hant" | "tw" | "hk" | "mo"))
-        {
-            return Some(Language::ZhCn);
-        }
-        if parts[0] == "en" {
-            return Some(Language::En);
-        }
-    }
-    None
+    glint_ui::i18n::Locale::detect(preferred).map(|locale| match locale {
+        glint_ui::i18n::Locale::En => Language::En,
+        glint_ui::i18n::Locale::ZhCn => Language::ZhCn,
+    })
 }
 pub fn english(language: Language, preferred: &[String]) -> bool {
     match language {
@@ -40,7 +29,8 @@ pub fn sync(
     dirty: bool,
 ) -> Result<(), String> {
     crate::motion::configure!(ui, Motion, config.appearance.reduce_motion);
-    ui.global::<Motion>().set_ui_font_family(crate::ui_font::selected(config.appearance.ui_font).into());
+    ui.global::<Motion>()
+        .set_ui_font_family(crate::ui_font::selected(config.appearance.ui_font).into());
     crate::motion::preview(ui.window(), config.appearance.reduce_motion)?;
     let en = english(config.general.language, preferred);
     let scale = crate::interface_scale::factor(config.appearance.scale);
@@ -50,11 +40,7 @@ pub fn sync(
     ui.set_font_english(en);
     ui.set_font_button(tr(Message::FontTitle).into());
     let system_dark = glint_platform::system_dark_theme();
-    let dark = match config.appearance.theme {
-        Theme::Dark => true,
-        Theme::Light => false,
-        Theme::System => system_dark.unwrap_or(false),
-    };
+    let dark = crate::appearance::dark(config.appearance.theme, system_dark);
     ui.set_dark(dark);
     ui.invoke_apply_theme(dark);
     ui.set_contrast(config.appearance.high_contrast);
@@ -112,7 +98,11 @@ pub fn sync(
     ui.set_toolbar_icons(config.toolbar.mode == glint_core::config::ToolbarMode::Icons);
     ui.set_toolbar_position(crate::toolbar::position(&config.toolbar));
     ui.set_toolbar_groups(config.toolbar.groups);
-    ui.set_toolbar_layout(if config.toolbar.layout == 2 { 3 } else { config.toolbar.layout as i32 });
+    ui.set_toolbar_layout(if config.toolbar.layout == 2 {
+        3
+    } else {
+        config.toolbar.layout as i32
+    });
     ui.set_toolbar_customize_visible(config.toolbar.show_customize);
     ui.set_toolbar_columns(config.toolbar.columns as i32);
     ui.set_toolbar_grid_rows(config.toolbar.rows as i32);

@@ -63,7 +63,7 @@ mod picker;
 #[path = "capture_text.rs"]
 mod text_entry;
 
-slint::slint! { export { Motion } from "src/widgets/motion.slint"; export { CaptureProbe, CaptureExit, WindowRegion, LayerTile, CaptureLabels, ObjectGrip } from "src/capture.slint"; export { ToolbarRow } from "src/toolbar_editor.slint"; }
+glint_ui::slint! { export { Motion } from "@glint_ui/widgets/motion.slint"; export { CaptureProbe, CaptureExit, WindowRegion, LayerTile, CaptureLabels, ObjectGrip } from "src/capture.slint"; export { ToolbarRow } from "@glint_ui/components/toolbar_editor.slint"; }
 
 #[derive(Clone)]
 pub struct PinPayload {

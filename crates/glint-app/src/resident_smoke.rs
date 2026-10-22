@@ -9,7 +9,7 @@ use crate::{resident::AppState, settings::SettingsWindow};
 use slint::{ComponentHandle, Model};
 use std::{cell::RefCell, path::PathBuf, rc::Rc, time::Duration};
 
-slint::slint! {
+glint_ui::slint! {
     export component WindowSelectionFixture inherits Window {
         title: "Glint window-selection verification";
         width: 240px;

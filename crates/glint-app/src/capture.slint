@@ -1,7 +1,8 @@
-import { FontPicker, FontLabels } from "font_picker.slint";
-import { Motion } from "widgets/motion.slint";
-import { ToolbarEditor, ToolbarAssets, ToolbarRow } from "toolbar_editor.slint";
-import { Button, ComboBox, LineEdit, Palette, ScrollView } from "widgets/widgets.slint";
+import { Theme } from "@glint_ui/theme.slint";
+import { FontPicker, FontLabels } from "@glint_ui/components/font_picker.slint";
+import { Motion } from "@glint_ui/widgets/motion.slint";
+import { ToolbarEditor, ToolbarAssets, ToolbarRow } from "@glint_ui/components/toolbar_editor.slint";
+import { Button, ComboBox, LineEdit, ScrollView } from "@glint_ui/widgets/widgets.slint";
 export struct LayerTile { x: float, y: float, w: float, h: float, picture: image }
 export struct WindowRegion { left: float, top: float, wide: float, high: float }
 export struct ObjectGrip { x: float, y: float }
@@ -72,11 +73,15 @@ export component CaptureProbe inherits Window {
     in property <color> accent: #4b5cfa;
     in property <CaptureLabels> labels;
     in property <string> appearance-notice;
-    out property <color> surface: root.dark ? #1c2432 : #ffffff;
-    property <color> ink: root.dark ? #e7ebf3 : #202b42;
-    property <color> muted: root.dark ? #a8b3c8 : #69758b;
-    property <color> line: root.contrast ? root.ink : root.dark ? #354054 : #dce1ea;
-    public function apply-theme() { Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+    out property <color> surface: Theme.surface;
+    property <color> ink: Theme.ink;
+    property <color> muted: Theme.muted;
+    property <color> line: Theme.line;
+    init => { root.apply-theme(); }
+    changed dark => { root.apply-theme(); }
+    changed contrast => { root.apply-theme(); }
+    changed accent => { root.apply-theme(); }
+    public function apply-theme() { Theme.apply(root.dark, root.contrast, root.accent); }
     forward-focus: keys;
     in property <image> desktop;
     in property <float> source-w;

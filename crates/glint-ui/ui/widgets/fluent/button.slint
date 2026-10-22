@@ -63,7 +63,7 @@ export component Button {
         private property <brush> motion-animated-background: self.motion-target-background;
         background: Motion.reduced ? self.motion-target-background : self.motion-animated-background;
 
-        animate motion-animated-background { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; }
+        animate motion-animated-background { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; }
 
         i-border := Rectangle {
             border-radius: parent.border-radius;
@@ -95,7 +95,7 @@ export component Button {
                 private property <brush> motion-target-color: root.text-color;
                 private property <brush> motion-animated-color: self.motion-target-color;
                 color: Motion.reduced ? self.motion-target-color : self.motion-animated-color;
-                animate motion-animated-color { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; }
+                animate motion-animated-color { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; }
                 accessible-role: none;
             }
         }

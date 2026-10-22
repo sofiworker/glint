@@ -9,7 +9,7 @@ use tray_icon::{
     menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
 };
 
-slint::slint! {
+glint_ui::slint! {
     import { Button, HorizontalBox, Slider } from "std-widgets.slint";
     export component PinProbe inherits Window {
         title: "拾光 · Glint — M0 透明贴图";

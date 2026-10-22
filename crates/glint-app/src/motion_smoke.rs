@@ -4,10 +4,10 @@ use glint_core::config::Config;
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, path::Path, rc::Rc, time::Duration};
 
-slint::slint! {
-    export { Motion } from "src/widgets/motion.slint";
+glint_ui::slint! {
+    export { Motion } from "@glint_ui/widgets/motion.slint";
     import { Palette, Button as UpstreamButton, CheckBox as UpstreamCheckBox } from "std-widgets.slint";
-    import { Button, CheckBox, ComboBox, Slider } from "src/widgets/widgets.slint";
+    import { Button, CheckBox, ComboBox, Slider } from "@glint_ui/widgets/widgets.slint";
     export component MotionFrames inherits Window {
         width: 360px; height: 300px; background: Palette.background;
         public function apply-theme(dark: bool) { Palette.color-scheme = dark ? ColorScheme.dark : ColorScheme.light; }

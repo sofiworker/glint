@@ -1,4 +1,9 @@
+import { Theme } from "@glint_ui/theme.slint";
 export component CompletionToast inherits Window {
+    function sync-theme() { Theme.apply(root.dark, false, root.accent); }
+    init => { root.sync-theme(); }
+    changed dark => { root.sync-theme(); }
+    changed accent => { root.sync-theme(); }
     title: "Glint"; no-frame: true; always-on-top: true;
     preferred-width: 380px; preferred-height: root.fallback ? 112px : 76px;
     in property <string> ui-font-family;
@@ -8,12 +13,12 @@ export component CompletionToast inherits Window {
     in property <bool> fallback;
     in property <bool> dark;
     in property <color> accent;
-    background: root.dark ? #1c2432 : #ffffff;
+    background: Theme.surface;
     Rectangle {
         border-width: 2px; border-color: root.accent;
         VerticalLayout { padding: 16px; spacing: 8px;
-            Text { text: root.message; color: root.dark ? #e7ebf3 : #202b42; wrap: word-wrap; }
-            if root.fallback: Text { text: root.hint; color: root.dark ? #a8b3c8 : #69758b; font-size: 12px; wrap: word-wrap; }
+            Text { text: root.message; color: Theme.ink; wrap: word-wrap; }
+            if root.fallback: Text { text: root.hint; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
         }
     }
 }

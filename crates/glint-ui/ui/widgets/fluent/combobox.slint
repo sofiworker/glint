@@ -73,7 +73,7 @@ export component ComboBox {
         private property <brush> motion-animated-border-color: self.motion-target-border-color;
         border-color: Motion.reduced ? self.motion-target-border-color : self.motion-animated-border-color;
 
-        animate motion-animated-border-color { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 200ms; }
+        animate motion-animated-border-color { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.normal; }
 
         layout := HorizontalLayout {
             padding-left: 11px;
@@ -99,7 +99,7 @@ export component ComboBox {
                 y: 2px;
                 accessible-role: none;
 
-                animate motion-animated-colorize { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : 150ms; }
+                animate motion-animated-colorize { enabled: !Motion.reduced; duration: Motion.reduced ? 0ms : Motion.fast; }
             }
         }
     }

@@ -4,6 +4,8 @@
 )]
 
 #[cfg(all(feature = "native-shell", windows))]
+mod appearance;
+#[cfg(all(feature = "native-shell", windows))]
 mod brand;
 #[cfg(all(feature = "native-shell", windows))]
 mod capture_delay;
@@ -25,8 +27,6 @@ mod font_picker;
 mod input_smoke;
 #[cfg(all(feature = "native-shell", windows))]
 mod interface_scale;
-#[cfg(all(feature = "native-shell", windows))]
-mod scale_preview;
 #[cfg(all(feature = "native-shell", windows))]
 mod lifecycle;
 #[cfg(all(feature = "native-shell", windows))]
@@ -63,6 +63,8 @@ mod resident_smoke;
 mod resource_smoke;
 #[cfg(all(feature = "native-shell", windows))]
 mod runtime_diagnostics;
+#[cfg(all(feature = "native-shell", windows))]
+mod scale_preview;
 #[cfg(all(feature = "native-shell", windows))]
 mod settings;
 #[cfg(all(feature = "native-shell", windows))]

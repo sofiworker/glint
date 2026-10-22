@@ -1,16 +1,18 @@
-import { Motion } from "widgets/motion.slint";
-import { Button, Palette } from "widgets/widgets.slint";
+import { Theme } from "@glint_ui/theme.slint";
+import { Motion } from "@glint_ui/widgets/motion.slint";
+import { Button } from "@glint_ui/widgets/widgets.slint";
 export component CaptureCountdown inherits Window {
     default-font-family: Motion.ui-font-family;
     in-out property <bool> reduce-motion <=> Motion.reduced;
     title: root.heading;
     no-frame: true;
     preferred-width: 440px; preferred-height: 240px;
-    background: root.dark ? #1c2432 : #ffffff;
+    background: Theme.surface;
     in property <bool> dark;
-    function sync-palette() { Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+    function sync-palette() { Theme.apply(root.dark, false, root.accent); }
     init => { root.sync-palette(); }
     changed dark => { root.sync-palette(); }
+    changed accent => { root.sync-palette(); }
     in property <color> accent;
     in property <string> heading;
     in property <string> hint;
@@ -25,9 +27,9 @@ export component CaptureCountdown inherits Window {
             background: root.background;
             VerticalLayout {
                 padding: 20px; spacing: 10px;
-                Text { text: root.heading; color: root.dark ? #e7ebf3 : #202b42; font-size: 18px; font-weight: 400; horizontal-alignment: center; }
+                Text { text: root.heading; color: Theme.ink; font-size: 18px; font-weight: 400; horizontal-alignment: center; }
                 Text { text: root.seconds; color: root.accent; font-size: 42px; horizontal-alignment: center; }
-                Text { text: root.hint; color: root.dark ? #a8b3c8 : #69758b; wrap: word-wrap; horizontal-alignment: center; }
+                Text { text: root.hint; color: Theme.muted; wrap: word-wrap; horizontal-alignment: center; }
                 Button { text: root.cancel-label; clicked => { root.cancel(); } }
             }
         }

@@ -1,4 +1,5 @@
-import { Button, LineEdit, ScrollView, VerticalBox, HorizontalBox } from "widgets/widgets.slint";
+import { Theme } from "../theme.slint";
+import { Button, LineEdit, ScrollView, VerticalBox, HorizontalBox } from "../widgets/widgets.slint";
 export struct FontLabels { title: string, search: string, status: string, cancel: string, retry: string }
 export component FontPicker inherits Rectangle {
     in property <[string]> names;
@@ -7,10 +8,10 @@ export component FontPicker inherits Rectangle {
     in property <bool> failed;
     in property <string> current;
     in-out property <string> query;
-    in property <color> surface;
-    in property <color> ink;
-    in property <color> muted;
-    in property <color> accent;
+    in property <color> surface: Theme.surface;
+    in property <color> ink: Theme.ink;
+    in property <color> muted: Theme.muted;
+    in property <color> accent: Theme.accent;
     callback command(string, string);
     callback focus-search;
     focus-search => { search.focus(); }

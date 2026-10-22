@@ -1,0 +1,74 @@
+// Copyright (c) 2026 Glint contributors
+// SPDX-License-Identifier: GPL-3.0-only
+import { Theme } from "../theme.slint";
+import { CheckBox, ComboBox } from "../widgets/widgets.slint";
+export component AccentButton inherits Rectangle {
+    in property <string> text;
+    in property <color> accent: Theme.accent;
+    in property <bool> enabled: true;
+    out property <bool> has-focus: focus.has-focus;
+    callback clicked;
+    min-width: 130px; min-height: 35px;
+    border-radius: Theme.control-radius; background: root.accent.with-alpha(root.enabled ? 1 : 0.35);
+    forward-focus: focus;
+    accessible-role: button; accessible-label: root.text; accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    Text { x: 6px; y: 0px; width: parent.width - 12px; height: parent.height; text: root.text; color: Theme.on-accent; horizontal-alignment: center; vertical-alignment: center; }
+    focus := FocusScope { enabled: root.enabled; key-pressed(event) => { if event.text == " " || event.text == Key.Return { root.clicked(); return accept; } return reject; } }
+    // Keep the pointer hit target above the keyboard focus scope.
+    TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { focus.focus(); root.clicked(); } }
+    if focus.has-focus: Rectangle { x: -3px; y: -3px; width: parent.width + 6px; height: parent.height + 6px; border-radius: Theme.focus-radius; border-width: 1px; border-color: root.accent; background: transparent; }
+}
+export component GlintCheck inherits Rectangle {
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    in property <color> accent: Theme.accent;
+    in property <color> line: Theme.line;
+    in property <string> label;
+    callback toggled(bool);
+    width: 24px; height: 24px;
+    forward-focus: check;
+    check := CheckBox {
+        x: 0px; y: 0px; width: parent.width; height: parent.height;
+        text: ""; checked: root.checked; enabled: root.enabled;
+        accessible-label: root.label;
+        toggled => { root.toggled(!root.checked); }
+    }
+    changed checked => { check.checked = root.checked; }
+}
+
+export component GlintChoice inherits Rectangle {
+    in property <[string]> choices;
+    in property <int> selected-index;
+    in property <bool> enabled;
+    callback selected(string);
+    forward-focus: choice;
+    choice := ComboBox {
+        width: parent.width; height: parent.height; enabled: root.enabled;
+        model: root.choices; current-index: root.selected-index;
+        current-value: root.choices[root.selected-index];
+        selected(value) => { root.selected(value); }
+    }
+    callback sync;
+    sync => { choice.current-index = root.selected-index; choice.current-value = root.choices[root.selected-index]; }
+    changed selected-index => { root.sync(); }
+    changed choices => { root.sync(); }
+}
+export component LabeledCheck inherits Rectangle {
+    in property <string> text;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    in property <color> ink: Theme.ink;
+    in property <color> line: Theme.line;
+    callback toggled(bool);
+    forward-focus: check;
+    check := CheckBox {
+        x: 0px; y: 0px; width: parent.width; height: parent.height;
+        text: ""; checked: root.checked; enabled: root.enabled;
+        accessible-label: root.text;
+        toggled => { root.toggled(!root.checked); }
+    }
+    changed checked => { check.checked = root.checked; }
+    Text { x: 28px; y: 0px; width: max(0px, parent.width - 28px); height: parent.height; text: root.text; color: root.ink; opacity: root.enabled ? 1 : 0.45; vertical-alignment: center; overflow: elide; }
+
+}

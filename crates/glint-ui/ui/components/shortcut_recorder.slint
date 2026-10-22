@@ -1,0 +1,86 @@
+// Copyright (c) 2026 Glint contributors
+// SPDX-License-Identifier: GPL-3.0-only
+import { Theme } from "../theme.slint";
+import { Button, HorizontalBox } from "../widgets/widgets.slint";
+import { AccentButton } from "controls.slint";
+export component InlineShortcut inherits FocusScope {
+    in property <string> value;
+    in property <string> hint;
+    in property <string> placeholder;
+    in property <string> cancel-label;
+    in property <string> clear-label;
+    in property <string> accept-label;
+    in property <bool> can-clear;
+    in property <bool> can-accept;
+    in property <bool> invalid;
+    in property <int> focus-request;
+    in property <color> accent;
+    in property <color> ink;
+    in property <color> muted;
+    in property <color> line;
+    callback input(string, bool, bool, bool, bool);
+    callback action(string);
+    out property <bool> cancel-focused: cancel.has-focus;
+    out property <bool> recording-focused: input.has-focus;
+    out property <bool> clear-focused: clear.has-focus;
+    out property <bool> accept-focused: confirm.has-focus;
+    callback focus-state(bool, bool, bool, bool);
+    function report-focus() { root.focus-state(input.has-focus, clear.has-focus, confirm.has-focus, cancel.has-focus); }
+    changed recording-focused => { root.report-focus(); }
+    changed clear-focused => { root.report-focus(); }
+    changed accept-focused => { root.report-focus(); }
+    changed cancel-focused => { root.report-focus(); }
+    changed focus-request => { input.focus(); root.report-focus(); }
+    init => { input.focus(); root.report-focus(); }
+    focus-on-tab-navigation: false;
+    focus-on-click: false;
+    key-pressed(event) => {
+        if event.text == Key.Escape { root.action("continue"); return accept; }
+        if event.text == Key.Tab || event.text == Key.Backtab {
+            if event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
+            if input.has-focus {
+                if !event.modifiers.shift { cancel.focus(); }
+                else if root.can-accept { confirm.focus(); }
+                else if root.can-clear { clear.focus(); }
+                else { cancel.focus(); }
+            } else if cancel.has-focus {
+                if event.modifiers.shift { input.focus(); }
+                else if root.can-clear { clear.focus(); }
+                else if root.can-accept { confirm.focus(); }
+                else { input.focus(); }
+            } else if clear.has-focus {
+                if event.modifiers.shift { cancel.focus(); }
+                else if root.can-accept { confirm.focus(); }
+                else { input.focus(); }
+            } else if event.modifiers.shift {
+                if root.can-clear { clear.focus(); } else { cancel.focus(); }
+            } else { input.focus(); }
+            return accept;
+        }
+        return reject;
+    }
+    Rectangle { x: 0px; y: 0px; width: parent.width; height: 42px; border-width: 1px; border-color: root.invalid ? Theme.danger : root.accent; border-radius: 6px;
+        background: transparent;
+        Text { x: 12px; width: parent.width - 24px; height: parent.height; text: root.value == "" ? root.placeholder : root.value; color: root.value == "" ? root.muted : root.ink; vertical-alignment: center; font-size: 15px; }
+        input := FocusScope {
+            width: parent.width; height: parent.height; focus-on-tab-navigation: false; focus-on-click: false;
+            accessible-role: groupbox; accessible-label: root.placeholder;
+            focus-changed-event => { root.report-focus(); }
+            key-pressed(event) => {
+                if event.text == Key.Escape { return reject; }
+                if (event.text == Key.Tab || event.text == Key.Backtab) && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta { return reject; }
+                if event.text == Key.Return && root.can-accept && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.shift && !event.modifiers.meta { root.action("accept-key"); return accept; }
+                root.input(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                return accept;
+            }
+        }
+        TouchArea { clicked => { input.focus(); } }
+        if input.has-focus: Rectangle { x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px; border-width: 1px; border-color: root.accent; border-radius: 8px; background: transparent; }
+    }
+    Text { y: 52px; width: parent.width; height: parent.height - 102px; text: root.hint; color: root.invalid ? Theme.danger : root.muted; font-size: 12px; wrap: word-wrap; }
+    HorizontalBox { y: parent.height - 36px; width: parent.width; height: 36px; padding: 0px; spacing: 8px;
+        cancel := Button { text: root.cancel-label; clicked => { root.action("continue"); } }
+        clear := Button { text: root.clear-label; enabled: root.can-clear; clicked => { root.action("clear-key"); } }
+        confirm := AccentButton { text: root.accept-label; accent: root.accent; enabled: root.can-accept; clicked => { root.action("accept-key"); } }
+    }
+}

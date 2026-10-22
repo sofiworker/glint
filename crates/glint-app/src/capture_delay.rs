@@ -3,10 +3,10 @@ use crate::{
     messages::{self, Message},
     settings::SettingsWindow,
 };
-use glint_core::config::{Config, Theme};
+use glint_core::config::Config;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::time::{Duration, Instant};
-slint::slint! { export { Motion } from "src/widgets/motion.slint"; export { CaptureCountdown } from "src/capture_delay.slint"; }
+glint_ui::slint! { export { Motion } from "@glint_ui/widgets/motion.slint"; export { CaptureCountdown } from "src/capture_delay.slint"; }
 
 pub struct Run {
     pub ui: CaptureCountdown,
@@ -35,11 +35,10 @@ impl Run {
         ui.set_hint(messages::text(Message::DelayHint, english).into());
         ui.set_cancel_label(messages::text(Message::DelayCancel, english).into());
         ui.set_seconds(i32::from(config.capture.delay_seconds));
-        ui.set_dark(match config.appearance.theme {
-            Theme::Dark => true,
-            Theme::Light => false,
-            Theme::System => glint_platform::system_dark_theme().unwrap_or(false),
-        });
+        ui.set_dark(crate::appearance::dark(
+            config.appearance.theme,
+            glint_platform::system_dark_theme(),
+        ));
         let rgb =
             u32::from_str_radix(&config.appearance.accent[1..], 16).map_err(|e| e.to_string())?;
         ui.set_accent(slint::Color::from_rgb_u8(

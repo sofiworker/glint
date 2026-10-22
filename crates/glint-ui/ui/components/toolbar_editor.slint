@@ -1,26 +1,10 @@
+import { Theme } from "../theme.slint";
 import { SpinBox } from "std-widgets.slint";
-import { Button, CheckBox, ComboBox, ScrollView } from "widgets/widgets.slint";
-component ToolbarToggle inherits Rectangle {
-    in property <string> text;
-    in property <bool> checked;
-    in property <bool> enabled: true;
-    in property <color> ink;
-    in property <color> line;
-    callback toggled(bool);
-    forward-focus: check;
-    check := CheckBox {
-        x: 0px; y: 0px; width: parent.width; height: parent.height;
-        text: ""; checked: root.checked; enabled: root.enabled;
-        accessible-label: root.text;
-        toggled => { root.toggled(!root.checked); }
-    }
-    changed checked => { check.checked = root.checked; }
-    Text { x: 28px; y: 0px; width: max(0px, parent.width - 28px); height: parent.height; text: root.text; color: root.ink; opacity: root.enabled ? 1 : 0.45; vertical-alignment: center; overflow: elide; }
-
-}
+import { Button, CheckBox, ComboBox, ScrollView } from "../widgets/widgets.slint";
+import { LabeledCheck } from "controls.slint";
 export struct ToolbarRow { label: string, tool: int, shown: bool }
 export global ToolbarAssets {
-    out property <[image]> images: [@image-url("icons/select.svg"), @image-url("icons/rect.svg"), @image-url("icons/arrow.svg"), @image-url("icons/pen.svg"), @image-url("icons/text.svg"), @image-url("icons/highlight.svg"), @image-url("icons/redact.svg"), @image-url("icons/mosaic.svg"), @image-url("icons/picker.svg"), @image-url("icons/undo.svg"), @image-url("icons/redo.svg"), @image-url("icons/save.svg"), @image-url("icons/check.svg"), @image-url("icons/close.svg"), @image-url("icons/more.svg"), @image-url("icons/settings.svg"), @image-url("icons/pin.svg")];
+    out property <[image]> images: [@image-url("../icons/select.svg"), @image-url("../icons/rect.svg"), @image-url("../icons/arrow.svg"), @image-url("../icons/pen.svg"), @image-url("../icons/text.svg"), @image-url("../icons/highlight.svg"), @image-url("../icons/redact.svg"), @image-url("../icons/mosaic.svg"), @image-url("../icons/picker.svg"), @image-url("../icons/undo.svg"), @image-url("../icons/redo.svg"), @image-url("../icons/save.svg"), @image-url("../icons/check.svg"), @image-url("../icons/close.svg"), @image-url("../icons/more.svg"), @image-url("../icons/settings.svg"), @image-url("../icons/pin.svg")];
 }
 // labels: both, icons, follow, top, bottom, groups, order hint, preview, reset, preview hint, mode, position.
 export component ToolbarEditor inherits Rectangle {
@@ -37,9 +21,9 @@ export component ToolbarEditor inherits Rectangle {
     in property <bool> groups;
     in property <bool> customize-visible: true;
     in property <bool> writable: true;
-    in property <color> ink;
-    in property <color> muted;
-    in property <color> line;
+    in property <color> ink: Theme.ink;
+    in property <color> muted: Theme.muted;
+    in property <color> line: Theme.line;
     callback command(string, int, int);
     out property <bool> mode-focused: mode.has-focus;
     out property <bool> reset-focused: reset.has-focus;
@@ -72,7 +56,7 @@ export component ToolbarEditor inherits Rectangle {
     changed row-width => { row-size.value = root.row-width; }
     changed icons => { mode.current-index = root.icons ? 1 : 0; }
     changed position => { placement.current-index = root.position; }
-    ToolbarToggle { x: 4px; y: 184px + root.width-hint-height; width: parent.width - 8px; height: 30px; text: root.names[15]; checked: root.customize-visible; enabled: root.writable; ink: root.ink; line: root.line; toggled(value) => { root.command("customize-visible", 0, value ? 1 : 0); } }
+    LabeledCheck { x: 4px; y: 184px + root.width-hint-height; width: parent.width - 8px; height: 30px; text: root.names[15]; checked: root.customize-visible; enabled: root.writable; ink: root.ink; line: root.line; toggled(value) => { root.command("customize-visible", 0, value ? 1 : 0); } }
     Text { x: 4px; y: 222px + root.width-hint-height; width: parent.width - 8px; height: 36px; text: root.labels[6]; color: root.muted; wrap: word-wrap; }
     for row[index] in root.rows: Rectangle {
         x: 4px; y: 264px + root.width-hint-height + index * 38px; width: parent.width - 8px; height: 36px;
@@ -88,7 +72,7 @@ export component ToolbarEditor inherits Rectangle {
             }
         }
         Image { x: 26px; y: 9px; width: 17px; height: 17px; source: ToolbarAssets.images[row.tool]; colorize: root.ink; }
-        ToolbarToggle { x: 50px; width: max(60px, parent.width - 138px); height: 34px; text: row.label; checked: row.shown; enabled: root.writable && row.tool != 0; ink: root.ink; line: root.line; toggled(value) => { root.command("visible", index, value ? 1 : 0); } }
+        LabeledCheck { x: 50px; width: max(60px, parent.width - 138px); height: 34px; text: row.label; checked: row.shown; enabled: root.writable && row.tool != 0; ink: root.ink; line: root.line; toggled(value) => { root.command("visible", index, value ? 1 : 0); } }
         Button { x: parent.width - 80px; width: 36px; height: 32px; text: "↑"; enabled: root.writable && index > 0; clicked => { root.command("move", index, index - 1); } }
         Button { x: parent.width - 40px; width: 36px; height: 32px; text: "↓"; enabled: root.writable && index < 8; clicked => { root.command("move", index, index + 1); } }
     }

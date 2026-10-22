@@ -326,7 +326,7 @@ def main() -> None:
     shutil.copyfile(executable, portable / "glint-app.exe")
     for name in ["LICENSE", "THIRD-PARTY-NOTICES.md"]:
         shutil.copyfile(source / name, portable / name)
-    shutil.copytree(source / "crates/glint-app/src/widgets", portable / "licenses/glint-modified-slint-widgets")
+    shutil.copytree(source / "crates/glint-ui/ui/widgets", portable / "licenses/glint-modified-slint-widgets")
     shutil.copytree(source / "assets/fonts", portable / "licenses/fonts")
     (source / "BUILDING.md").write_text(
         "# Rebuild this Windows development build\n\nInstall Python3.11+ (for packaging), Rust " + release +

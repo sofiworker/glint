@@ -12,6 +12,7 @@ native-shell = ["dep:slint", "dep:image", "glint-platform/clipboard", "dep:raw-w
 input-probe = ["native-shell", "glint-platform/input-probe"]
 
 [dependencies]
+glint-ui.workspace = true
 glint-core.workspace = true
 glint-platform.workspace = true
 toml.workspace = true

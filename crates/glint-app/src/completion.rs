@@ -6,7 +6,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
-slint::slint! { export { CompletionToast } from "src/completion.slint"; }
+glint_ui::slint! { export { CompletionToast } from "src/completion.slint"; }
 #[derive(Default)]
 struct State {
     ui: Option<CompletionToast>,

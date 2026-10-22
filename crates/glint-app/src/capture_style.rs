@@ -55,11 +55,7 @@ impl Presentation {
     pub fn from_config(config: &Config, preferred: &[String]) -> Self {
         let english = crate::settings::english(config.general.language, preferred);
         let system_dark = glint_platform::system_dark_theme();
-        let dark = match config.appearance.theme {
-            Theme::Light => false,
-            Theme::Dark => true,
-            Theme::System => system_dark.unwrap_or(false),
-        };
+        let dark = crate::appearance::dark(config.appearance.theme, system_dark);
         let mut result = Self {
             theme: config.appearance.theme,
             preview_budget_mib: config.resources.preview_budget_mib,

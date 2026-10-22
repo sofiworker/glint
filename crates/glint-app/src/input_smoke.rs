@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-slint::slint! {
+glint_ui::slint! {
     export component InputFixture inherits Window {
         title: "Glint owned input verification";
         width: 640px; height: 400px; no-frame: true; always-on-top: true;
