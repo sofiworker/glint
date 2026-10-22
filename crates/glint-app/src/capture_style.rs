@@ -114,7 +114,8 @@ impl Presentation {
     }
     pub fn apply(self, ui: &CaptureProbe) {
         crate::motion::configure!(ui, super::Motion, self.reduce_motion);
-        crate::motion::install(ui, self.reduce_motion);
+        // Overlay entry/exit never animate, independently of control hover preferences.
+        crate::motion::install(ui, true);
         crate::interface_scale::install_with_theme(
             ui,
             self.interface_scale,
@@ -187,6 +188,7 @@ pub fn apply_labels(ui: &CaptureProbe) {
         redo: tr(Message::CaptureRedo),
         save: tr(Message::CaptureSave),
         copy: tr(Message::CaptureCopy),
+        finish: tr(Message::CaptureFinish),
         cancel: tr(Message::CaptureCancel),
         stroke: tr(Message::CaptureStrokeWidth),
         pen_hint: tr(Message::CapturePenHint),

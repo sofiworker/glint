@@ -213,3 +213,21 @@ Object.assign(english,{"HTML \u63a7\u4ef6\u9884\u89c8\u6f14\u793a\u7f29\u653e\u3
 Object.assign(english,{"\u5168\u5c40\u70ed\u952e\u670d\u52a1\u5df2\u505c\u6b62\u3002\u8bf7\u4ece\u6258\u76d8\u64cd\u4f5c\u5e76\u91cd\u542f\u5e94\u7528\u3002": "Global shortcuts have stopped. Use the tray and restart the app."});
 
 Object.assign(english,{"Windows：输入完整程序文件名（如 password-manager.exe），用英文分号、逗号或换行分隔，最多 128 项；不接受路径或通配符。保存后，桌面采集前后检查可见窗口（含被遮挡窗口）；命中或检查失败则拒绝整次截图。最小化或关闭目标窗口后重试。两次检查不能覆盖间隙出现的内容，不是持续隐私保护；不影响本地图片或贴图再编辑。": "Windows: enter full executable names (for example password-manager.exe), separated by semicolons, commas or newlines; up to 128 entries. Paths and wildcards are not accepted. After Save, visible windows (including covered windows) are checked before and after desktop capture. A match or failed check rejects the whole capture. Minimize or close the target window and retry. Two checks cannot cover content appearing between them; this is not continuous privacy protection. Local images and pin editing are unaffected.", "原型检查场景（不读取真实进程）：": "Prototype check scenario (does not read real processes):", "模拟无命中": "Simulate no match", "模拟命中排除程序": "Simulate excluded application", "模拟检查失败": "Simulate check failure", "排除列表格式无效": "Invalid exclusion list", "截图已阻止": "Capture blocked", "请输入完整 .exe 文件名，用英文分号、逗号或换行分隔；不接受路径、通配符或超过 128 项。保存未生效，草稿已保留。": "Enter full .exe names separated by semicolons, commas or newlines; no paths, wildcards or more than 128 entries. Nothing was saved. Your draft is preserved.", "已保存的排除列表格式无效。请修正或清空列表并保存后重试。": "The saved exclusion list is invalid. Correct or clear it, save, then retry.", "检测到排除程序的可见窗口，已拒绝整次截图。最小化或关闭目标窗口后重试，或修改列表并保存。": "A visible window belongs to an excluded application. The whole capture was rejected. Minimize or close the target window and retry, or edit the list and save.", "无法完成排除程序检查，已拒绝整次截图。请重试，或修改列表并保存；不要依赖此检查持续保护内容。": "The exclusion check could not finish. The whole capture was rejected. Retry, or edit the list and save; do not rely on these checks for continuous protection."});
+
+Object.assign(english,{"选择标注文字使用的字体。": "Choose a font for annotation text.", "留空使用系统图片目录下的 Glint。": "Empty uses Glint in the system Pictures folder.", "以下功能暂不可用。": "These features are currently unavailable.", "暂不可用": "Unavailable", "将滚动内容拼接为一张长图。": "Stitch scrolling content into a long image.", "从图片中识别并复制文字。": "Recognize and copy text from images.", "录制屏幕，导出视频或 GIF。": "Record the screen and export video or GIF.", "把屏幕上的一刻留下。": "Keep a moment from your screen.", "拾光 · Glint 0.0.0": "Glint 0.0.0", "截图、标注与桌面贴图。": "Screen capture, annotation and desktop pins.", "导出配置": "Export configuration", "导入配置": "Import configuration"});
+
+Object.assign(english,{"按下组合键，确认后保存设置。Esc 取消。":"Press a shortcut, confirm, then save settings. Esc cancels."});
+
+Object.assign(english,{"布局":"Layout","网格":"Grid","单行滚动":"Horizontal scrolling","固定行宽":"Fixed row width","列数":"Columns","行数":"Rows","行宽(px)":"Row width (px)"});
+
+Object.assign(english,{"单行完整显示":"Single row (all tools)"});
+
+Object.assign(english,{"选区、取消和完成入口始终保留，自定义可隐藏。":"Selection, cancel and finish remain available; Customize can be hidden."});
+
+Object.assign(english,{"最大宽度(px)":"Maximum width (px)","输入最大宽度；实际宽度会按完整按钮向下对齐，避免露出半个图标。超出部分可横向滚动查看。":"Enter the maximum width. The toolbar rounds down to fit whole buttons, so icons are never cut in half. Scroll horizontally to see the remaining tools."});
+
+Object.assign(english,{"应用界面默认使用系统字体，缺失时回退到内置 Noto Sans SC；批注字体单独设置。":"The app uses the system UI font, with bundled Noto Sans SC as fallback. Annotation fonts are configured separately."});
+
+Object.assign(english,{"应用字体":"Application font","内置 Noto Sans SC":"Bundled Noto Sans SC","只影响应用界面，不影响批注文字。跟随系统时，缺失字体回退到内置 Noto Sans SC。":"Applies to the application UI only, not annotations. Follow system falls back to bundled Noto Sans SC when needed."});
+
+Object.assign(english,{"保留此缩放比例？":"Keep this interface scale?","请确认界面是否清晰且易于操作。15 秒后未确认将自动还原；保留后仍需保存设置。":"Check that the interface is easy to use. Revert automatically after 15 seconds unless confirmed; Save settings after keeping the scale.","还原":"Revert","保留此比例":"Keep this scale"});

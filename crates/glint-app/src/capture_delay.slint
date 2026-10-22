@@ -1,6 +1,7 @@
 import { Motion } from "widgets/motion.slint";
 import { Button, Palette } from "widgets/widgets.slint";
 export component CaptureCountdown inherits Window {
+    default-font-family: Motion.ui-font-family;
     in-out property <bool> reduce-motion <=> Motion.reduced;
     title: root.heading;
     no-frame: true;
@@ -24,7 +25,7 @@ export component CaptureCountdown inherits Window {
             background: root.background;
             VerticalLayout {
                 padding: 20px; spacing: 10px;
-                Text { text: root.heading; color: root.dark ? #e7ebf3 : #202b42; font-size: 18px; font-weight: 600; horizontal-alignment: center; }
+                Text { text: root.heading; color: root.dark ? #e7ebf3 : #202b42; font-size: 18px; font-weight: 400; horizontal-alignment: center; }
                 Text { text: root.seconds; color: root.accent; font-size: 42px; horizontal-alignment: center; }
                 Text { text: root.hint; color: root.dark ? #a8b3c8 : #69758b; wrap: word-wrap; horizontal-alignment: center; }
                 Button { text: root.cancel-label; clicked => { root.cancel(); } }

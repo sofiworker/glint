@@ -1,6 +1,63 @@
 //! Per-component control policy; source pixels and input geometry never animate.
 use slint::Model;
-use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+use slint::{
+    ComponentHandle,
+    winit_030::{WinitWindowAccessor, winit},
+};
+
+thread_local! {
+    static CREATING_CAPTURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static CREATING_SETTINGS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Settings have an opaque background; only desktop pins need transparent composition.
+pub fn create_settings<T>(create: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            CREATING_SETTINGS.with(|settings| settings.set(self.0));
+        }
+    }
+    let _restore = Restore(CREATING_SETTINGS.with(|settings| settings.replace(true)));
+    create()
+}
+
+/// Slint calls its attributes hook synchronously when constructing the adapter,
+/// before the native peer exists. Scope the policy to this component only.
+pub fn create_capture<T>(create: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            CREATING_CAPTURE.with(|capture| capture.set(self.0));
+        }
+    }
+    let _restore = Restore(CREATING_CAPTURE.with(|capture| capture.replace(true)));
+    create()
+}
+
+pub fn window_attributes(
+    attributes: winit::window::WindowAttributes,
+) -> winit::window::WindowAttributes {
+    use winit::platform::windows::WindowAttributesExtWindows;
+    let attributes = attributes.with_window_icon(Some(crate::brand::window_icon()));
+    if CREATING_CAPTURE.with(|capture| capture.get()) {
+        // The frozen desktop already fills the window. Desktop-pin transparency
+        // enables DWM blur-behind at HWND creation and is unnecessary here.
+        attributes
+            .with_active(false)
+            .with_transparent(false)
+            .with_decorations(false)
+            .with_fullscreen(None)
+            .with_maximized(false)
+            .with_window_level(winit::window::WindowLevel::AlwaysOnTop)
+            .with_skip_taskbar(true)
+            .with_undecorated_shadow(false)
+    } else {
+        attributes
+            .with_active(false)
+            .with_transparent(!CREATING_SETTINGS.with(|settings| settings.get()))
+    }
+}
 
 pub fn preview(window: &slint::Window, reduced: bool) -> Result<(), String> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -55,6 +112,7 @@ macro_rules! configure {
         use slint::ComponentHandle as _;
         let policy = $ui.global::<$global>();
         policy.on_find_index(crate::motion::find_index);
+        policy.set_ui_font_family(crate::ui_font::family().into());
         policy.set_reduced($reduced);
     }};
 }

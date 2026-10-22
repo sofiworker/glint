@@ -40,6 +40,7 @@ pub fn sync(
     dirty: bool,
 ) -> Result<(), String> {
     crate::motion::configure!(ui, Motion, config.appearance.reduce_motion);
+    ui.global::<Motion>().set_ui_font_family(crate::ui_font::selected(config.appearance.ui_font).into());
     crate::motion::preview(ui.window(), config.appearance.reduce_motion)?;
     let en = english(config.general.language, preferred);
     let scale = crate::interface_scale::factor(config.appearance.scale);
@@ -111,17 +112,21 @@ pub fn sync(
     ui.set_toolbar_icons(config.toolbar.mode == glint_core::config::ToolbarMode::Icons);
     ui.set_toolbar_position(crate::toolbar::position(&config.toolbar));
     ui.set_toolbar_groups(config.toolbar.groups);
+    ui.set_toolbar_layout(if config.toolbar.layout == 2 { 3 } else { config.toolbar.layout as i32 });
+    ui.set_toolbar_customize_visible(config.toolbar.show_customize);
+    ui.set_toolbar_columns(config.toolbar.columns as i32);
+    ui.set_toolbar_grid_rows(config.toolbar.rows as i32);
+    ui.set_toolbar_width_setting(config.toolbar.width as i32);
+
     ui.set_dirty(dirty);
     ui.set_status(
-        tr(
-            if config.appearance.theme == Theme::System && system_dark.is_none() {
-                Message::SystemThemeUnavailable
-            } else if dirty {
-                Message::UnsavedChanges
-            } else {
-                Message::DraftSaved
-            },
-        )
+        if config.appearance.theme == Theme::System && system_dark.is_none() {
+            tr(Message::SystemThemeUnavailable)
+        } else if dirty {
+            tr(Message::UnsavedChanges)
+        } else {
+            ""
+        }
         .into(),
     );
     if ui.get_guide_step() >= 0 || ui.get_workbench() {
@@ -289,6 +294,6 @@ mod tests {
             .find(|row| row.key == "general.check_updates")
             .unwrap();
         assert!(!updates.checked && !updates.editable);
-        assert!(updates.description.contains("Not connected yet"));
+        assert!(updates.description.contains("Unavailable"));
     }
 }

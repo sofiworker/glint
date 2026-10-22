@@ -1,7 +1,8 @@
 export component CompletionToast inherits Window {
     title: "Glint"; no-frame: true; always-on-top: true;
     preferred-width: 380px; preferred-height: root.fallback ? 112px : 76px;
-    default-font-family: "Microsoft YaHei UI"; default-font-size: 14px;
+    in property <string> ui-font-family;
+    default-font-family: root.ui-font-family; default-font-size: 14px;
     in property <string> message;
     in property <string> hint;
     in property <bool> fallback;

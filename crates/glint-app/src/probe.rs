@@ -116,7 +116,7 @@ struct Session {
     preview_error: Option<&'static str>,
 }
 
-fn sync(ui: &CaptureProbe, state: &Session) {
+fn sync_geometry(ui: &CaptureProbe, state: &Session) {
     let actual = state.selection;
     let r = if actual.width == 0 || actual.height == 0 {
         state.window_hover.unwrap_or(actual)
@@ -141,6 +141,16 @@ fn sync(ui: &CaptureProbe, state: &Session) {
         )
         .into()
     });
+}
+
+fn sync(ui: &CaptureProbe, state: &Session) {
+    sync_geometry(ui, state);
+    let actual = state.selection;
+    let r = if actual.width == 0 || actual.height == 0 {
+        state.window_hover.unwrap_or(actual)
+    } else {
+        actual
+    };
     ui.set_object_count(state.edits.marks().len() as i32);
     ui.set_can_undo(state.edits.can_undo());
     ui.set_can_redo(state.edits.can_redo());
@@ -623,7 +633,7 @@ pub fn resident_capture_region(
     output_path: Option<std::path::PathBuf>,
     complete: impl Fn() + 'static,
 ) -> Result<(CaptureProbe, PinPayloadSlot), String> {
-    let ui = CaptureProbe::new().map_err(|e| e.to_string())?;
+    let ui = crate::motion::create_capture(CaptureProbe::new).map_err(|e| e.to_string())?;
     ui.set_diagnostic(false);
     let output = presentation.output.clone();
     let preview_budget = presentation.preview_budget_mib;
@@ -670,12 +680,10 @@ pub fn resident_capture_region(
                 first_region_at(&state.windows, (x as u32, y as u32))
             }
         });
-        if window_mode {
-            if let Some(region) = state.window_hover.take() {
-                state.selection = region;
-            } else if state.detection_error.is_none() {
-                state.detection_error = Some("No window detected at the pointer".into());
-            }
+        // Window capture starts with a hover preview, not a committed region.
+        // Committing here prevents hover updates for every subsequent window.
+        if window_mode && state.windows.is_empty() && state.detection_error.is_none() {
+            state.detection_error = Some("No window detected; drag to select a region".into());
         }
         if let Some(region) = initial_region {
             if region.width == 0
@@ -715,7 +723,7 @@ pub fn resident_pin_editor(
     output_path: Option<std::path::PathBuf>,
     complete: impl Fn() + 'static,
 ) -> Result<(CaptureProbe, PinPayloadSlot), String> {
-    let ui = CaptureProbe::new().map_err(|e| e.to_string())?;
+    let ui = crate::motion::create_capture(CaptureProbe::new).map_err(|e| e.to_string())?;
     ui.set_local_image(local);
     ui.set_diagnostic(false);
     let output = presentation.output.clone();
@@ -923,6 +931,10 @@ fn prepare_capture(
     });
     let weak = ui.as_weak();
     let picker_frame = frame.clone();
+    // Only selection geometry is coalesced. Pen/annotation input must retain
+    // every sample, and release/cancel must never wait for a queued movement.
+    let selection_move = Rc::new(std::cell::Cell::new(None::<(f32, f32)>));
+    let selection_timer = slint::Timer::default();
     ui.on_pointer(move |kind, x, y| {
         let Some(ui) = weak.upgrade() else {
             return;
@@ -931,6 +943,31 @@ fn prepare_capture(
             return;
         }
         let mut s = pointer_state.borrow_mut();
+        if kind == 1 && s.selection_drag.is_some() && s.draft.is_none() {
+            selection_move.set(Some((x, y)));
+            if !selection_timer.running() {
+                let latest = selection_move.clone();
+                let weak = ui.as_weak();
+                selection_timer.start(
+                    slint::TimerMode::SingleShot,
+                    std::time::Duration::from_millis(16),
+                    move || {
+                        if let Some((x, y)) = latest.take()
+                            && let Some(ui) = weak.upgrade()
+                            && !ui.get_closed()
+                        {
+                            ui.invoke_pointer(4, x, y);
+                        }
+                    },
+                );
+            }
+            return;
+        }
+        if matches!(kind, 0 | 2 | 3) {
+            selection_timer.stop();
+            selection_move.set(None);
+        }
+        let kind = if kind == 4 { 1 } else { kind };
         if kind == 3 {
             // Cancellation is not a release: discard only uncommitted work.
             // Handle it before disabled/modal/text guards, since losing input
@@ -1103,7 +1140,11 @@ fn prepare_capture(
                 s.selection_before = None;
             }
             if s.preview_scene { refresh(&mut s, Rect::default(), dimensions); }
-            sync(&ui, &s);
+            if kind == 1 && s.object_selected.is_none() {
+                sync_geometry(&ui, &s);
+            } else {
+                sync(&ui, &s);
+            }
         }
     });
     let weak = ui.as_weak();

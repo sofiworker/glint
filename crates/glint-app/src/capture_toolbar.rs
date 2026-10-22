@@ -10,6 +10,20 @@ fn publish(ui: &CaptureProbe, config: &Toolbar) {
     ui.set_toolbar_icons(config.mode == ToolbarMode::Icons);
     ui.set_toolbar_position(position(config));
     ui.set_toolbar_groups(config.groups);
+    if ui.get_toolbar_layout() != config.layout as i32
+        || ui.get_toolbar_columns() != config.columns as i32
+        || ui.get_toolbar_grid_rows() != config.rows as i32
+        || ui.get_toolbar_width_setting() != config.width as i32
+    {
+        ui.set_toolbar_scroll_x(0.);
+        ui.set_toolbar_scroll_y(0.);
+    }
+    ui.set_toolbar_layout(if config.layout == 2 { 3 } else { config.layout as i32 });
+    ui.set_toolbar_customize_visible(config.show_customize);
+    ui.set_toolbar_columns(config.columns as i32);
+    ui.set_toolbar_grid_rows(config.rows as i32);
+    ui.set_toolbar_width_setting(config.width as i32);
+
     let visible = items(config);
     let hidden: Vec<i32> = config
         .order

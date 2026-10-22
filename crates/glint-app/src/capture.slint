@@ -5,7 +5,7 @@ import { Button, ComboBox, LineEdit, Palette, ScrollView } from "widgets/widgets
 export struct LayerTile { x: float, y: float, w: float, h: float, picture: image }
 export struct WindowRegion { left: float, top: float, wide: float, high: float }
 export struct ObjectGrip { x: float, y: float }
-export struct CaptureLabels { color-picker: string, magnifier: string, pin: string, save-elsewhere: string, toolbar-customize: string, toolbar-title: string, toolbar-more: string, toolbar-both: string, toolbar-icons: string, toolbar-follow: string, toolbar-top: string, toolbar-bottom: string, toolbar-groups: string, toolbar-order-hint: string, toolbar-preview-hint: string, toolbar-apply: string, toolbar-reset: string,  title: string, select: string, pen: string, redact: string, rectangle: string, arrow: string, highlight: string, undo: string, redo: string, save: string, copy: string, cancel: string, stroke: string, pen-hint: string, select-hint: string, object-hint: string, object-text-hint: string, object-delete: string, arrow-filled: string, arrow-open: string, text-edit: string, redact-hint: string, rectangle-hint: string, arrow-hint: string, highlight-hint: string, pixelate: string, pixelate-hint: string, text: string, text-hint: string, text-place: string, text-cancel: string, text-size: string, text-font: string, text-limit: string, picker: string, picker-hint: string, copy-hex: string, copy-rgb: string }
+export struct CaptureLabels { color-picker: string, magnifier: string, pin: string, save-elsewhere: string, toolbar-customize: string, toolbar-title: string, toolbar-more: string, toolbar-both: string, toolbar-icons: string, toolbar-follow: string, toolbar-top: string, toolbar-bottom: string, toolbar-groups: string, toolbar-order-hint: string, toolbar-preview-hint: string, toolbar-apply: string, toolbar-reset: string,  title: string, select: string, pen: string, redact: string, rectangle: string, arrow: string, highlight: string, undo: string, redo: string, save: string, copy: string, finish: string, cancel: string, stroke: string, pen-hint: string, select-hint: string, object-hint: string, object-text-hint: string, object-delete: string, arrow-filled: string, arrow-open: string, text-edit: string, redact-hint: string, rectangle-hint: string, arrow-hint: string, highlight-hint: string, pixelate: string, pixelate-hint: string, text: string, text-hint: string, text-place: string, text-cancel: string, text-size: string, text-font: string, text-limit: string, picker: string, picker-hint: string, copy-hex: string, copy-rgb: string }
 struct CaptureAction { label: string, tool: int, action: string, enabled: bool }
 // Internal lifecycle evidence, never user text or image content.
 export enum CaptureExit { open, api-cancel, escape-key, secondary-click, toolbar-cancel, window-request, copy, save, pin, color-copy, pin-update, direct }
@@ -31,7 +31,7 @@ export component CaptureProbe inherits Window {
     title: root.labels.title;
     no-frame: true;
     background: #202b42;
-    default-font-family: "Microsoft YaHei UI";
+    default-font-family: Motion.ui-font-family;
     default-font-size: 12px;
     in property <bool> magnifier-enabled: true;
     in property <bool> dimensions: true;
@@ -45,23 +45,23 @@ export component CaptureProbe inherits Window {
     in property <float> loupe-source-y;
     callback canvas-left;
     function loupe-clamp(x: float, y: float) -> ObjectGrip {
-        return {x: max(4, min(root.width / 1px - 180, x)), y: max(4, min(root.height / 1px - 188, y))};
+        return {x: max(4, min(root.width / 1px - 128, x)), y: max(4, min(root.height / 1px - 162, y))};
     }
     function loupe-free(p: ObjectGrip) -> bool {
-        return root.width >= 184px && root.height >= 192px
-            && !(root.loupe-source-x * root.sx >= p.x - 8 && root.loupe-source-x * root.sx <= p.x + 184 && root.loupe-source-y * root.sy >= p.y - 8 && root.loupe-source-y * root.sy <= p.y + 192)
-            && (!root.selected || p.x + 180 <= root.toolbar-x / 1px || p.x >= (root.toolbar-x + root.toolbar-width) / 1px + 4 || p.y + 188 <= root.toolbar-y / 1px || p.y >= (root.toolbar-y + root.toolbar-total-height) / 1px + 4)
-            && (!capture-info.visible || p.x + 180 <= capture-info.x / 1px || p.x >= (capture-info.x + capture-info.width) / 1px + 4 || p.y + 188 <= capture-info.y / 1px || p.y >= (capture-info.y + capture-info.height) / 1px + 4)
-            && (!selection-metrics.visible || p.x + 180 <= selection-metrics.x / 1px || p.x >= (selection-metrics.x + selection-metrics.width) / 1px + 4 || p.y + 188 <= selection-metrics.y / 1px || p.y >= (selection-metrics.y + selection-metrics.height) / 1px + 4);
+        return root.width >= 132px && root.height >= 166px
+            && !(root.loupe-source-x * root.sx >= p.x - 8 && root.loupe-source-x * root.sx <= p.x + 132 && root.loupe-source-y * root.sy >= p.y - 8 && root.loupe-source-y * root.sy <= p.y + 166)
+            && (!root.selected || p.x + 128 <= root.toolbar-x / 1px || p.x >= (root.toolbar-x + root.toolbar-width) / 1px + 4 || p.y + 162 <= root.toolbar-y / 1px || p.y >= (root.toolbar-y + root.toolbar-total-height) / 1px + 4)
+            && (!capture-info.visible || p.x + 128 <= capture-info.x / 1px || p.x >= (capture-info.x + capture-info.width) / 1px + 4 || p.y + 162 <= capture-info.y / 1px || p.y >= (capture-info.y + capture-info.height) / 1px + 4)
+            && (!selection-metrics.visible || p.x + 128 <= selection-metrics.x / 1px || p.x >= (selection-metrics.x + selection-metrics.width) / 1px + 4 || p.y + 162 <= selection-metrics.y / 1px || p.y >= (selection-metrics.y + selection-metrics.height) / 1px + 4);
     }
     property <ObjectGrip> loupe-a: root.loupe-clamp(root.loupe-source-x * root.sx + 20, root.loupe-source-y * root.sy + 20);
-    property <ObjectGrip> loupe-b: root.loupe-clamp(root.loupe-source-x * root.sx - 196, root.loupe-source-y * root.sy + 20);
-    property <ObjectGrip> loupe-c: root.loupe-clamp(root.loupe-source-x * root.sx + 20, root.loupe-source-y * root.sy - 204);
-    property <ObjectGrip> loupe-d: root.loupe-clamp(root.loupe-source-x * root.sx - 196, root.loupe-source-y * root.sy - 204);
+    property <ObjectGrip> loupe-b: root.loupe-clamp(root.loupe-source-x * root.sx - 144, root.loupe-source-y * root.sy + 20);
+    property <ObjectGrip> loupe-c: root.loupe-clamp(root.loupe-source-x * root.sx + 20, root.loupe-source-y * root.sy - 178);
+    property <ObjectGrip> loupe-d: root.loupe-clamp(root.loupe-source-x * root.sx - 144, root.loupe-source-y * root.sy - 178);
     property <ObjectGrip> loupe-e: root.loupe-clamp(4, 4);
-    property <ObjectGrip> loupe-f: root.loupe-clamp(root.width / 1px - 180, 4);
-    property <ObjectGrip> loupe-g: root.loupe-clamp(4, root.height / 1px - 188);
-    property <ObjectGrip> loupe-h: root.loupe-clamp(root.width / 1px - 180, root.height / 1px - 188);
+    property <ObjectGrip> loupe-f: root.loupe-clamp(root.width / 1px - 128, 4);
+    property <ObjectGrip> loupe-g: root.loupe-clamp(4, root.height / 1px - 162);
+    property <ObjectGrip> loupe-h: root.loupe-clamp(root.width / 1px - 128, root.height / 1px - 162);
     property <ObjectGrip> loupe-at: root.loupe-free(root.loupe-a) ? root.loupe-a : root.loupe-free(root.loupe-b) ? root.loupe-b : root.loupe-free(root.loupe-c) ? root.loupe-c : root.loupe-free(root.loupe-d) ? root.loupe-d : root.loupe-free(root.loupe-e) ? root.loupe-e : root.loupe-free(root.loupe-f) ? root.loupe-f : root.loupe-free(root.loupe-g) ? root.loupe-g : root.loupe-free(root.loupe-h) ? root.loupe-h : {x: -1, y: -1};
     out property <float> loupe-x: root.loupe-at.x;
     out property <float> loupe-y: root.loupe-at.y;
@@ -171,9 +171,14 @@ export component CaptureProbe inherits Window {
     in property <[int]> toolbar-items;
     in property <[int]> toolbar-hidden;
     in property <[ToolbarRow]> toolbar-rows;
+    in property <int> toolbar-layout: 3;
+    in property <int> toolbar-columns: 8;
+    in property <int> toolbar-grid-rows: 2;
+    in property <int> toolbar-width-setting: 640;
     in property <bool> toolbar-icons;
     in property <int> toolbar-position;
     in property <bool> toolbar-groups;
+    in property <bool> toolbar-customize-visible: true;
     in-out property <int> toolbar-modal;
     in property <string> toolbar-feedback;
     property <[image]> toolbar-images: ToolbarAssets.images;
@@ -212,7 +217,7 @@ export component CaptureProbe inherits Window {
                     editor := ToolbarEditor {
                         width: parent.width; height: self.editor-height;
                         rows: root.toolbar-rows; items: root.toolbar-items; labels: root.toolbar-editor-labels; names: root.toolbar-names;
-                        icons: root.toolbar-icons; position: root.toolbar-position; groups: root.toolbar-groups;
+                        icons: root.toolbar-icons; position: root.toolbar-position; groups: root.toolbar-groups; customize-visible: root.toolbar-customize-visible; layout: root.toolbar-layout; columns: root.toolbar-columns; rows-count: root.toolbar-grid-rows; row-width: root.toolbar-width-setting;
                         ink: root.ink; muted: root.muted; line: root.line;
                         command(name, row, value) => { root.toolbar-command(name, row, value); }
                     }
@@ -234,27 +239,41 @@ export component CaptureProbe inherits Window {
     }
     property <float> sx: root.width / 1px / source-w;
     property <float> sy: root.height / 1px / source-h;
-    out property <length> toolbar-width: root.color-only ? min(680px, max(0px,root.width - 24px)) : min(root.toolbar-icons ? root.toolbar-items.length * 40px + 14px : 1120px, max(0px, root.width - 24px));
-    property <int> columns: min(root.toolbar-items.length, root.toolbar-icons ? max(1, floor((root.toolbar-width - 14px) / 40px)) : root.toolbar-width >= 1070px ? 12 : root.toolbar-width >= 680px ? 7 : 4);
-    property <length> row-height: root.toolbar-width < 380px ? 26px : 36px;
+    in-out property <length> toolbar-scroll-x;
+    in-out property <length> toolbar-scroll-y;
+    property <length> cell-width: root.toolbar-icons ? 36px : 88px;
+    property <bool> single-row: root.toolbar-layout == 1 || root.toolbar-layout == 3;
+    property <length> toolbar-requested-width: root.color-only ? min(420px, max(0px, root.width - 24px)) : min(root.toolbar-layout == 3 ? root.toolbar-items.length * root.cell-width + 12px : root.toolbar-layout == 0 ? root.toolbar-columns * root.cell-width + 28px : min(root.toolbar-width-setting * 1px, root.toolbar-items.length * root.cell-width + 12px), max(0px, root.width - 24px));
+    out property <length> toolbar-width: root.single-row && !root.color-only ? max(1, floor((root.toolbar-requested-width - 12px) / root.cell-width)) * root.cell-width + 12px : root.toolbar-requested-width;
+    changed toolbar-scroll-x => {
+        if root.single-row {
+            let aligned = min(0px, max(root.toolbar-width - root.toolbar-content-width, round(root.toolbar-scroll-x / root.cell-width) * root.cell-width));
+            if root.toolbar-scroll-x != aligned { root.toolbar-scroll-x = aligned; }
+        }
+    }
+    property <int> columns: (root.toolbar-layout == 1 || root.toolbar-layout == 3) ? max(1, root.toolbar-items.length) : min(root.toolbar-items.length, max(1, floor((root.toolbar-width - (root.toolbar-layout == 0 ? 28px : 12px)) / root.cell-width)));
+    property <length> row-height: 34px;
+    property <length> toolbar-content-width: (root.toolbar-layout == 1 || root.toolbar-layout == 3) ? root.toolbar-items.length * root.cell-width + 12px : root.toolbar-width;
+    property <length> toolbar-content-height: ceil(root.toolbar-items.length / max(1, root.columns)) * root.row-height + 10px;
     out property <int> toolbar-focus-index: -1;
     property <int> toolbar-hover-index: -1;
     property <int> toolbar-hint-index: root.toolbar-icons && root.toolbar-focus-index >= 0 ? root.toolbar-focus-index : root.toolbar-hover-index;
     out property <bool> toolbar-hint-visible: root.selected && !root.color-only && root.background-active && root.toolbar-modal == 0 && root.toolbar-hint-index >= 0 && root.toolbar-hint-index < root.toolbar-items.length && root.actions[root.toolbar-items[root.toolbar-hint-index]].enabled;
     out property <string> toolbar-hint-label: root.toolbar-hint-visible ? root.actions[root.toolbar-items[root.toolbar-hint-index]].label : "";
-    property <length> hint-button-x: root.toolbar-x + 7px + mod(max(0, root.toolbar-hint-index), max(1, root.columns)) * (root.toolbar-width - 14px) / max(1, root.columns);
-    property <length> hint-button-y: root.toolbar-y + 7px + floor(max(0, root.toolbar-hint-index) / max(1, root.columns)) * root.row-height;
+    property <length> hint-button-x: root.toolbar-x + 6px + mod(max(0, root.toolbar-hint-index), max(1, root.columns)) * root.cell-width + root.toolbar-scroll-x;
+    property <length> hint-button-y: root.toolbar-y + 5px + floor(max(0, root.toolbar-hint-index) / max(1, root.columns)) * root.row-height + root.toolbar-scroll-y;
     out property <length> toolbar-hint-x: max(4px, min(root.hint-button-x, root.width - toolbar-hint.width - 4px));
     out property <length> toolbar-hint-y: max(4px, min(root.hint-button-y >= 32px ? root.hint-button-y - 28px : root.hint-button-y + root.row-height, root.height - 28px));
-    out property <length> toolbar-height: root.color-only ? 42px : ceil(root.toolbar-items.length / max(1, root.columns)) * root.row-height + 14px;
+    out property <length> toolbar-height: root.color-only ? 42px : min(root.toolbar-content-height, root.toolbar-layout == 0 ? min(root.toolbar-grid-rows * root.row-height + 10px, max(44px, root.height - 220px)) : root.toolbar-content-height) + ((root.toolbar-layout == 1 || root.toolbar-layout == 3) && root.toolbar-content-width > root.toolbar-width ? 12px : 0px);
     property <bool> compact: root.toolbar-width < 520px;
     property <bool> color-tool: root.tool == 8 || root.tool == 2 || (root.tool >= 3 && root.tool <= 5);
     property <bool> object-panel: root.tool == 0 && root.object-selected;
     property <bool> object-compact: root.toolbar-width < 700px;
     property <bool> object-line: root.object-tool == 2 || root.object-tool == 3 || root.object-tool == 4;
     property <length> panel-height: root.object-panel ? (root.object-compact && (root.object-line || root.object-tool == 8) ? 96px : 76px) : root.tool == 6 ? (root.compact ? 96px : 76px) : root.color-tool && root.tool != 5 && root.compact ? 76px : 46px;
-    out property <length> toolbar-total-height: root.toolbar-height + 8px + root.panel-height;
-    out property <length> toolbar-x: !root.color-only && root.toolbar-position == 0 ? max(12px, min(root.left * root.sx * 1px, root.width - root.toolbar-width - 12px)) : (root.width - root.toolbar-width) / 2;
+    property <bool> properties-visible: root.object-panel || root.color-tool || root.tool == 6;
+    out property <length> toolbar-total-height: root.toolbar-height + (root.properties-visible ? 8px + root.panel-height : 0px);
+    out property <length> toolbar-x: !root.color-only && root.toolbar-position == 0 ? max(12px, min((root.left + root.wide) * root.sx * 1px - root.toolbar-width, root.width - root.toolbar-width - 12px)) : (root.width - root.toolbar-width) / 2;
     property <length> below: (root.top + root.high) * root.sy * 1px + 12px;
     property <length> above: root.top * root.sy * 1px - root.toolbar-total-height - 12px;
     property <length> safe-top: max(12px, min(70px, root.height - root.toolbar-total-height - 12px));
@@ -272,7 +291,7 @@ export component CaptureProbe inherits Window {
         { label: root.labels.undo, tool: -1, action: "undo", enabled: !root.busy && root.can-undo },
         { label: root.labels.redo, tool: -1, action: "redo", enabled: !root.busy && root.can-redo },
         { label: root.labels.save, tool: -1, action: "save", enabled: !root.busy && root.output-ready },
-        { label: root.labels.copy, tool: -1, action: "copy", enabled: !root.busy && root.output-ready },
+        { label: root.labels.finish, tool: -1, action: "finish", enabled: !root.busy && root.output-ready },
         { label: root.labels.cancel, tool: -1, action: "cancel-toolbar", enabled: true },
         { label: root.labels.toolbar-more, tool: -1, action: "toolbar-more", enabled: !root.busy },
         { label: root.labels.toolbar-customize, tool: -1, action: "toolbar-customize", enabled: !root.busy && !root.text-editing },
@@ -358,19 +377,27 @@ export component CaptureProbe inherits Window {
             mouse-cursor: root.tool != 0 || root.cursor == 0 ? crosshair : root.cursor == 1 ? move : root.cursor == 2 ? ew-resize : root.cursor == 3 ? ns-resize : root.cursor == 4 ? nwse-resize : nesw-resize;
             pointer-event(event) => {
                 if event.kind == PointerEventKind.cancel { root.pointer(3, 0, 0); }
+                // `moved` only fires during a pointer grab. Move events also
+                // arrive with no button pressed and drive window preselection.
+                if event.kind == PointerEventKind.move {
+                    if self.pressed {
+                        root.pointer(1, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy);
+                    } else {
+                        root.hover(self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy);
+                    }
+                }
                 if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) { root.pointer(0, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); }
                 if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) { root.pointer(2, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); }
                 if (event.button == PointerEventButton.right && event.kind == PointerEventKind.up) { root.action("cancel-pointer"); }
             }
-            moved => { if (self.pressed) { root.pointer(1, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); } else { root.hover(self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); } }
             changed has-hover => { if !self.has-hover { root.canvas-left(); } }
             double-clicked => { if root.selected && root.tool == 0 { root.action("finish"); } }
         }
         capture-info := Rectangle {
-            visible: root.service-notice != "" || !(root.selected && root.tool == 6 && root.height < 300px);
+            visible: root.service-notice != "" || root.auto-save-failed || !root.output-ready;
             x: (parent.width - self.width) / 2; y: root.height < 300px ? 4px : 18px; width: min(parent.width - 40px, 1000px); height: min(root.height < 300px ? (root.auto-save-failed ? 78px : 38px) : parent.height / 3, info.preferred-height + 24px + (root.auto-save-failed ? 40px : 0px));
             background: root.surface; border-radius: 6px; border-width: root.contrast ? 2px : 1px; border-color: root.line;
-            info := Text { x: 12px; y: 12px; width: parent.width - 24px; height: parent.height - 24px - (root.auto-save-failed ? 40px : 0px); text: root.info-text; color: root.ink; wrap: word-wrap; overflow: elide; }
+            info := Text { x: 12px; y: 12px; width: parent.width - 24px; height: parent.height - 24px - (root.auto-save-failed ? 40px : 0px); text: root.service-notice + ((root.auto-save-failed || !root.output-ready) ? (root.service-notice == "" ? "" : "\n") + root.status : ""); color: root.ink; wrap: word-wrap; overflow: elide; }
             if root.auto-save-failed: Button { x: 12px; y: parent.height - 44px; height: 32px; width: min(parent.width - 24px, 420px); text: root.labels.save-elsewhere; enabled: root.background-active && (!root.busy); clicked => { root.action("save-without-auto"); } }
         }
         selection-metrics := Rectangle {
@@ -392,6 +419,15 @@ export component CaptureProbe inherits Window {
             TouchArea { enabled: root.background-active && (!root.color-only); pointer-event(event) => { if event.button == PointerEventButton.right && event.kind == PointerEventKind.up { root.toolbar-command("open", 0, 0); } } }
             if root.color-only: Text { x: 12px; y: 6px; width: max(0px,parent.width - 124px); height: 30px; text: root.labels.color-picker; color: root.ink; vertical-alignment: center; overflow: elide; }
             if root.color-only: Button { enabled: root.background-active; x: parent.width - 100px; y: 6px; width: 88px; height: 30px; text: root.labels.cancel; clicked => { root.action("cancel-toolbar"); } }
+            toolbar-scroll := ScrollView {
+                viewport-x <=> root.toolbar-scroll-x;
+                viewport-y <=> root.toolbar-scroll-y;
+                visible: !root.color-only;
+                x: root.single-row ? 6px : 0px;
+                width: parent.width - (root.single-row ? 12px : 0px); height: parent.height;
+                horizontal-step: root.cell-width;
+                content-width: root.toolbar-content-width - (root.single-row ? 12px : 0px);
+                content-height: root.toolbar-content-height;
             for catalog-index[index] in root.color-only ? [] : root.toolbar-items: Rectangle {
                 property <CaptureAction> item: root.actions[catalog-index];
                 forward-focus: item-focus;
@@ -401,34 +437,41 @@ export component CaptureProbe inherits Window {
                 accessible-checkable: self.item.tool >= 0;
                 accessible-checked: self.item.tool >= 0 && root.tool == self.item.tool;
                 accessible-action-default => { root.activate-toolbar(catalog-index); }
-                x: 7px + mod(index, root.columns) * (parent.width - 14px) / root.columns;
-                y: 7px + floor(index / root.columns) * root.row-height;
-                width: (parent.width - 14px) / root.columns - 4px; height: root.row-height - 4px;
-                border-radius: 5px; border-width: item-focus.has-focus || (self.item.tool >= 0 && root.tool == self.item.tool) ? 2px : 0px;
-                border-color: root.accent; background: transparent;
+                x: (root.single-row ? 0px : 6px) + mod(index, root.columns) * root.cell-width;
+                y: 5px + floor(index / root.columns) * root.row-height;
+                width: root.cell-width - 2px; height: root.row-height - 4px;
+                border-radius: 4px; border-width: item-focus.has-focus ? 1px : 0px;
+                border-color: root.accent; background: self.item.tool >= 0 && root.tool == self.item.tool ? root.accent.with-alpha(0.12) : tool-touch.has-hover ? root.ink.with-alpha(0.06) : transparent;
                 item-focus := FocusScope {
                     enabled: root.background-active && (parent.item.enabled && root.toolbar-modal == 0);
-                    changed has-focus => { if self.has-focus { root.toolbar-focus-index = index; } else if root.toolbar-focus-index == index { root.toolbar-focus-index = -1; } }
+                    changed has-focus => { if self.has-focus {
+                        root.toolbar-focus-index = index;
+                        if (root.toolbar-layout == 1 || root.toolbar-layout == 3) { toolbar-scroll.viewport-x = min(0px, max(root.toolbar-width - root.toolbar-content-width, -index * root.cell-width)); }
+                        else { toolbar-scroll.viewport-y = min(0px, max(root.toolbar-height - root.toolbar-content-height, -floor(index / max(1, root.columns)) * root.row-height)); }
+                    } else if root.toolbar-focus-index == index { root.toolbar-focus-index = -1; } }
                     key-pressed(event) => { if event.text == Key.Return || event.text == " " { root.activate-toolbar(catalog-index); return accept; } return reject; }
                 }
-                if root.toolbar-groups && (catalog-index == 9 || catalog-index == 16): Rectangle { width: 1px; height: parent.height - 6px; y: 3px; background: root.line; }
-                Image { x: root.toolbar-icons ? (parent.width - 17px) / 2 : 5px; y: (parent.height - 17px) / 2; width: 17px; height: 17px; source: root.toolbar-images[catalog-index]; colorize: root.ink; opacity: parent.item.enabled ? 1 : 0.4; }
-                if !root.toolbar-icons: Text { x: 25px; width: max(0px, parent.width - 28px); height: parent.height; text: parent.item.label; color: root.ink; opacity: parent.item.enabled ? 1 : 0.4; vertical-alignment: center; overflow: elide; font-size: root.toolbar-width < 380px ? 10px : 12px; }
+                Image { x: root.toolbar-icons || catalog-index == 12 ? (parent.width - 17px) / 2 : 5px; y: (parent.height - 17px) / 2; width: 17px; height: 17px; source: root.toolbar-images[catalog-index]; colorize: catalog-index == 13 ? #e54b58 : catalog-index == 12 ? #209d55 : root.ink; opacity: parent.item.enabled ? 1 : 0.4; }
+                if !root.toolbar-icons && catalog-index != 12: Text { x: 25px; width: max(0px, parent.width - 28px); height: parent.height; text: parent.item.label; color: root.ink; opacity: parent.item.enabled ? 1 : 0.4; vertical-alignment: center; overflow: elide; font-size: root.toolbar-width < 380px ? 10px : 12px; }
                 tool-touch := TouchArea {
                     enabled: root.background-active && (parent.item.enabled && root.toolbar-modal == 0);
                     changed has-hover => { if self.has-hover { root.toolbar-hover-index = index; } else if root.toolbar-hover-index == index { root.toolbar-hover-index = -1; } }
+                    scroll-event(event) => {
+                        if (root.toolbar-layout == 1 || root.toolbar-layout == 3) && root.toolbar-content-width > root.toolbar-width {
+                            root.toolbar-scroll-x = min(0px, max(root.toolbar-width - root.toolbar-content-width, root.toolbar-scroll-x + (event.delta-x != 0px ? (event.delta-x > 0px ? 1 : -1) * max(1, round(abs(event.delta-x) / root.cell-width)) * root.cell-width : (event.delta-y > 0px ? 1 : -1) * max(1, round(abs(event.delta-y) / root.cell-width)) * root.cell-width)));
+                            return accept;
+                        }
+                        return reject;
+                    }
                     clicked => { root.activate-toolbar(catalog-index); }
                     pointer-event(event) => { if event.button == PointerEventButton.right && event.kind == PointerEventKind.up { root.toolbar-command("open", 0, 0); } }
                 }
             }
+            }
             Rectangle {
+                visible: root.properties-visible;
                 y: parent.height + 8px; width: parent.width; height: root.panel-height;
                 background: root.surface; border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 6px;
-                if !root.color-tool && root.tool != 6 && !root.object-panel: Text {
-                    x: 12px; y: 6px; width: parent.width - (root.tool == 0 && root.object-selected ? 132px : 24px); height: parent.height - 12px;
-                    text: root.tool == 0 ? (root.object-selected ? root.labels.object-hint : root.labels.select-hint) : root.tool == 7 ? root.labels.pixelate-hint : root.labels.redact-hint;
-                    color: root.muted; wrap: word-wrap; vertical-alignment: center;
-                }
                 if root.object-panel: Rectangle {
                     property <bool> editable: !root.busy && !root.text-editing && !root.text-busy;
                     Text { x: 12px; y: 4px; width: parent.width - 24px; height: 24px;
@@ -539,15 +582,16 @@ export component CaptureProbe inherits Window {
         }
     }
     if root.loupe-visible: Rectangle {
-        x: root.loupe-x * 1px; y: root.loupe-y * 1px; width: 176px; height: 184px;
-        background: root.surface; border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 6px;
-        Text { x: 4px; y: 6px; width: parent.width - 8px; height: 18px; text: root.labels.magnifier; color: root.ink; horizontal-alignment: center; font-size: 11px; }
-        Rectangle { x: 33px; y: 28px; width: 110px; height: 110px; background: root.muted;
-            Image { width: 110px; height: 110px; source: root.loupe-image; image-rendering: pixelated; }
-            Rectangle { x: 50px; y: 50px; width: 10px; height: 10px; border-width: 1px; border-color: #ed6571; }
+        x: root.loupe-x * 1px; y: root.loupe-y * 1px; width: 124px; height: 158px;
+        background: #161616; border-width: 1px; border-color: root.contrast ? #ffffff : #8b8b8b;
+        Rectangle { x: 1px; y: 1px; width: 122px; height: 122px; background: #161616;
+            Image { width: 122px; height: 122px; source: root.loupe-image; image-rendering: pixelated; }
+            Rectangle { x: 60px; width: 1px; height: parent.height; background: #4295d9; }
+            Rectangle { y: 60px; width: parent.width; height: 1px; background: #4295d9; }
+            Rectangle { x: 55px; y: 55px; width: 12px; height: 12px; border-width: 1px; border-color: #b1daf7; }
         }
-        Text { x: 4px; y: 141px; width: parent.width - 8px; height: 18px; text: root.loupe-hex; color: root.ink; horizontal-alignment: center; font-size: 11px; }
-        Text { x: 4px; y: 161px; width: parent.width - 8px; height: 18px; text: root.loupe-position; color: root.muted; horizontal-alignment: center; font-size: 11px; }
+        Text { x: 2px; y: 124px; width: parent.width - 4px; height: 16px; text: root.loupe-position; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; font-weight: 400; }
+        Text { x: 2px; y: 140px; width: parent.width - 4px; height: 16px; text: "HEX: " + root.loupe-hex; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; font-weight: 400; }
     }
 
     font-picker := FontPicker {

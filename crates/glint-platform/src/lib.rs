@@ -15,7 +15,7 @@ mod text_raster;
 #[cfg(all(windows, feature = "windows-bindings"))]
 pub use clipboard_diagnostic::ClipboardBlocker;
 #[cfg(all(windows, feature = "windows-bindings"))]
-pub use fonts::installed_font_families;
+pub use fonts::{installed_font_families, system_ui_font_family};
 #[cfg(all(windows, feature = "windows-bindings"))]
 mod folder_dialog;
 #[cfg(all(windows, feature = "windows-bindings"))]

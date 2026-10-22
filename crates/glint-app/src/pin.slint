@@ -2,6 +2,7 @@ import { Motion } from "widgets/motion.slint";
 import { Button, Slider, ScrollView, Palette } from "widgets/widgets.slint";
 export struct PinLabels { pin: string, locked: string, close: string, top: string, unlock: string, lock: string, hide: string, planned: string, copy: string, save: string, retry: string, dismiss: string, pass: string, pass_off: string, pass_title: string, pass_body: string, pass_enable: string, cancel: string, rotate: string, edit: string }
 export component DesktopPin inherits Window {
+    default-font-family: Motion.ui-font-family;
     in-out property <bool> reduce-motion <=> Motion.reduced;
     in property <float> interface-scale;
     title: "Glint Pin " + root.identity;

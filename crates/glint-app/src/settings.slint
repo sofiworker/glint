@@ -56,7 +56,89 @@ component GlintChoice inherits Rectangle {
     changed selected-index => { root.sync(); }
     changed choices => { root.sync(); }
 }
+component InlineShortcut inherits FocusScope {
+    in property <string> value;
+    in property <string> hint;
+    in property <string> placeholder;
+    in property <string> cancel-label;
+    in property <string> clear-label;
+    in property <string> accept-label;
+    in property <bool> can-clear;
+    in property <bool> can-accept;
+    in property <bool> invalid;
+    in property <int> focus-request;
+    in property <color> accent;
+    in property <color> ink;
+    in property <color> muted;
+    in property <color> line;
+    callback input(string, bool, bool, bool, bool);
+    callback action(string);
+    out property <bool> cancel-focused: cancel.has-focus;
+    out property <bool> recording-focused: input.has-focus;
+    out property <bool> clear-focused: clear.has-focus;
+    out property <bool> accept-focused: confirm.has-focus;
+    callback focus-state(bool, bool, bool, bool);
+    function report-focus() { root.focus-state(input.has-focus, clear.has-focus, confirm.has-focus, cancel.has-focus); }
+    changed recording-focused => { root.report-focus(); }
+    changed clear-focused => { root.report-focus(); }
+    changed accept-focused => { root.report-focus(); }
+    changed cancel-focused => { root.report-focus(); }
+    changed focus-request => { input.focus(); root.report-focus(); }
+    init => { input.focus(); root.report-focus(); }
+    focus-on-tab-navigation: false;
+    focus-on-click: false;
+    key-pressed(event) => {
+        if event.text == Key.Escape { root.action("continue"); return accept; }
+        if event.text == Key.Tab || event.text == Key.Backtab {
+            if event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
+            if input.has-focus {
+                if !event.modifiers.shift { cancel.focus(); }
+                else if root.can-accept { confirm.focus(); }
+                else if root.can-clear { clear.focus(); }
+                else { cancel.focus(); }
+            } else if cancel.has-focus {
+                if event.modifiers.shift { input.focus(); }
+                else if root.can-clear { clear.focus(); }
+                else if root.can-accept { confirm.focus(); }
+                else { input.focus(); }
+            } else if clear.has-focus {
+                if event.modifiers.shift { cancel.focus(); }
+                else if root.can-accept { confirm.focus(); }
+                else { input.focus(); }
+            } else if event.modifiers.shift {
+                if root.can-clear { clear.focus(); } else { cancel.focus(); }
+            } else { input.focus(); }
+            return accept;
+        }
+        return reject;
+    }
+    Rectangle { x: 0px; y: 0px; width: parent.width; height: 42px; border-width: 1px; border-color: root.invalid ? #d04452 : root.accent; border-radius: 6px;
+        background: transparent;
+        Text { x: 12px; width: parent.width - 24px; height: parent.height; text: root.value == "" ? root.placeholder : root.value; color: root.value == "" ? root.muted : root.ink; vertical-alignment: center; font-size: 15px; }
+        input := FocusScope {
+            width: parent.width; height: parent.height; focus-on-tab-navigation: false; focus-on-click: false;
+            accessible-role: groupbox; accessible-label: root.placeholder;
+            focus-changed-event => { root.report-focus(); }
+            key-pressed(event) => {
+                if event.text == Key.Escape { return reject; }
+                if (event.text == Key.Tab || event.text == Key.Backtab) && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta { return reject; }
+                if event.text == Key.Return && root.can-accept && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.shift && !event.modifiers.meta { root.action("accept-key"); return accept; }
+                root.input(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                return accept;
+            }
+        }
+        TouchArea { clicked => { input.focus(); } }
+        if input.has-focus: Rectangle { x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px; border-width: 1px; border-color: root.accent; border-radius: 8px; background: transparent; }
+    }
+    Text { y: 52px; width: parent.width; height: parent.height - 102px; text: root.hint; color: root.invalid ? #d04452 : root.muted; font-size: 12px; wrap: word-wrap; }
+    HorizontalBox { y: parent.height - 36px; width: parent.width; height: 36px; padding: 0px; spacing: 8px;
+        cancel := Button { text: root.cancel-label; clicked => { root.action("continue"); } }
+        clear := Button { text: root.clear-label; enabled: root.can-clear; clicked => { root.action("clear-key"); } }
+        confirm := AccentButton { text: root.accept-label; accent: root.accent; enabled: root.can-accept; clicked => { root.action("accept-key"); } }
+    }
+}
 export component SettingsWindow inherits Window {
+    icon: @image-url("../../../assets/brand/glint-app.svg");
     in-out property <bool> font-open;
     in property <bool> font-english;
     in property <bool> folder-busy;
@@ -123,7 +205,7 @@ export component SettingsWindow inherits Window {
     in property <bool> diagnostic-marker: false;
     title: "拾光 · Glint";
     preferred-width: 1040px; preferred-height: 760px; min-width: 650px; min-height: 360px;
-    default-font-family: "Microsoft YaHei UI"; default-font-size: 14px;
+    default-font-family: Motion.ui-font-family; default-font-size: 14px;
     in property <bool> dark;
     in property <bool> contrast;
     in property <color> accent: #4b5cfa;
@@ -139,9 +221,14 @@ export component SettingsWindow inherits Window {
     in property <[int]> toolbar-items;
     in property <[string]> toolbar-labels;
     in property <[string]> toolbar-names;
+    in property <int> toolbar-layout: 3;
+    in property <int> toolbar-columns: 8;
+    in property <int> toolbar-grid-rows: 2;
+    in property <int> toolbar-width-setting: 640;
     in property <bool> toolbar-icons;
     in property <int> toolbar-position;
     in property <bool> toolbar-groups;
+    in property <bool> toolbar-customize-visible: true;
     callback toolbar-command(string, int, int);
     in-out property <int> category;
     in property <string> heading;
@@ -167,6 +254,8 @@ export component SettingsWindow inherits Window {
     in property <string> modal-title;
     in property <string> modal-body;
     in property <string> continue-label;
+    in property <string> scale-keep-label;
+    in property <string> scale-revert-label;
     in property <string> discard-label;
     in property <string> save-leave-label;
     in property <string> clear-label;
@@ -182,30 +271,36 @@ export component SettingsWindow inherits Window {
     callback record(string);
     callback shortcut-input(string, bool, bool, bool, bool);
     callback registered-shortcut(int);
+    in-out property <string> recording-key;
+    in property <string> shortcut-value;
+    in property <bool> shortcut-invalid;
+    property <int> recorder-focus-request;
+    in-out property <bool> shortcut-cancel-focused;
+    in-out property <bool> shortcut-recorder-focused;
+    in-out property <bool> shortcut-clear-focused;
+    in-out property <bool> shortcut-accept-focused;
     public function apply-theme(value: bool) { Palette.color-scheme = value ? ColorScheme.dark : ColorScheme.light; }
-    public function focus-recorder() { if root.modal == 3 { shortcut-recorder.focus(); } else { recorder.focus(); } }
-    out property <bool> shortcut-recorder-focused: shortcut-recorder.has-focus;
-    out property <bool> shortcut-clear-focused: shortcut-clear.has-focus;
-    out property <bool> shortcut-accept-focused: shortcut-accept.has-focus;
+    public function focus-recorder() { if root.modal == 3 { root.recorder-focus-request += 1; } else { recorder.focus(); } }
     property <bool> background-active: !root.font-open && root.modal == 0;
-    out property <bool> modal-cancel-focused: root.modal == 4 ? transfer-cancel.has-focus : decision-cancel.has-focus;
-    out property <bool> modal-action-focused: root.modal == 4 ? (transfer-select.has-focus || transfer-apply.has-focus) : (decision-confirm.has-focus || decision-discard.has-focus || decision-save.has-focus);
+    out property <bool> modal-cancel-focused: root.modal == 3 ? root.shortcut-cancel-focused : root.modal == 4 ? transfer-cancel.has-focus : decision-cancel.has-focus;
+    out property <bool> modal-action-focused: root.modal == 3 ? (root.shortcut-clear-focused || root.shortcut-accept-focused) : root.modal == 4 ? (transfer-select.has-focus || transfer-apply.has-focus) : (decision-confirm.has-focus || decision-discard.has-focus || decision-save.has-focus);
     public function show-modal(kind: int) {
         // Move focus before disabling its old owner (Slint FocusOut needs enabled).
         let previous = root.modal;
         recorder.focus();
         root.modal = kind;
+        if kind != 3 { root.recording-key = ""; root.shortcut-cancel-focused = false; root.shortcut-recorder-focused = false; root.shortcut-clear-focused = false; root.shortcut-accept-focused = false; }
         if kind == 0 {
             if previous == 2 && root.guide-step < 0 && !root.workbench { settings-reset.focus(); }
             else { header-close.focus(); }
         }
         else if kind == 4 { transfer-cancel.focus(); }
-        else if kind == 3 { shortcut-recorder.focus(); }
+        else if kind == 3 { root.recorder-focus-request += 1; }
         else { decision-cancel.focus(); }
     }
 
     Rectangle { x: 0px; y: 0px; width: parent.width; height: 92px; background: root.surface;
-        Text { x: 28px; y: 18px; text: root.heading; color: root.ink; font-size: 24px; font-weight: 600; }
+        Text { x: 28px; y: 18px; text: root.heading; color: root.ink; font-size: 24px; font-weight: 500; }
         Text { x: 28px; y: 55px; width: parent.width - 260px; text: root.subtitle; color: root.muted; font-size: 12px; }
         header-close := Button { x: parent.width - 192px; y: 27px; width: 164px; text: root.close-label; enabled: root.background-active; clicked => { root.action("close"); } }
         Rectangle { x: 0px; width: parent.width; y: parent.height - 1px; height: 1px; background: root.line; }
@@ -240,11 +335,11 @@ export component SettingsWindow inherits Window {
     if !root.workbench: ScrollView { x: root.guide-step < 0 ? 190px : 0px; y: 92px; width: parent.width - self.x; height: parent.height - 160px; content-width: self.visible-width;
         viewport-y <=> root.page-scroll-y;
         VerticalBox { padding: 28px; spacing: 14px; alignment: start;
-            Text { vertical-stretch: 0; text: root.guide-step < 0 ? root.categories[root.category] : root.guide-title; color: root.ink; font-size: 21px; font-weight: 600; }
+            Text { vertical-stretch: 0; text: root.guide-step < 0 ? root.categories[root.category] : root.guide-title; color: root.ink; font-size: 21px; font-weight: 500; }
             Text { vertical-stretch: 0; text: root.page-note; color: root.muted; wrap: word-wrap; }
             if root.guide-step < 0 && root.category == 10: VerticalBox {
                 padding: 16px; spacing: 12px;
-                Text { vertical-stretch: 0; text: root.diagnostics-title; color: root.ink; font-weight: 600; }
+                Text { vertical-stretch: 0; text: root.diagnostics-title; color: root.ink; font-weight: 400; }
                 Text { vertical-stretch: 0; text: root.diagnostics-hint; color: root.muted; wrap: word-wrap; }
                 Button { text: root.diagnostics-refresh; enabled: root.background-active && (!root.diagnostics-busy); clicked => { root.action("diagnostics-refresh"); } }
                 Text { vertical-stretch: 0; text: root.diagnostics-body; color: root.ink; wrap: word-wrap; }
@@ -260,7 +355,7 @@ export component SettingsWindow inherits Window {
             }
             if root.category == 3 && root.guide-step < 0: ToolbarEditor {
                 rows: root.toolbar-rows; items: root.toolbar-items; labels: root.toolbar-labels; names: root.toolbar-names;
-                icons: root.toolbar-icons; position: root.toolbar-position; groups: root.toolbar-groups;
+                icons: root.toolbar-icons; position: root.toolbar-position; groups: root.toolbar-groups; customize-visible: root.toolbar-customize-visible; layout: root.toolbar-layout; columns: root.toolbar-columns; rows-count: root.toolbar-grid-rows; row-width: root.toolbar-width-setting;
                 writable: root.background-active && root.writable; ink: root.ink; muted: root.muted; line: root.line;
                 command(name, row, value) => { root.toolbar-command(name, row, value); }
             }
@@ -268,14 +363,14 @@ export component SettingsWindow inherits Window {
                 padding: 0px; spacing: 10px;
                 if root.guide-step < 0 && row.section != "": Text {
                     vertical-stretch: 0; text: row.section; color: root.ink;
-                    font-size: 16px; font-weight: 600; wrap: word-wrap;
+                    font-size: 16px; font-weight: 400; wrap: word-wrap;
                 }
                 Rectangle {
                     vertical-stretch: 0;
-                    height: row.kind == 5 ? 164px : root.compact-form ? max(164px, field-title.preferred-height + field-description.preferred-height + 100px) : max(94px, field-description.y + field-description.preferred-height + 16px); background: root.surface;
+                    height: root.modal == 3 && root.recording-key == row.key ? (root.compact-form ? 222px : 196px) : row.kind == 5 ? 164px : root.compact-form ? max(164px, field-title.preferred-height + field-description.preferred-height + 100px) : max(94px, field-description.y + field-description.preferred-height + 16px); background: root.surface;
                     border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 7px;
-                    field-title := Text { x: 18px; y: 16px; width: row.kind == 5 || root.compact-form ? parent.width - 36px : parent.width - 316px; text: row.title; color: root.ink; font-weight: 600; wrap: word-wrap; }
-                    field-description := Text { visible: row.kind != 5; x: 18px; y: max(root.compact-form ? 0px : 46px, field-title.y + field-title.preferred-height + 8px); width: root.compact-form ? parent.width - 36px : parent.width - 316px; text: row.description; color: root.muted; font-size: 12px; wrap: word-wrap; }
+                    field-title := Text { x: 18px; y: 16px; width: row.kind == 5 || root.compact-form ? parent.width - 36px : parent.width - 316px; text: row.title; color: root.ink; font-weight: 400; wrap: word-wrap; }
+                    field-description := Text { visible: row.kind != 5 && row.description != "" && !(root.modal == 3 && root.recording-key == row.key); x: 18px; y: max(root.compact-form ? 0px : 46px, field-title.y + field-title.preferred-height + 8px); width: root.compact-form ? parent.width - 36px : parent.width - 316px; text: row.description; color: root.muted; font-size: 12px; wrap: word-wrap; }
                     if row.kind == 0: GlintCheck { x: parent.width - 58px; y: root.compact-form ? parent.height - 48px : 30px; label: row.title; accent: root.accent; line: root.line; enabled: root.background-active && (row.editable); checked: row.checked; toggled(value) => { root.change(row.key, value ? "true" : "false"); } }
                     if row.kind == 1: GlintChoice { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; height: 32px; enabled: root.background-active && (row.editable); choices: row.options; selected-index: row.selected; selected(value) => { root.change(row.key, value); } }
                     if row.kind == 2 && row.key != "annotation.text_font" && row.key != "output.directory": LineEdit { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; enabled: root.background-active && (row.editable); text: row.text; edited(value) => { root.change(row.key, value); } }
@@ -295,7 +390,17 @@ export component SettingsWindow inherits Window {
                         Slider { enabled: root.background-active && (row.editable); minimum: row.minimum; maximum: row.maximum; value: row.number; changed(value) => { root.change(row.key, round(value) + ""); } }
                         Text { width: 48px; text: round(row.number); color: root.ink; horizontal-alignment: right; vertical-alignment: center; }
                     }
-                    if row.kind == 4: Button { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; enabled: root.background-active && (row.editable); text: row.text == "" ? root.unbound-label : row.text; clicked => { root.record(row.key); } }
+                    if row.kind == 4 && !(root.modal == 3 && root.recording-key == row.key): Button { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; enabled: (root.background-active || root.modal == 3) && row.editable; text: row.text == "" ? root.unbound-label : row.text; clicked => { root.record(row.key); } }
+                    if row.kind == 4 && root.modal == 3 && root.recording-key == row.key: InlineShortcut {
+                        x: 18px; y: max(50px, field-title.y + field-title.preferred-height + 12px); width: parent.width - 36px; height: parent.height - self.y - 18px;
+                        focus-state(recording, clear, confirm, cancel) => { root.shortcut-recorder-focused = recording; root.shortcut-clear-focused = clear; root.shortcut-accept-focused = confirm; root.shortcut-cancel-focused = cancel; }
+                        value: root.shortcut-value; hint: root.modal-body; placeholder: root.modal-title;
+                        can-clear: root.can-clear; can-accept: root.can-accept; invalid: root.shortcut-invalid; focus-request: root.recorder-focus-request;
+                        cancel-label: root.cancel-label; clear-label: root.clear-label; accept-label: root.accept-key-label;
+                        accent: root.accent; ink: root.ink; muted: root.muted; line: root.line;
+                        input(text, control, alt, shift, meta) => { root.shortcut-input(text, control, alt, shift, meta); }
+                        action(name) => { root.action(name); }
+                    }
                     if row.kind == 5: Text { x: 18px; y: 48px; width: parent.width - 36px; height: parent.height - 64px; text: row.text; color: root.muted; wrap: word-wrap; }
                     if row.kind == 6: HorizontalBox { x: root.compact-form ? 18px : parent.width - 220px; y: root.compact-form ? parent.height - 48px : 30px; width: 200px; height: 34px; padding: 0px; spacing: 12px;
                         for color[index] in row.colors: Rectangle { width: 32px; height: 32px; background: color; border-radius: 16px; border-width: 3px; border-color: row.selected == index ? root.ink : transparent;
@@ -383,26 +488,7 @@ export component SettingsWindow inherits Window {
                 root.action(root.modal == 4 ? "config-transfer-cancel" : "continue"); return accept;
             }
             if event.text == Key.Tab || event.text == Key.Backtab {
-                if root.modal == 3 {
-                    if event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
-                    if shortcut-recorder.has-focus {
-                        if !event.modifiers.shift { decision-cancel.focus(); }
-                        else if root.can-accept { shortcut-accept.focus(); }
-                        else if root.can-clear { shortcut-clear.focus(); }
-                        else { decision-cancel.focus(); }
-                    } else if decision-cancel.has-focus {
-                        if event.modifiers.shift { shortcut-recorder.focus(); }
-                        else if root.can-clear { shortcut-clear.focus(); }
-                        else if root.can-accept { shortcut-accept.focus(); }
-                        else { shortcut-recorder.focus(); }
-                    } else if shortcut-clear.has-focus {
-                        if event.modifiers.shift { decision-cancel.focus(); }
-                        else if root.can-accept { shortcut-accept.focus(); }
-                        else { shortcut-recorder.focus(); }
-                    } else if event.modifiers.shift {
-                        if root.can-clear { shortcut-clear.focus(); } else { decision-cancel.focus(); }
-                    } else { shortcut-recorder.focus(); }
-                } else if root.modal == 4 {
+                if root.modal == 4 {
                     if root.transfer-busy { transfer-cancel.focus(); }
                     else if transfer-cancel.has-focus {
                         if event.modifiers.shift && root.transfer-can-apply { transfer-apply.focus(); }
@@ -430,18 +516,18 @@ export component SettingsWindow inherits Window {
     Rectangle { visible: root.modal == 4; width: parent.width; height: parent.height; background: #10182799;
         TouchArea {}
         Rectangle { x: 36px; y: 36px; width: parent.width - 72px; height: parent.height - 72px; background: root.surface; border-radius: 9px; border-width: 1px; border-color: root.line;
-            Text { x: 24px; y: 20px; width: parent.width - 48px; height: 30px; text: root.transfer-title; color: root.ink; font-size: 22px; font-weight: 600; }
+            Text { x: 24px; y: 20px; width: parent.width - 48px; height: 30px; text: root.transfer-title; color: root.ink; font-size: 22px; font-weight: 400; }
             if root.height >= 650px: Text { x: 24px; y: 60px; width: parent.width - 48px; height: 112px; text: root.transfer-hint; wrap: word-wrap; color: root.muted; font-size: 13px; }
             if root.height >= 650px: ScrollView { x: 24px; y: 180px; width: parent.width - 48px; height: parent.height - 326px; content-width: self.visible-width;
                 VerticalBox { padding: 12px; alignment: start;
-                    Text { text: root.transfer-body; color: root.ink; wrap: word-wrap; font-family: "Cascadia Mono"; font-size: 12px; vertical-stretch: 0; }
+                    Text { text: root.transfer-body; color: root.ink; wrap: word-wrap; font-size: 12px; vertical-stretch: 0; }
                 }
             }
             if root.height >= 650px: Text { x: 24px; y: parent.height - 136px; width: parent.width - 48px; height: 64px; text: root.transfer-status; wrap: word-wrap; color: root.ink; font-size: 12px; }
             if root.height < 650px: ScrollView { x: 24px; y: 60px; width: parent.width - 48px; height: parent.height - 136px; content-width: self.visible-width;
                 VerticalBox { padding: 8px; spacing: 14px; alignment: start;
                     Text { text: root.transfer-hint; wrap: word-wrap; color: root.muted; font-size: 13px; vertical-stretch: 0; }
-                    Text { text: root.transfer-body; color: root.ink; wrap: word-wrap; font-family: "Cascadia Mono"; font-size: 12px; vertical-stretch: 0; }
+                    Text { text: root.transfer-body; color: root.ink; wrap: word-wrap; font-size: 12px; vertical-stretch: 0; }
                     Text { text: root.transfer-status; wrap: word-wrap; color: root.ink; font-size: 12px; vertical-stretch: 0; }
                 }
             }
@@ -452,38 +538,22 @@ export component SettingsWindow inherits Window {
             }
         }
     }
-    Rectangle { visible: root.modal > 0 && root.modal != 4; x: 0px; y: 0px; width: parent.width; height: parent.height; background: #10182799;
+    Rectangle { visible: root.modal > 0 && root.modal != 3 && root.modal != 4; x: 0px; y: 0px; width: parent.width; height: parent.height; background: #10182799;
         TouchArea {}
-        Rectangle { x: (parent.width - self.width)/2; y: (parent.height - self.height)/2; width: 580px; height: 250px;
+        Rectangle { x: (parent.width - self.width)/2; y: (parent.height - self.height)/2; width: root.modal == 8 ? min(520px, parent.width - 24px) : 580px; height: 250px;
             background: root.surface; border-radius: 9px; border-width: 1px; border-color: root.line;
-            Text { x: 24px; y: 24px; width: parent.width - 48px; text: root.modal-title; color: root.ink; font-size: 20px; font-weight: 600; }
+            Text { x: 24px; y: 24px; width: parent.width - 48px; text: root.modal-title; color: root.ink; font-size: 20px; font-weight: 400; }
             Text { x: 24px; y: 70px; width: parent.width - 48px; height: 95px; text: root.modal-body; color: root.muted; wrap: word-wrap; }
-            shortcut-recorder := FocusScope {
-                x: 24px; y: 66px; width: parent.width - 48px; height: 108px;
-                visible: root.modal == 3;
-                focus-on-tab-navigation: false; focus-on-click: false;
-                accessible-role: groupbox; accessible-label: root.modal-title;
-                TouchArea { clicked => { shortcut-recorder.focus(); } }
-                if shortcut-recorder.has-focus: Rectangle { border-width: 1px; border-color: root.accent; border-radius: 4px; background: transparent; }
-                key-pressed(event) => {
-                    if event.text == Key.Escape { return reject; }
-                    if (event.text == Key.Tab || event.text == Key.Backtab) && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta { return reject; }
-                    root.shortcut-input(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
-                    return accept;
-                }
-            }
             Rectangle { x: 24px; y: parent.height - 62px; width: parent.width - 48px; height: 36px;
-                decision-cancel := Button { x: 0px; width: 136px; height: 36px; text: root.modal == 1 ? root.continue-label : (root.modal == 5 || root.modal == 6) ? root.session-cancel-label : root.cancel-label; clicked => { root.action("continue"); } }
+                decision-cancel := Button { x: 0px; width: 136px; height: 36px; text: root.modal == 8 ? root.scale-revert-label : root.modal == 1 ? root.continue-label : (root.modal == 5 || root.modal == 6) ? root.session-cancel-label : root.cancel-label; clicked => { root.action("continue"); } }
                 decision-discard := Button { x: 144px; width: 142px; height: 36px; visible: root.modal == 1; text: root.discard-label; clicked => { root.action("discard-leave"); } }
                 decision-save := AccentButton { x: 294px; width: parent.width - 294px; height: 36px; visible: root.modal == 1; text: root.save-leave-label; accent: root.accent; enabled: !root.font-open && (root.writable); clicked => { root.action("save-leave"); } }
                 decision-confirm := Button {
                     x: parent.width - 160px; width: 160px; height: 36px;
-                    visible: root.modal == 2 || root.modal == 5 || root.modal == 6 || root.modal == 7;
-                    text: root.modal == 5 ? root.session-clear-label : root.modal == 6 ? root.session-exit-label : root.modal == 7 ? root.log-clear : root.reset-label;
-                    clicked => { root.action(root.modal == 5 ? "pin-session-clear-confirm" : root.modal == 6 ? "pin-session-exit-confirm" : root.modal == 7 ? "log-clear-confirm" : "confirm-reset"); }
+                    visible: root.modal == 2 || root.modal == 5 || root.modal == 6 || root.modal == 7 || root.modal == 8;
+                    text: root.modal == 8 ? root.scale-keep-label : root.modal == 5 ? root.session-clear-label : root.modal == 6 ? root.session-exit-label : root.modal == 7 ? root.log-clear : root.reset-label;
+                    clicked => { root.action(root.modal == 8 ? "scale-keep" : root.modal == 5 ? "pin-session-clear-confirm" : root.modal == 6 ? "pin-session-exit-confirm" : root.modal == 7 ? "log-clear-confirm" : "confirm-reset"); }
                 }
-                shortcut-clear := Button { visible: root.modal == 3; x: 144px; width: 142px; height: 36px; text: root.clear-label; enabled: !root.font-open && root.can-clear; clicked => { root.action("clear-key"); } }
-                shortcut-accept := AccentButton { visible: root.modal == 3; x: 294px; width: parent.width - 294px; height: 36px; text: root.accept-key-label; accent: root.accent; enabled: !root.font-open && root.can-accept; clicked => { root.action("accept-key"); } }
             }
         }
     }

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64" fill="none">
+  <title>拾光 · Glint application icon</title>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#4B5CFA"/>
+  <path d="M25 15h-5a5 5 0 0 0-5 5v5m24-10h5a5 5 0 0 1 5 5v5M15 39v5a5 5 0 0 0 5 5h5m14 0h5a5 5 0 0 0 5-5v-5" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <path d="M33 21c1.3 6.2 3.8 8.7 10 10-6.2 1.3-8.7 3.8-10 10-1.3-6.2-3.8-8.7-10-10 6.2-1.3 8.7-3.8 10-10Z" fill="#FFD493"/>
+</svg>

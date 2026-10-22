@@ -33,7 +33,18 @@ pub fn capture_snapshot_with_cursor(
         Ok(vec![])
     };
     let (windows, detection_error) = match detected {
-        Ok(windows) => (windows, None),
+        Ok(mut windows) => {
+            // Only external windows belong to the frozen desktop's detection map.
+            // Keep visible_windows() general for pin snapping and diagnostics.
+            windows.retain(|candidate| {
+                let mut process = 0;
+                unsafe {
+                    GetWindowThreadProcessId(HWND(candidate.id as *mut _), Some(&mut process));
+                }
+                process != 0 && process != std::process::id()
+            });
+            (windows, None)
+        }
         Err(error) => (vec![], Some(error)),
     };
     let mut point = POINT::default();
@@ -77,10 +88,18 @@ fn candidate(window: HWND) -> Option<WindowCandidate> {
         if !IsWindowVisible(window).as_bool() || IsIconic(window).as_bool() {
             return None;
         }
+        let mut class = [0u16; 64];
+        let length = GetClassNameW(window, &mut class) as usize;
+        let class_is = |text: &str| class[..length].iter().copied().eq(text.encode_utf16());
+        let taskbar = class_is("Shell_TrayWnd") || class_is("Shell_SecondaryTrayWnd");
+        if class_is("Progman") || class_is("WorkerW") {
+            return None;
+        }
         let extended_style = WINDOW_EX_STYLE(GetWindowLongW(window, GWL_EXSTYLE) as u32);
         // Ignore nonactivating input-pass-through helper surfaces (including the
         // Windows handwriting canvas). NOACTIVATE/TOOLWINDOW alone are valid targets.
-        if extended_style.contains(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE) {
+        // Explorer taskbars may carry both flags, but are visible capture targets.
+        if !taskbar && extended_style.contains(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE) {
             return None;
         }
         if extended_style.contains(WS_EX_LAYERED) {
@@ -104,14 +123,10 @@ fn candidate(window: HWND) -> Option<WindowCandidate> {
         if GetWindowDisplayAffinity(window, &mut affinity).is_ok() && affinity != WDA_NONE.0 {
             return None;
         }
-        let mut class = [0u16; 64];
-        let length = GetClassNameW(window, &mut class) as usize;
-        let desktop_class = |text: &str| class[..length].iter().copied().eq(text.encode_utf16());
-        if desktop_class("Progman") || desktop_class("WorkerW") {
-            return None;
-        }
         let mut rect = RECT::default();
-        let extended_frame_bounds = DwmGetWindowAttribute(
+        // The taskbar is a shell surface, not a decorated application frame.
+        // Its window rectangle is the visible bar's capture boundary.
+        let extended_frame_bounds = !taskbar && DwmGetWindowAttribute(
             window,
             DWMWA_EXTENDED_FRAME_BOUNDS,
             (&mut rect as *mut RECT).cast(),

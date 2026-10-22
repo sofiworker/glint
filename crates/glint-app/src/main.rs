@@ -4,6 +4,8 @@
 )]
 
 #[cfg(all(feature = "native-shell", windows))]
+mod brand;
+#[cfg(all(feature = "native-shell", windows))]
 mod capture_delay;
 #[cfg(all(feature = "native-shell", windows))]
 mod capture_screen;
@@ -23,6 +25,8 @@ mod font_picker;
 mod input_smoke;
 #[cfg(all(feature = "native-shell", windows))]
 mod interface_scale;
+#[cfg(all(feature = "native-shell", windows))]
+mod scale_preview;
 #[cfg(all(feature = "native-shell", windows))]
 mod lifecycle;
 #[cfg(all(feature = "native-shell", windows))]
@@ -65,6 +69,8 @@ mod settings;
 mod settings_policy_smoke;
 #[cfg(all(feature = "native-shell", windows))]
 mod toolbar;
+#[cfg(all(feature = "native-shell", windows))]
+mod ui_font;
 
 fn main() {
     #[cfg(feature = "native-shell")]
@@ -95,6 +101,8 @@ fn main() {
 
 #[cfg(feature = "native-shell")]
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(windows)]
+    ui_font::initialize()?;
     let args: Vec<_> = std::env::args().skip(1).collect();
     #[cfg(windows)]
     if !args.first().is_some_and(|arg| arg.starts_with("--m0-")) {

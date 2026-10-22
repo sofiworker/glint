@@ -29,3 +29,10 @@ strip = "symbols"
 
 [profile.dev]
 debug = 0
+
+# Keep interactive software rendering usable in the RustRover development build.
+[profile.dev.package.i-slint-renderer-software]
+opt-level = 2
+
+[profile.dev.package.tiny-skia]
+opt-level = 2

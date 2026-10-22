@@ -322,6 +322,81 @@ impl NativePinWindow {
     pub fn is_foreground(&self) -> bool {
         unsafe { GetForegroundWindow() == self.0 }
     }
+    /// Prepare a still-hidden capture overlay before its first visible frame.
+    /// It accepts keyboard focus, but never adds a taskbar button or DWM transition.
+    pub fn prepare_capture_overlay(&self) -> Result<(), String> {
+        self.state()?;
+        self.disable_transitions()?;
+        unsafe {
+            let old = GetWindowLongPtrW(self.0, GWL_EXSTYLE);
+            let style = (old as u32 | WS_EX_TOOLWINDOW.0)
+                & !(WS_EX_APPWINDOW.0 | WS_EX_NOACTIVATE.0 | WS_EX_TRANSPARENT.0);
+            SetLastError(WIN32_ERROR(0));
+            let previous = SetWindowLongPtrW(self.0, GWL_EXSTYLE, style as isize);
+            let error = GetLastError();
+            if previous == 0 && error.0 != 0 {
+                return Err(format!("Capture window style failed: {error:?}"));
+            }
+            if let Err(error) = SetWindowPos(
+                self.0,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+            ) {
+                SetWindowLongPtrW(self.0, GWL_EXSTYLE, old);
+                return Err(error.to_string());
+            }
+        }
+        Ok(())
+    }
+    /// Match the frozen desktop exactly, including the taskbar and negative origins.
+    /// Use a positioned overlay, never maximization or a monitor work-area rectangle.
+    pub fn align_capture_desktop(
+        &self,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+    ) -> Result<(), String> {
+        self.state()?;
+        let width = i32::try_from(width).map_err(|e| e.to_string())?;
+        let height = i32::try_from(height).map_err(|e| e.to_string())?;
+        unsafe {
+            SetWindowPos(
+                self.0,
+                HWND_TOPMOST,
+                x,
+                y,
+                width,
+                height,
+                SWP_NOACTIVATE | SWP_FRAMECHANGED,
+            )
+            .map_err(|e| e.to_string())?;
+            let mut client = RECT::default();
+            GetClientRect(self.0, &mut client).map_err(|e| e.to_string())?;
+            let mut origin = POINT::default();
+            if !ClientToScreen(self.0, &mut origin).as_bool() {
+                return Err("Cannot locate capture client area".into());
+            }
+            if origin.x != x
+                || origin.y != y
+                || client.right - client.left != width
+                || client.bottom - client.top != height
+            {
+                return Err("Capture overlay does not match frozen desktop bounds".into());
+            }
+        }
+        Ok(())
+    }
+    /// Request foreground directly, without injecting Alt or requesting attention.
+    /// Windows may deny activation; callers must leave a click-to-focus path.
+    pub fn focus_without_attention(&self) -> Result<bool, String> {
+        self.state()?;
+        Ok(self.is_foreground() || unsafe { SetForegroundWindow(self.0) }.as_bool())
+    }
     /// Synchronously hide on the HWND owner thread and finish that thread's DWM batch.
     /// A DwmFlush on the capture worker alone cannot flush UI-thread window commands.
     pub fn hide_for_capture(&self) -> Result<(), String> {
@@ -331,6 +406,10 @@ impl NativePinWindow {
         unsafe {
             let _ = ShowWindow(self.0, SW_HIDE);
         }
+        self.flush_composition()
+    }
+    /// Finish visibility changes on the window's UI thread before sampling desktop geometry.
+    pub fn flush_composition(&self) -> Result<(), String> {
         use windows::Win32::Graphics::Dwm::{DwmFlush, DwmIsCompositionEnabled};
         if unsafe { DwmIsCompositionEnabled() }
             .map_err(|e| e.to_string())?

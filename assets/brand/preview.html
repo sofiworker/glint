@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>拾光 · Glint 标志</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;background:#eef0f6;color:#18203a;font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif}
+  main{max-width:960px;margin:64px auto;padding:0 24px}h1{font-size:28px;margin:0 0 8px}p{color:#66708a;margin:0 0 28px}
+  .hero{background:#fff;border-radius:20px;min-height:300px;display:flex;align-items:center;justify-content:center;gap:28px}
+  .hero img{width:120px;height:120px}.name{font-size:44px;font-weight:650;letter-spacing:4px}.en{font-size:18px;letter-spacing:5px;color:#66708a}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}.card{background:#fff;padding:28px;border-radius:16px}.dark{background:#171c2c;color:#f4f6ff}
+  h2{font-size:14px;font-weight:500;margin:0 0 24px;color:inherit}.sizes{display:flex;align-items:center;gap:28px;min-height:90px;flex-wrap:wrap}
+  figure{margin:0;text-align:center}figcaption{font-size:11px;color:#8992a7;margin-top:12px}.sizes img{display:block;margin:auto}
+  .app{display:flex;align-items:center;justify-content:center;gap:32px;min-height:160px}.app img{width:112px;height:112px}.app span{font-size:20px}
+  a{color:#4b5cfa;text-decoration:none}footer{margin-top:24px;color:#66708a;font-size:12px}footer a{margin-right:18px}
+  @media(max-width:620px){main{margin:24px auto}.grid{grid-template-columns:1fr}.hero{gap:16px;min-height:240px}.hero img{width:80px;height:80px}.name{font-size:30px}.sizes{gap:20px}}
+</style>
+<main>
+  <h1>拾光 · Glint</h1>
+  <p>把一束光，留在选框里。</p>
+  <section class="hero"><img src="glint.svg" alt="拾光标志"><div><div class="name">拾光</div><div class="en">GLINT</div></div></section>
+  <div class="grid">
+    <section class="card"><h2>浅色背景 · 实际显示尺寸</h2><div class="sizes">
+      <figure><img src="glint-small.svg" width="16" height="16" alt="16 像素"><figcaption>16</figcaption></figure>
+      <figure><img src="glint-small.svg" width="20" height="20" alt="20 像素"><figcaption>20</figcaption></figure>
+      <figure><img src="glint.svg" width="24" height="24" alt="24 像素"><figcaption>24</figcaption></figure>
+      <figure><img src="glint.svg" width="32" height="32" alt="32 像素"><figcaption>32</figcaption></figure>
+      <figure><img src="glint.svg" width="64" height="64" alt="64 像素"><figcaption>64</figcaption></figure>
+    </div></section>
+    <section class="card dark"><h2>深色背景</h2><div class="sizes">
+      <img src="glint-small.svg" width="16" height="16" alt="小图标">
+      <img src="glint.svg" width="32" height="32" alt="标志">
+      <img src="glint.svg" width="64" height="64" alt="标志">
+    </div></section>
+    <section class="card"><h2>应用图标</h2><div class="app"><img src="glint-app.svg" alt="应用图标"><span>拾光<br><small>Glint</small></span></div></section>
+    <section class="card"><h2>单色标志</h2><div class="app"><img src="glint-mono.svg" alt="单色标志"></div></section>
+  </div>
+  <footer><a href="glint.svg">主标志 SVG</a><a href="glint-app.svg">应用图标 SVG</a><a href="glint-small.svg">小尺寸 SVG</a><a href="glint-mono.svg">单色 SVG</a><br>原创矢量图形 · GPL-3.0-only</footer>
+</main>
+</html>

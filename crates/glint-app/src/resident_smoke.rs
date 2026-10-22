@@ -2213,6 +2213,130 @@ impl Run {
                     return Ok(false);
                 }
             }
+            352 if self.focused == 352 => {
+                ui.invoke_choose_page(1);
+                ui.invoke_change("general.language".into(), "zh_cn".into());
+                ui.window().set_size(slint::PhysicalSize::new(900, 700));
+                ui.invoke_record("shortcuts.window".into());
+            }
+            353 if self.focused == 352 => {
+                snapshot(&ui, &self.directory.join("shortcut-inline-zh.png"))?;
+                if ui.get_recording_key() != "shortcuts.window"
+                    || !ui.get_shortcut_recorder_focused()
+                {
+                    return Err("Inline shortcut did not focus the selected row".into());
+                }
+                ui.invoke_shortcut_input("s".into(), true, false, true, false);
+                if ui.get_can_accept() || !ui.get_shortcut_invalid() {
+                    return Err("Inline duplicate binding was not rejected".into());
+                }
+                snapshot(&ui, &self.directory.join("shortcut-inline-conflict.png"))?;
+                ui.invoke_shortcut_input("\u{f717}".into(), true, true, false, false);
+                settings_key(&ui, "\u{9}");
+            }
+            354 if self.focused == 352 => {
+                if !ui.get_modal_cancel_focused() {
+                    return Err("Inline Tab missed Cancel".into());
+                }
+                settings_key(&ui, "\u{9}");
+            }
+            355 if self.focused == 352 => {
+                if !ui.get_shortcut_clear_focused() {
+                    return Err("Inline Tab missed Clear".into());
+                }
+                settings_key(&ui, "\u{9}");
+            }
+            356 if self.focused == 352 => {
+                if !ui.get_shortcut_accept_focused() {
+                    return Err("Inline Tab missed Confirm".into());
+                }
+                settings_key(&ui, "\u{9}");
+            }
+            357 if self.focused == 352 => {
+                if !ui.get_shortcut_recorder_focused() {
+                    return Err("Inline Tab did not return to recording".into());
+                }
+                settings_key(&ui, "\n");
+            }
+            358 if self.focused == 352 => {
+                if !ui.get_recording_key().is_empty()
+                    || self.app.borrow().session.preferences.draft.shortcuts.window
+                        != "Ctrl+Alt+F20"
+                    || self
+                        .app
+                        .borrow()
+                        .session
+                        .preferences
+                        .saved()
+                        .shortcuts
+                        .window
+                        == "Ctrl+Alt+F20"
+                {
+                    return Err("Inline Enter did not confirm only the settings draft".into());
+                }
+                ui.invoke_record("shortcuts.window".into());
+            }
+            359 if self.focused == 352 => {
+                ui.window()
+                    .dispatch_event(slint::platform::WindowEvent::KeyPressed {
+                        text: "\u{1b}".into(),
+                    });
+                ui.window()
+                    .dispatch_event(slint::platform::WindowEvent::KeyReleased {
+                        text: "\u{1b}".into(),
+                    });
+                if !ui.get_recording_key().is_empty()
+                    || self.app.borrow().session.preferences.draft.shortcuts.window
+                        != "Ctrl+Alt+F20"
+                {
+                    return Err("Inline Escape did not preserve the previous binding".into());
+                }
+                ui.invoke_record("shortcuts.window".into());
+                ui.invoke_action("clear-key".into());
+                if !self
+                    .app
+                    .borrow()
+                    .session
+                    .preferences
+                    .draft
+                    .shortcuts
+                    .window
+                    .is_empty()
+                {
+                    return Err("Inline optional shortcut could not be cleared".into());
+                }
+                ui.invoke_record("shortcuts.rescue".into());
+                ui.invoke_action("clear-key".into());
+                if ui.get_can_clear() || ui.get_recording_key() != "shortcuts.rescue" {
+                    return Err("Inline rescue binding lost its clear protection".into());
+                }
+                ui.invoke_action("continue".into());
+                ui.invoke_action("cancel".into());
+                ui.set_guide_step(1);
+                self.app.borrow().sync(&ui);
+                ui.invoke_record("shortcuts.capture".into());
+            }
+            360 if self.focused == 352 => {
+                snapshot(&ui, &self.directory.join("shortcut-inline-guide.png"))?;
+                if !ui.get_shortcut_recorder_focused() {
+                    return Err("Guide inline recorder lost focus".into());
+                }
+                ui.invoke_action("continue".into());
+                ui.set_guide_step(-1);
+                ui.invoke_change("general.language".into(), "en".into());
+                ui.window().set_size(slint::PhysicalSize::new(720, 650));
+                ui.invoke_record("shortcuts.capture".into());
+            }
+            361 if self.focused == 352 => {
+                snapshot(&ui, &self.directory.join("shortcut-inline-en-compact.png"))?;
+                ui.invoke_action("continue".into());
+                ui.invoke_action("cancel".into());
+                std::fs::write(self.directory.join("SHORTCUT-INLINE-PASSED.txt"),
+                    "Native Slint inline row rendering, initial focus, Tab through Cancel/Clear/Confirm/recorder, duplicate rejection, Enter confirmation, Escape cancellation, optional clear, rescue protection, guide and bilingual compact snapshots passed. Not a physical keyboard or system-conflict acceptance test.\n")
+                    .map_err(|e| e.to_string())?;
+                ui.invoke_action("quit".into());
+                return Ok(true);
+            }
             _ => {
                 if self.focused > 0 {
                     eprintln!(
@@ -2378,4 +2502,11 @@ fn snapshot(ui: &SettingsWindow, path: &std::path::Path) -> Result<(), String> {
         image::ImageFormat::Png,
     )
     .map_err(|e| e.to_string())
+}
+
+fn settings_key(ui: &SettingsWindow, key: &str) {
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::KeyPressed { text: key.into() });
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::KeyReleased { text: key.into() });
 }

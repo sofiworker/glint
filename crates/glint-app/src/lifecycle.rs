@@ -65,6 +65,7 @@ pub fn handle(action: &str, state: &mut AppState, ui: &SettingsWindow) -> bool {
         _ => return false,
     }
     if state.lifecycle.blocked() && !was_blocked {
+        state.capture_settings_visible = false;
         let clipboard_error = crate::clipboard_pin::cancel_pending(state).err();
         let had_capture = state.capture.is_some() || state.capturing || state.capture_pending;
         let had_countdown = state.countdown.is_some() || state.delay_elapsed;

@@ -3,6 +3,7 @@ use super::Message;
 pub fn text(id: Message) -> &'static str {
     match id {
         Message::CaptureFailureLabel => "Capture failed",
+        Message::CaptureFocusUnavailable => "Click the capture overlay to focus it; Esc cancels.",
         Message::ExclusionInvalid => {
             "Invalid exclusion list. Use full .exe names, no paths/wildcards (up to 128). Correct or clear the list, save, then retry."
         }
@@ -159,6 +160,15 @@ pub fn text(id: Message) -> &'static str {
         Message::ToolbarPreview => "Live preview",
         Message::ToolbarMode => "Display mode",
         Message::ToolbarPosition => "Position",
+        Message::ToolbarLayout => "Layout",
+        Message::ToolbarGrid => "Grid",
+        Message::ToolbarScroll => "Scroll horizontally",
+        Message::ToolbarSingleRow => "Single row (all tools)",
+        Message::ToolbarFixedWidth => "Fixed row width",
+        Message::ToolbarColumns => "Columns",
+        Message::ToolbarRows => "Rows",
+        Message::ToolbarWidth => "Max width (px)",
+        Message::ToolbarWidthHint => "Enter the maximum width. The toolbar rounds down to fit whole buttons, so icons are never cut in half. Scroll horizontally to see the remaining tools.",
         Message::ToolbarSettingsPreviewHint => {
             "Appearance preview only. Save settings or apply customization to use this toolbar. Selection and annotations are retained."
         }
@@ -202,6 +212,7 @@ pub fn text(id: Message) -> &'static str {
         Message::CaptureUndo => "Undo",
         Message::CaptureRedo => "Redo",
         Message::CaptureSave => "Save",
+        Message::CaptureFinish => "Finish",
         Message::CaptureCopy => "Copy",
         Message::CaptureCancel => "Cancel",
         Message::CaptureStrokeWidth => "Width",
@@ -389,7 +400,6 @@ pub fn text(id: Message) -> &'static str {
             "Cannot read the system theme. Using light; choose a theme manually."
         }
         Message::UnsavedChanges => "Unsaved changes",
-        Message::DraftSaved => "Draft matches saved preferences",
         Message::RecoveredBackup => {
             "Damaged configuration preserved. The last valid backup is loaded; Save repairs the file."
         }
@@ -416,12 +426,8 @@ pub fn text(id: Message) -> &'static str {
         Message::SaveAndLeave => "Save and leave",
         Message::ClearBinding => "Clear binding",
         Message::AcceptShortcut => "Use this shortcut",
-        Message::DevelopmentStatus => {
-            "Development build: read-only rows explain fixed behavior or planned capabilities. First-release features and environment acceptance remain incomplete."
-        }
-        Message::DraftExplanation => {
-            "Save, Cancel and Restore Defaults operate on a draft. Read-only rows explain their effective behavior or configured value."
-        }
+        Message::DevelopmentStatus => "Capture · Annotate · Pin",
+        Message::DraftExplanation => "Click Save settings to apply your changes.",
         Message::SystemPreference => "System preference:",
         Message::ManualLanguage => "Manual choice takes priority",
         Message::LanguageFallback => "Unsupported language; using English",
@@ -440,14 +446,12 @@ pub fn text(id: Message) -> &'static str {
         }
         Message::OptionUnavailable => "This option cannot be changed yet.",
         Message::RecordShortcutBody => {
-            "Focus this area and press a chord or function key. Tab moves to the buttons; Shift+Tab moves back. Esc cancels. Use this shortcut updates the draft; Save checks system conflicts."
+            "Press a chord or function key. Esc cancels; Tab moves to the buttons. Confirm, then save settings."
         }
         Message::ShortcutInvalid => {
             "Invalid shortcut or duplicate action binding. Try another combination."
         }
-        Message::ShortcutCandidate => {
-            "Tab to Use this shortcut and press Enter to update the draft. Shift+Tab returns to recording. Save checks system conflicts."
-        }
+        Message::ShortcutCandidate => "Enter confirms; Esc cancels. Save settings to apply.",
         Message::ShortcutServiceStopped => {
             "The shortcut service stopped. Use the tray and restart Glint."
         }

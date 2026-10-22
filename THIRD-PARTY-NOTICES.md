@@ -16,8 +16,9 @@ Glint 自有代码与 HTML 原型采用 `GPL-3.0-only`，全文见 [LICENSE](LIC
 ## 项目图标与字体
 
 - `crates/glint-app/src/icons/*.svg` 的路径来自本项目 `prototype/toolbar.js` 中同名的 `iconPaths`，按项目自有代码的 `GPL-3.0-only` 分发；不属于上述 Microsoft Fluent 图标集合。原型路径与原生资源的对应关系见该目录 README。
-- 托盘图标由应用代码生成像素，不附带外部图标文件。HTML 示例桌面由原型代码绘制，不能作为原生截图资源。
-- 项目未分发字体文件；界面与文字栅格化调用系统已安装字体。系统字体名称和可选字体列表不授予字体文件的再分发权。
+- `assets/brand/*.svg` 是项目原创标志，采用 GPL-3.0-only。构建时从 SVG 生成托盘、窗口及 Windows 可执行文件的图标，不含第三方图标素材。HTML 示例桌面由原型代码绘制，不能作为原生截图资源。
+- 应用界面优先使用用户的系统界面字体；系统字体仅调用，不复制分发。批注字体与界面字体策略独立。
+- 内置回退字体：Noto Sans SC Variable，Copyright 2014–2021 Adobe，Reserved Font Name “Source”；采用 SIL Open Font License 1.1（OFL-1.1），允许随 GPL 应用嵌入与再分发，字体本身继续遵守 OFL。未修改上游字体。原始许可与版权：`assets/fonts/OFL-NotoSansSC.txt`；来源、固定提交及 SHA-256：`assets/fonts/provenance.json`。
 
 ## 原生程序的直接依赖
 
@@ -33,6 +34,8 @@ Glint 自有代码与 HTML 原型采用 `GPL-3.0-only`，全文见 [LICENSE](LIC
 | windows | 0.58.0 | https://github.com/microsoft/windows-rs | MIT OR Apache-2.0 |
 | tray-icon | 0.19.3 | https://github.com/tauri-apps/tray-icon | MIT OR Apache-2.0 |
 | raw-window-handle | 0.6.2 | https://github.com/rust-windowing/raw-window-handle | MIT OR Apache-2.0 OR Zlib |
+| resvg（构建依赖） | 0.48.1 | https://github.com/linebender/resvg | Apache-2.0 OR MIT |
+| winresource（构建依赖） | 0.1.31 | https://github.com/BenjaminRi/winresource | MIT |
 
 tray-icon 在 M0 贴图探针中提供实际系统托盘菜单，raw-window-handle 用于借用 live HWND 并调用平台封装验证置顶、穿透与救援。Slint 的 `unstable-winit-030` 接口用于窗口属性和生命周期衔接；Slint 固定精确版本，后续升级须重新检查该接口。
 

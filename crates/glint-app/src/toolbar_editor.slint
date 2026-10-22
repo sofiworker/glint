@@ -1,4 +1,5 @@
-import { Button, CheckBox, ComboBox } from "widgets/widgets.slint";
+import { SpinBox } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, ScrollView } from "widgets/widgets.slint";
 component ToolbarToggle inherits Rectangle {
     in property <string> text;
     in property <bool> checked;
@@ -19,7 +20,7 @@ component ToolbarToggle inherits Rectangle {
 }
 export struct ToolbarRow { label: string, tool: int, shown: bool }
 export global ToolbarAssets {
-    out property <[image]> images: [@image-url("icons/select.svg"), @image-url("icons/rect.svg"), @image-url("icons/arrow.svg"), @image-url("icons/pen.svg"), @image-url("icons/text.svg"), @image-url("icons/highlight.svg"), @image-url("icons/redact.svg"), @image-url("icons/mosaic.svg"), @image-url("icons/picker.svg"), @image-url("icons/undo.svg"), @image-url("icons/redo.svg"), @image-url("icons/save.svg"), @image-url("icons/copy.svg"), @image-url("icons/close.svg"), @image-url("icons/more.svg"), @image-url("icons/settings.svg"), @image-url("icons/pin.svg")];
+    out property <[image]> images: [@image-url("icons/select.svg"), @image-url("icons/rect.svg"), @image-url("icons/arrow.svg"), @image-url("icons/pen.svg"), @image-url("icons/text.svg"), @image-url("icons/highlight.svg"), @image-url("icons/redact.svg"), @image-url("icons/mosaic.svg"), @image-url("icons/picker.svg"), @image-url("icons/undo.svg"), @image-url("icons/redo.svg"), @image-url("icons/save.svg"), @image-url("icons/check.svg"), @image-url("icons/close.svg"), @image-url("icons/more.svg"), @image-url("icons/settings.svg"), @image-url("icons/pin.svg")];
 }
 // labels: both, icons, follow, top, bottom, groups, order hint, preview, reset, preview hint, mode, position.
 export component ToolbarEditor inherits Rectangle {
@@ -27,9 +28,14 @@ export component ToolbarEditor inherits Rectangle {
     in property <[int]> items;
     in property <[string]> labels;
     in property <[string]> names;
+    in property <int> layout;
+    in property <int> columns: 8;
+    in property <int> rows-count: 2;
+    in property <int> row-width: 640;
     in property <bool> icons;
     in property <int> position;
     in property <bool> groups;
+    in property <bool> customize-visible: true;
     in property <bool> writable: true;
     in property <color> ink;
     in property <color> muted;
@@ -37,19 +43,39 @@ export component ToolbarEditor inherits Rectangle {
     callback command(string, int, int);
     out property <bool> mode-focused: mode.has-focus;
     out property <bool> reset-focused: reset.has-focus;
-    property <int> preview-columns: root.icons ? max(1, floor((root.width - 8px) / 40px)) : root.width >= 440px ? 5 : 3;
-    out property <length> editor-height: 598px + ceil(root.items.length / root.preview-columns) * 44px;
+    property <length> preview-cell: root.icons ? 36px : 88px;
+    property <bool> single-row: root.layout == 1 || root.layout == 3;
+    property <length> preview-requested-width: min(root.width - 8px, root.layout == 3 ? root.items.length * root.preview-cell + 12px : root.layout == 0 ? root.columns * root.preview-cell + 28px : min(root.row-width * 1px, root.items.length * root.preview-cell + 12px));
+    property <length> preview-width: root.single-row ? max(1, floor((root.preview-requested-width - 12px) / root.preview-cell)) * root.preview-cell + 12px : root.preview-requested-width;
+    property <int> preview-columns: (root.layout == 1 || root.layout == 3) ? max(1, root.items.length) : max(1, floor((root.preview-width - (root.layout == 0 ? 28px : 12px)) / root.preview-cell));
+    property <length> preview-content-height: ceil(root.items.length / root.preview-columns) * 34px + 10px;
+    property <length> preview-height: (root.layout == 0 ? min(root.preview-content-height, root.rows-count * 34px + 10px) : root.preview-content-height) + ((root.layout == 1 || root.layout == 3) && root.items.length * root.preview-cell + 12px > root.preview-width ? 12px : 0px);
+    property <length> width-hint-height: root.layout == 1 ? 64px : 0px;
+    out property <length> editor-height: 712px + root.preview-height + root.width-hint-height;
     preferred-height: root.editor-height; min-height: root.editor-height; vertical-stretch: 0;
     Text { x: 4px; y: 0px; width: 96px; height: 30px; text: root.labels[10]; color: root.ink; vertical-alignment: center; }
     mode := ComboBox { x: 104px; y: 0px; width: parent.width - 108px; accessible-label: root.labels[10]; height: 30px; model: [root.labels[0], root.labels[1]]; current-index: root.icons ? 1 : 0; enabled: root.writable; selected(value) => { root.command("mode", 0, self.current-index); } }
     Text { x: 4px; y: 38px; width: 96px; height: 30px; text: root.labels[11]; color: root.ink; vertical-alignment: center; }
     placement := ComboBox { x: 104px; y: 38px; width: parent.width - 108px; accessible-label: root.labels[11]; height: 30px; model: [root.labels[2], root.labels[3], root.labels[4]]; current-index: root.position; enabled: root.writable; selected(value) => { root.command("position", 0, self.current-index); } }
+    Text { x: 4px; y: 76px; width: 96px; height: 30px; text: root.labels[12]; color: root.ink; vertical-alignment: center; }
+    layout-choice := ComboBox { x: 104px; y: 76px; width: parent.width - 108px; height: 30px; model: [root.labels[13], root.labels[14], root.labels[19]]; current-index: root.layout >= 2 ? 2 : root.layout; enabled: root.writable; selected(value) => { root.command("layout", 0, self.current-index == 2 ? 3 : self.current-index); } }
+    Text { x: 4px; y: 114px; width: 96px; height: 30px; text: root.labels[16]; color: root.ink; vertical-alignment: center; }
+    cols := SpinBox { x: 104px; y: 114px; width: 90px; height: 30px; minimum: 2; maximum: 20; value: root.columns; enabled: root.writable && root.layout == 0; edited(value) => { root.command("columns", 0, value); } }
+    Text { x: 204px; y: 114px; width: 50px; height: 30px; text: root.labels[17]; color: root.ink; vertical-alignment: center; }
+    row-count := SpinBox { x: 258px; y: 114px; width: max(60px, parent.width - 262px); height: 30px; minimum: 1; maximum: 6; value: root.rows-count; enabled: root.writable && root.layout == 0; edited(value) => { root.command("rows", 0, value); } }
+    if root.layout == 1: Text { x: 4px; y: 152px; width: 96px; height: 30px; text: root.labels[18]; color: root.ink; vertical-alignment: center; }
+    row-size := SpinBox { visible: root.layout == 1; x: 104px; y: 152px; width: parent.width - 108px; height: 30px; minimum: 100; maximum: 1200; value: root.row-width; enabled: root.writable && root.layout == 1; edited(value) => { root.command("width", 0, value); } }
+    if root.layout == 1: Text { x: 4px; y: 184px; width: parent.width - 8px; height: 60px; text: root.labels[20]; color: root.muted; wrap: word-wrap; font-size: 12px; }
+    changed layout => { layout-choice.current-index = root.layout >= 2 ? 2 : root.layout; }
+    changed columns => { cols.value = root.columns; }
+    changed rows-count => { row-count.value = root.rows-count; }
+    changed row-width => { row-size.value = root.row-width; }
     changed icons => { mode.current-index = root.icons ? 1 : 0; }
     changed position => { placement.current-index = root.position; }
-    ToolbarToggle { x: 4px; y: 76px; width: parent.width - 8px; height: 30px; text: root.labels[5]; checked: root.groups; enabled: root.writable; ink: root.ink; line: root.line; toggled(value) => { root.command("groups", 0, value ? 1 : 0); } }
-    Text { x: 4px; y: 108px; width: parent.width - 8px; height: 36px; text: root.labels[6]; color: root.muted; wrap: word-wrap; }
+    ToolbarToggle { x: 4px; y: 184px + root.width-hint-height; width: parent.width - 8px; height: 30px; text: root.names[15]; checked: root.customize-visible; enabled: root.writable; ink: root.ink; line: root.line; toggled(value) => { root.command("customize-visible", 0, value ? 1 : 0); } }
+    Text { x: 4px; y: 222px + root.width-hint-height; width: parent.width - 8px; height: 36px; text: root.labels[6]; color: root.muted; wrap: word-wrap; }
     for row[index] in root.rows: Rectangle {
-        x: 4px; y: 150px + index * 38px; width: parent.width - 8px; height: 36px;
+        x: 4px; y: 264px + root.width-hint-height + index * 38px; width: parent.width - 8px; height: 36px;
         Text { x: 0px; width: 24px; height: parent.height; text: "≡"; color: root.muted; horizontal-alignment: center; vertical-alignment: center; }
         TouchArea { x: 0px; width: 24px; mouse-cursor: move; enabled: root.writable;
             property <bool> armed;
@@ -66,20 +92,31 @@ export component ToolbarEditor inherits Rectangle {
         Button { x: parent.width - 80px; width: 36px; height: 32px; text: "↑"; enabled: root.writable && index > 0; clicked => { root.command("move", index, index - 1); } }
         Button { x: parent.width - 40px; width: 36px; height: 32px; text: "↓"; enabled: root.writable && index < 8; clicked => { root.command("move", index, index + 1); } }
     }
-    Text { x: 4px; y: 506px; height: 30px; text: root.labels[7]; color: root.ink; font-weight: 600; }
-    reset := Button { x: parent.width - 104px; y: 502px; width: 100px; height: 30px; text: root.labels[8]; enabled: root.writable; clicked => { root.command("reset", 0, 0); } }
+    Text { x: 4px; y: 620px + root.width-hint-height; height: 30px; text: root.labels[7]; color: root.ink; font-weight: 400; }
+    reset := Button { x: parent.width - 104px; y: 616px + root.width-hint-height; width: 100px; height: 30px; text: root.labels[8]; enabled: root.writable; clicked => { root.command("reset", 0, 0); } }
     Rectangle {
-        x: 4px; y: 542px; width: parent.width - 8px; height: ceil(root.items.length / root.preview-columns) * 44px;
+        x: 4px; y: 656px + root.width-hint-height; width: root.preview-width; height: root.preview-height;
         border-width: 1px; border-color: root.line; border-radius: 5px;
-        for item[index] in root.items: Rectangle {
-            x: mod(index, root.preview-columns) * parent.width / root.preview-columns;
-            y: floor(index / root.preview-columns) * 44px;
-            width: parent.width / root.preview-columns; height: 44px;
-            if root.groups && (item == 9 || item == 16): Rectangle { x: 1px; y: 4px; width: 1px; height: 36px; background: root.line; }
-            Image { x: (parent.width - 17px) / 2; y: root.icons ? 13px : 4px; width: 17px; height: 17px; source: ToolbarAssets.images[item]; colorize: root.ink; }
-            if !root.icons: Text { x: 3px; y: 24px; width: parent.width - 6px; height: 16px; text: root.names[item]; color: root.ink; horizontal-alignment: center; font-size: 10px; overflow: elide; }
-            hover := TouchArea { }
-            if root.icons && hover.has-hover: Rectangle { z: 1; x: min(0px, root.width - parent.x - self.width - 8px); y: -25px; width: max(80px, name.preferred-width + 12px); height: 24px; background: root.line; border-radius: 4px; name := Text { text: root.names[item]; color: root.ink; horizontal-alignment: center; vertical-alignment: center; } }
+        ScrollView {
+            x: root.single-row ? 6px : 0px;
+            width: parent.width - (root.single-row ? 12px : 0px); height: parent.height;
+            horizontal-step: root.preview-cell;
+            changed viewport-x => {
+                if root.single-row {
+                    let aligned = min(0px, max(self.width - self.content-width, round(self.viewport-x / root.preview-cell) * root.preview-cell));
+                    if self.viewport-x != aligned { self.viewport-x = aligned; }
+                }
+            }
+            content-width: (root.layout == 1 || root.layout == 3) ? root.items.length * root.preview-cell : root.preview-width;
+            content-height: root.preview-content-height;
+            for item[index] in root.items: Rectangle {
+                x: (root.single-row ? 0px : 6px) + mod(index, root.preview-columns) * root.preview-cell;
+                y: 5px + floor(index / root.preview-columns) * 34px;
+                width: root.preview-cell - 2px; height: 30px;
+                accessible-role: button; accessible-label: root.names[item];
+                Image { x: root.icons || item == 12 ? (parent.width - 17px) / 2 : 5px; y: (parent.height - 17px) / 2; width: 17px; height: 17px; source: ToolbarAssets.images[item]; colorize: item == 13 ? #e54b58 : item == 12 ? #209d55 : root.ink; }
+                if !root.icons && item != 12: Text { x: 25px; width: max(0px, parent.width - 28px); height: parent.height; text: root.names[item]; color: root.ink; vertical-alignment: center; font-size: 12px; overflow: elide; }
+            }
         }
     }
     Text { x: 4px; y: root.editor-height - 48px; width: parent.width - 8px; height: 44px; text: root.labels[9]; color: root.muted; wrap: word-wrap; font-size: 12px; }

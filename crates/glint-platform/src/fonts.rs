@@ -79,3 +79,25 @@ mod tests {
         assert!(crate::rasterize_text("Glint", &fonts[0], 22).is_ok());
     }
 }
+
+/// The user's Windows message/UI font, independent of annotation preferences.
+pub fn system_ui_font_family() -> Result<String, String> {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
+        SystemParametersInfoW,
+    };
+    let size = std::mem::size_of::<NONCLIENTMETRICSW>() as u32;
+    let mut metrics = NONCLIENTMETRICSW { cbSize: size, ..Default::default() };
+    unsafe {
+        SystemParametersInfoW(
+            SPI_GETNONCLIENTMETRICS, size,
+            Some((&mut metrics as *mut NONCLIENTMETRICSW).cast()),
+            SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+        ).map_err(|e| format!("System UI font: {e}"))?;
+    }
+    let face = metrics.lfMessageFont.lfFaceName;
+    let end = face.iter().position(|&c| c == 0).unwrap_or(face.len());
+    let family = String::from_utf16(&face[..end]).map_err(|e| e.to_string())?;
+    if family.is_empty() { return Err("System UI font is empty".into()); }
+    Ok(family)
+}

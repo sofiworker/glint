@@ -3,6 +3,7 @@ use super::Message;
 pub fn text(id: Message) -> Option<&'static str> {
     match id {
         Message::CaptureFailureLabel => Some("截图失败"),
+        Message::CaptureFocusUnavailable => Some("点击截图浮层后即可框选；Esc 取消。"),
         Message::ExclusionInvalid => Some(
             "排除列表格式无效。请输入完整 .exe 文件名，用英文分号、逗号或换行分隔（最多 128 项），不接受路径或通配符。请修正或清空列表并保存后截图。",
         ),
@@ -131,6 +132,15 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::ToolbarPreview => Some("即时预览"),
         Message::ToolbarMode => Some("显示模式"),
         Message::ToolbarPosition => Some("工具条定位"),
+        Message::ToolbarLayout => Some("布局"),
+        Message::ToolbarGrid => Some("网格"),
+        Message::ToolbarScroll => Some("单行滚动"),
+        Message::ToolbarSingleRow => Some("单行完整显示"),
+        Message::ToolbarFixedWidth => Some("固定行宽"),
+        Message::ToolbarColumns => Some("列数"),
+        Message::ToolbarRows => Some("行数"),
+        Message::ToolbarWidth => Some("最大宽度 (px)"),
+        Message::ToolbarWidthHint => Some("输入最大宽度；实际宽度会按完整按钮向下对齐，避免露出半个图标。超出部分可横向滚动查看。"),
         Message::ToolbarSettingsPreviewHint => {
             Some("仅外观预览；保存设置或应用自定义后生效。选区与标注保持不变。")
         }
@@ -168,6 +178,7 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::CaptureUndo => Some("撤销"),
         Message::CaptureRedo => Some("重做"),
         Message::CaptureSave => Some("保存"),
+        Message::CaptureFinish => Some("完成"),
         Message::CaptureCopy => Some("复制"),
         Message::CaptureCancel => Some("取消"),
         Message::CaptureStrokeWidth => Some("线宽"),
@@ -311,7 +322,6 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::PinRotated => Some("已旋转，复制/保存采用此方向和原始分辨率。"),
         Message::SystemThemeUnavailable => Some("无法读取系统主题，暂用浅色；可手动选择主题。"),
         Message::UnsavedChanges => Some("有未保存的修改"),
-        Message::DraftSaved => Some("设置草稿与已保存快照一致"),
         Message::RecoveredBackup => {
             Some("配置已损坏：原件已保留，当前载入上次有效备份；保存后才修复文件。")
         }
@@ -334,12 +344,8 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::SaveAndLeave => Some("保存并离开"),
         Message::ClearBinding => Some("清除绑定"),
         Message::AcceptShortcut => Some("使用此组合"),
-        Message::DevelopmentStatus => {
-            Some("开发版：只读项说明固定行为或后续能力。首版功能和环境验收仍未完成。")
-        }
-        Message::DraftExplanation => {
-            Some("保存、取消和恢复默认作用于设置草稿。只读项按说明显示实际行为或配置值。")
-        }
+        Message::DevelopmentStatus => Some("截图 · 标注 · 贴图"),
+        Message::DraftExplanation => Some("修改后点击“保存设置”应用。"),
         Message::SystemPreference => Some("系统首选："),
         Message::ManualLanguage => Some("手动选择优先"),
         Message::LanguageFallback => Some("无对应语言包，回退 English"),
@@ -355,13 +361,11 @@ pub fn text(id: Message) -> Option<&'static str> {
             Some("全局热键注册失败。可从托盘截图或打开设置重新绑定。")
         }
         Message::OptionUnavailable => Some("此项当前不可更改。"),
-        Message::RecordShortcutBody => Some(
-            "聚焦此区域后按下组合键或功能键。Tab 切换到按钮，Shift+Tab 返回；Esc 取消。使用此组合仅修改草稿，保存时检测系统占用。",
-        ),
+        Message::RecordShortcutBody => {
+            Some("按下组合键或功能键。Esc 取消，Tab 切换按钮；确认后保存设置。")
+        }
         Message::ShortcutInvalid => Some("组合键无效或与其他动作重复，请重新录入。"),
-        Message::ShortcutCandidate => Some(
-            "Tab 切换到使用此组合，按 Enter 修改草稿；Shift+Tab 可返回录入区。保存时检测系统占用。",
-        ),
+        Message::ShortcutCandidate => Some("Enter 确认，Esc 取消。保存设置后生效。"),
         Message::ShortcutServiceStopped => Some("全局热键服务已停止。请从托盘操作并重启应用。"),
         Message::SettingsSaved => Some("设置已保存。"),
         Message::SaveRollbackFailed => {

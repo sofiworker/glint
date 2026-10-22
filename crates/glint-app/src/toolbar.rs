@@ -43,16 +43,16 @@ pub fn position(toolbar: &Toolbar) -> i32 {
     }
 }
 pub fn items(toolbar: &Toolbar) -> Vec<i32> {
-    let mut items: Vec<_> = toolbar
-        .order
-        .iter()
-        .filter(|t| !toolbar.hidden.contains(t))
-        .map(|t| index(*t))
-        .collect();
+    let mut items = Vec::new();
+    if toolbar.show_customize { items.push(15); }
+    items.push(0);
+    items.extend(toolbar.order.iter()
+        .filter(|t| **t != Tool::Select && !toolbar.hidden.contains(t))
+        .map(|t| index(*t)));
     if !toolbar.hidden.is_empty() {
         items.push(14);
     }
-    items.extend([9, 10, 16, 11, 12, 13, 15]);
+    items.extend([9, 10, 16, 11, 13, 12]);
     items
 }
 pub fn names(english: bool) -> Vec<SharedString> {
@@ -69,7 +69,7 @@ pub fn names(english: bool) -> Vec<SharedString> {
         Message::CaptureUndo,
         Message::CaptureRedo,
         Message::CaptureSave,
-        Message::CaptureCopy,
+        Message::CaptureFinish,
         Message::CaptureCancel,
         Message::ToolbarMore,
         Message::ToolbarCustomize,
@@ -80,25 +80,31 @@ pub fn names(english: bool) -> Vec<SharedString> {
 }
 // Indices are the shared ToolbarEditor string interface, independent of displayed language.
 pub fn labels(english: bool) -> ModelRc<SharedString> {
-    ModelRc::new(VecModel::from(
-        [
-            Message::ToolbarBoth,
-            Message::ToolbarIcons,
-            Message::ToolbarFollow,
-            Message::ToolbarTop,
-            Message::ToolbarBottom,
-            Message::ToolbarGroups,
-            Message::ToolbarOrderHint,
-            Message::ToolbarPreview,
-            Message::ToolbarReset,
-            Message::ToolbarSettingsPreviewHint,
-            Message::ToolbarMode,
-            Message::ToolbarPosition,
-        ]
-        .map(|id| messages::text(id, english).into())
-        .to_vec(),
-    ))
+    ModelRc::new(VecModel::from([
+        Message::ToolbarBoth,
+        Message::ToolbarIcons,
+        Message::ToolbarFollow,
+        Message::ToolbarTop,
+        Message::ToolbarBottom,
+        Message::ToolbarGroups,
+        Message::ToolbarOrderHint,
+        Message::ToolbarPreview,
+        Message::ToolbarReset,
+        Message::ToolbarSettingsPreviewHint,
+        Message::ToolbarMode,
+        Message::ToolbarPosition,
+        Message::ToolbarLayout,
+        Message::ToolbarGrid,
+        Message::ToolbarScroll,
+        Message::ToolbarFixedWidth,
+        Message::ToolbarColumns,
+        Message::ToolbarRows,
+        Message::ToolbarWidth,
+        Message::ToolbarSingleRow,
+        Message::ToolbarWidthHint,
+    ].map(|id| messages::text(id, english).into()).to_vec()))
 }
+
 pub fn edit(
     toolbar: &mut Toolbar,
     command: &str,
@@ -107,6 +113,11 @@ pub fn edit(
 ) -> Result<(), &'static str> {
     match command {
         "reset" => *toolbar = Toolbar::default(),
+        "layout" if matches!(value, 0 | 1 | 3) => toolbar.layout = value as u8,
+        "customize-visible" if matches!(value, 0 | 1) => toolbar.show_customize = value == 1,
+        "columns" if (2..=20).contains(&value) => toolbar.columns = value as u8,
+        "rows" if (1..=6).contains(&value) => toolbar.rows = value as u8,
+        "width" if (100..=1200).contains(&value) => toolbar.width = value as u16,
         "mode" => {
             toolbar.mode = match value {
                 0 => ToolbarMode::IconsAndLabels,

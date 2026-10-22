@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <title>拾光 · Glint monochrome mark</title>
+  <path d="M24 11H17a6 6 0 0 0-6 6v7m29-13h7a6 6 0 0 1 6 6v7M11 40v7a6 6 0 0 0 6 6h7m16 0h7a6 6 0 0 0 6-6v-7" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+  <path d="M33 18c1.6 8.1 4.9 11.4 13 13-8.1 1.6-11.4 4.9-13 13-1.6-8.1-4.9-11.4-13-13 8.1-1.6 11.4-4.9 13-13Z" fill="currentColor"/>
+</svg>

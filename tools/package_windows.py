@@ -23,10 +23,10 @@ ROOT = Path(__file__).resolve().parents[1]
 TARGET = "x86_64-pc-windows-msvc"
 ROOT_FILES = {"Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rustfmt.toml",
               "README.md", "AGENTS.md", "LICENSE", "THIRD-PARTY-NOTICES.md", ".gitignore"}
-SOURCE_DIRS = {"crates", "prototype", "tools", "licenses", ".cargo"}
+SOURCE_DIRS = {"crates", "prototype", "tools", "licenses", "assets", ".cargo"}
 EXCLUDED = {".local", ".qa", ".git", "target", "__pycache__", "node_modules"}
 SUFFIXES = {".rs", ".slint", ".svg", ".toml", ".md", ".txt", ".license",
-            ".py", ".js", ".html", ".css", ".json", ".png", ".ico"}
+            ".py", ".js", ".html", ".css", ".json", ".png", ".ico", ".ttf"}
 ALLOWED_LICENSES = {"MIT", "Apache-2.0", "GPL-3.0-only", "Unicode-3.0", "BSD-3-Clause",
                     "BSD-2-Clause", "0BSD", "Zlib", "BSL-1.0", "ISC", "MPL-2.0",
                     "Unlicense", "CC0-1.0", "Apache-2.0 WITH LLVM-exception"}
@@ -327,6 +327,7 @@ def main() -> None:
     for name in ["LICENSE", "THIRD-PARTY-NOTICES.md"]:
         shutil.copyfile(source / name, portable / name)
     shutil.copytree(source / "crates/glint-app/src/widgets", portable / "licenses/glint-modified-slint-widgets")
+    shutil.copytree(source / "assets/fonts", portable / "licenses/fonts")
     (source / "BUILDING.md").write_text(
         "# Rebuild this Windows development build\n\nInstall Python3.11+ (for packaging), Rust " + release +
         " with the x86_64-pc-windows-msvc target, Visual Studio C++ build tools and Windows SDK. Toolchain/SDK installation is a prerequisite and can require a network connection.\n\n"

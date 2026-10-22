@@ -43,12 +43,12 @@ pub fn sync(state: &AppState, ui: &SettingsWindow) -> Result<(), String> {
             "Click a shortcut to record it, or clear optional bindings. Save and practice or Finish registers the real system shortcuts. Conflicts or save failures keep the working bindings and draft; tray capture remains available.",
         ),
         (
-            "Enter / 双击按默认动作完成。开机启动与自动副本需要主动开启，默认关闭。历史尚未接入，保持关闭。所有修改在保存并演练或完成时应用；稍后设置可保存或放弃。",
-            "Enter / double-click uses the default finish action. Login startup and automatic copies require opt-in and are off by default. History is not connected and stays off. Changes apply when you save and practice or finish. Later lets you save or discard them.",
+            "Enter / 双击按默认动作完成。开机启动与自动副本需要主动开启，默认关闭。所有修改在保存并演练或完成时应用；稍后设置可保存或放弃。",
+            "Enter / double-click uses the default finish action. Login startup and automatic copies require opt-in and are off by default. Changes apply when you save and practice or finish. Later lets you save or discard them.",
         ),
         (
-            "主题、强调色与减少动效即时预览，不改变截图源像素。开启减少动效后，控件悬停与状态颜色立即切换；不影响选区拖动、绘制或倒计时。保存后用于新浮层与贴图，已有贴图保持当前偏好。",
-            "Preview the theme, accent and reduced motion without changing source pixels. Reduced motion switches hover and state colors immediately; selection, drawing and countdown timing stay unchanged. Save applies to new overlays and pins; existing pins keep their preference.",
+            "应用界面默认使用系统字体，缺失时回退到内置 Noto Sans SC；批注字体单独设置。主题、强调色与减少动效即时预览，不改变截图源像素。开启减少动效后，控件悬停与状态颜色立即切换；不影响选区拖动、绘制或倒计时。保存后用于新浮层与贴图，已有贴图保持当前偏好。",
+            "The app uses the system UI font, with bundled Noto Sans SC as fallback. Annotation fonts are configured separately. Preview the theme, accent and reduced motion without changing source pixels. Reduced motion switches hover and state colors immediately; selection, drawing and countdown timing stay unchanged. Save applies to new overlays and pins; existing pins keep their preference.",
         ),
         (
             "保存当前选择后进入真实桌面截图。拖动框选，在浮层中选择箭头或实心遮盖，再复制、保存或贴图。成功后回到完成页；Esc 取消返回本页，失败保留编辑。也可跳过练习。\nWindows 普通桌面截图不要求管理员权限；受保护内容和安全桌面不保证可捕获。仅在主动截图时采集，不预先请求录音或录屏权限。",
@@ -100,6 +100,7 @@ pub fn sync(state: &AppState, ui: &SettingsWindow) -> Result<(), String> {
         ],
         3 => &[
             "appearance.theme",
+            "appearance.ui_font",
             "appearance.accent",
             "appearance.reduce_motion",
         ],

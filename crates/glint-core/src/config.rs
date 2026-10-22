@@ -18,6 +18,7 @@ choice!(Theme {
     Dark,
     System
 });
+choice!(UiFont { System, NotoSansSc });
 choice!(Scale {
     System,
     Percent100,
@@ -209,18 +210,29 @@ impl Default for Capture {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Toolbar {
+    /// 0: grid, 1: horizontal scrolling, 2: legacy fixed width (displayed as single row), 3: single row.
+    pub layout: u8,
+    pub columns: u8,
+    pub rows: u8,
+    pub width: u16,
     pub mode: ToolbarMode,
     pub position: ToolbarPosition,
     pub groups: bool,
+    pub show_customize: bool,
     pub order: Vec<Tool>,
     pub hidden: Vec<Tool>,
 }
 impl Default for Toolbar {
     fn default() -> Self {
         Self {
-            mode: ToolbarMode::IconsAndLabels,
+            layout: 3,
+            columns: 8,
+            rows: 2,
+            width: 640,
+            mode: ToolbarMode::Icons,
             position: ToolbarPosition::Follow,
             groups: true,
+            show_customize: true,
             order: vec![
                 Tool::Select,
                 Tool::Rect,
@@ -350,6 +362,7 @@ impl Default for Privacy {
 #[serde(default, deny_unknown_fields)]
 pub struct Appearance {
     pub theme: Theme,
+    pub ui_font: UiFont,
     pub accent: String,
     pub scale: Scale,
     pub reduce_motion: bool,
@@ -359,6 +372,7 @@ impl Default for Appearance {
     fn default() -> Self {
         Self {
             theme: Theme::Light,
+            ui_font: UiFont::System,
             accent: "#4b5cfa".into(),
             scale: Scale::System,
             reduce_motion: true,
@@ -554,6 +568,14 @@ impl Config {
                     == self.toolbar.hidden.len(),
             "toolbar.hidden",
             "config.required_tool_hidden",
+        );
+        check(
+            self.toolbar.layout <= 3
+                && (2..=20).contains(&self.toolbar.columns)
+                && (1..=6).contains(&self.toolbar.rows)
+                && (100..=1200).contains(&self.toolbar.width),
+            "toolbar.layout",
+            "config.out_of_range",
         );
         let mut chords = HashSet::new();
         for (action, value) in self.shortcuts.raw_bindings() {

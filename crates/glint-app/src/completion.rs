@@ -96,6 +96,7 @@ fn brief(
     let Ok(ui) = CompletionToast::new() else {
         return;
     };
+    ui.set_ui_font_family(crate::ui_font::family().into());
     crate::interface_scale::install_factor(&ui, scale);
     crate::motion::install(&ui, reduced);
     ui.set_dark(dark);

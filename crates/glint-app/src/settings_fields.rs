@@ -40,6 +40,10 @@ const LANGUAGE: &[Choice] = &[
     ("zh_cn", "简体中文", "简体中文"),
     ("en", "English", "English"),
 ];
+const UI_FONT: &[Choice] = &[
+    ("system", "跟随系统（默认）", "Follow system (default)"),
+    ("noto_sans_sc", "内置 Noto Sans SC", "Bundled Noto Sans SC"),
+];
 const THEME: &[Choice] = &[
     ("light", "雾白 / 浅色", "Mist / Light"),
     ("dark", "石墨 / 深色", "Graphite / Dark"),
@@ -437,6 +441,7 @@ pub const FIELDS: [&[Field]; 10] = [
     ],
     fields![
         ("appearance.theme", "主题", "Theme", Choice(THEME)),
+        ("appearance.ui_font", "应用字体", "Application font", Choice(UI_FONT)),
         (
             "appearance.accent",
             "强调色",
@@ -548,6 +553,7 @@ pub fn editable(key: &str) -> bool {
             | "resources.sleep_release"
             | "privacy.diagnostics"
             | "privacy.excluded_apps"
+            | "appearance.ui_font"
             | "appearance.theme"
             | "appearance.scale"
             | "appearance.reduce_motion"
@@ -562,28 +568,28 @@ fn fixed_behavior(key: &str, english: bool) -> Option<&'static str> {
     Some(match key {
         "general.close_to_tray" => label(
             english,
-            "首版固定开启：关闭设置收起到托盘；退出请使用托盘菜单。",
-            "Always on in this version: closing settings returns to the tray. Use the tray menu to quit.",
+            "关闭设置收起到托盘；退出请使用托盘菜单。",
+            "Closing settings returns to the tray. Use the tray menu to quit.",
         ),
         "general.single_instance" => label(
             english,
-            "首版固定开启：重复启动激活已有实例。",
-            "Always on in this version: starting again activates the existing instance.",
+            "重复启动激活已有实例。",
+            "Starting again activates the existing instance.",
         ),
         "annotation.keep_objects" => label(
             english,
-            "首版固定开启：完成前保留独立标注对象，可选择、调整与撤销。",
-            "Always on in this version: keep annotation objects selectable, editable and undoable until completion.",
+            "完成前保留独立标注对象，可选择、调整与撤销。",
+            "Keep annotation objects selectable, editable and undoable until completion.",
         ),
         "output.strip_metadata" => label(
             english,
-            "首版固定开启：导出仅含合成像素，不复制原文件元数据或编辑对象。",
-            "Always on in this version: export composited pixels without original file metadata or edit objects.",
+            "导出仅含合成像素，不复制原文件元数据或编辑对象。",
+            "Export composited pixels without original file metadata or edit objects.",
         ),
         "resources.idle_pause" => label(
             english,
-            "首版固定开启：只在输入、图像或窗口状态变化时更新。",
-            "Always on in this version: update on input, image or window state changes.",
+            "只在输入、图像或窗口状态变化时更新。",
+            "Update on input, image or window state changes.",
         ),
         _ => return None,
     })
@@ -638,28 +644,21 @@ pub fn build(
                 ..Default::default()
             };
             row.description = if editable(field.key) {
-                label(
-                    english,
-                    "修改先预览；保存后才应用。",
-                    "Preview changes first; Save applies them.",
-                )
+                ""
             } else {
-                label(
-                    english,
-                    "后续接入，当前仅显示配置值。",
-                    "Not connected yet; configured value only.",
-                )
+                label(english, "暂不可用", "Unavailable")
             }
             .into();
             row.description = match field.key {
-                "resources.capture_source" => label(english, "Windows 当前实际使用 GDI 截图；自动与 GDI 配置均使用此后端，此项暂不可切换。WGC / DXGI 尚未实现，未提供自动回退。界面绘制另使用 Slint software。", "Windows currently captures with GDI. Automatic and GDI both use this backend; this preference is not switchable yet. WGC / DXGI and automatic fallback are not implemented. UI rendering separately uses Slint software."),
+                "resources.capture_source" => label(english, "当前使用 GDI 截图，暂不支持切换捕获源。", "Captures with GDI. Switching capture sources is unavailable."),
                 "privacy.excluded_apps" => label(english, "Windows：完整 .exe 文件名，以英文分号、逗号或换行分隔，最多 128 项；不支持路径或通配符。保存后在桌面采集前后检查可见窗口（含被遮挡窗口），命中或检查失败则拒绝整次截图。最小化或关闭目标窗口后重试。两次检查不能覆盖间隙出现的内容，不是持续隐私保护；不影响本地图片或贴图再编辑。", "Windows: full .exe names separated by semicolons, commas or newlines; up to 128 entries, no paths or wildcards. After Save, visible windows (including covered windows) are checked before and after desktop capture. A match or failed check rejects the whole capture; minimize or close the target and retry. Two checks cannot cover content appearing between them; this is not continuous privacy protection. Local images and pin editing are unaffected."),
                 "privacy.diagnostics" => label(english, "默认关闭，保存后生效。仅记录时间及固定事件代码；容量、位置、失败提示和清理入口见下方。", "Off by default; Save applies. Records only timestamps and fixed event codes. Limits, location, failures and clearing are shown below."),
                 "resources.sleep_release" => label(english, "锁屏、断开会话或休眠时取消倒计时及未完成截图；关闭时隐藏并保留已有编辑。进行中的导出仍可能完成。", "Cancel countdowns and unfinished captures on lock, disconnect or sleep. When off, hide and retain existing edits. An export in progress may still finish."),
                 "resources.preview_budget_mib" => label(english, "保存后用于新截图及图片再编辑的标注像素分块；超限保留编辑，可撤销或重新框选。不含源图、导出与渲染器内存。", "Saved limit applies to annotation pixel tiles in new captures and image editors. Over budget keeps edits; undo or reselect to recover. Excludes source images, export and renderer memory."),
                 "appearance.reduce_motion" => label(english, "控件状态立即切换；不改变选区拖动、绘制或倒计时。保存后用于新浮层与贴图。", "Switch control states immediately; selection, drawing and countdown timing stay unchanged. Save applies to new overlays and pins."),
+                "appearance.scale" => label(english, "先预览缩放，再选择保留或还原；15 秒未确认自动恢复原比例。保留后仍需保存设置。只缩放界面，不改变截图像素。", "Preview the scale, then keep or revert it. Without confirmation, the previous scale returns after 15 seconds. Save settings to persist it. Image pixels are unchanged."),
+                "appearance.ui_font" => label(english, "仅影响应用界面，不影响批注文字。跟随系统时，缺失字体回退到内置 Noto Sans SC。此处即时预览；保存后用于新窗口，取消恢复。", "Applies only to the app UI, not annotations. Follow system falls back to bundled Noto Sans SC when needed. Preview here; Save applies to new windows, Cancel restores the saved font."),
                 "appearance.theme" => label(english, "设置预览草稿；保存用于新窗口。选择跟随系统的浮层和贴图响应系统深浅色变化，不改变图像或位置。", "Preview the draft here; Save applies to new windows. Overlays and pins created with System follow light/dark changes without altering images or positions."),
-                "appearance.scale" => label(english, "100% = 96 DPI；跟随系统使用屏幕 DPI。设置预览；保存用于新浮层和贴图，不改源图。", "100% = 96 DPI; System uses display DPI. Preview here; Save applies to new overlays/pins, never source pixels."),
                 "annotation.tool" => label(english, "保存后用于下一次截图或图片编辑；仍先框选，再使用默认工具。", "Saved defaults apply to the next capture or image editor. Select a region before using the default tool."),
                 "annotation.color" => label(english, "使用 #RRGGBB；用于矩形、箭头、画笔、文字和高亮。实心遮盖保持不透明深色。", "Use #RRGGBB for rectangles, arrows, pen, text and highlights. Solid cover stays opaque dark."),
                 "annotation.redact_style" => label(english, "默认工具为打码时使用此方式；工具条两种工具仍分别可选。敏感内容优先实心遮盖。", "Used when the default tool is redaction. Both toolbar tools remain available. Use solid cover for sensitive content."),
@@ -777,37 +776,37 @@ pub fn build(
     } else {
         let sections = match category {
             10 => vec![(
-                "Windows 首发",
-                "Windows first",
-                "普通桌面截图不要求管理员权限。多屏 / DPI、RDP、HDR、安全桌面与受保护内容仍需现场验证。macOS → Linux 后续逐个平台适配。",
-                "Desktop capture does not require administrator access. Mixed DPI, RDP, HDR, secure desktops and protected content require separate validation. macOS and Linux come later.",
+                "Windows",
+                "Windows",
+                "普通桌面截图无需管理员权限。受保护内容和安全桌面可能无法捕获。",
+                "Desktop capture needs no administrator access. Protected content and secure desktops may not be captured.",
             )],
             11 => vec![
                 (
                     "截图增强与本地 OCR",
                     "Capture enhancements & local OCR",
-                    "后续里程碑：手动滚动拼接与接缝检查、本地模型按需加载、识别与取消。当前未加载 OCR 模型。",
-                    "Later milestones: manual scrolling and seam review, local models loaded on demand, recognition and cancellation. No OCR model is currently loaded.",
+                    "暂不可用。将滚动内容拼接为长图，或从图片中识别文字。",
+                    "Unavailable. Stitch scrolling content into a long image or recognize text in images.",
                 ),
                 (
                     "录屏 / GIF / 录后编辑",
                     "Recording / GIF / editing",
-                    "独立捕获、音频、编码流水线待验证，不以截图定时器冒充录屏。",
-                    "Separate capture, audio and encoding pipelines remain to be validated. Recording will not use a screenshot timer.",
+                    "暂不可用。录制屏幕，导出视频或 GIF。",
+                    "Unavailable. Record the screen and export video or GIF.",
                 ),
             ],
             _ => vec![
                 (
                     "拾光 · Glint 0.0.0",
                     "Glint 0.0.0",
-                    "开发版。Rust 2024 + Slint 1.18.1，winit + software。已连接截图、贴图与首次引导；完整首版与环境验收尚未完成。",
-                    "Development build. Rust 2024 + Slint 1.18.1, winit + software. Capture, pins and onboarding are connected; the full first release and environment acceptance remain incomplete.",
+                    "截图、标注与桌面贴图。",
+                    "Screen capture, annotation and desktop pins.",
                 ),
                 (
                     "许可与第三方",
                     "License & third parties",
-                    "Glint 与 Slint 采用 GPL-3.0-only 路径。tiny-skia: BSD-3-Clause；serde、toml、image、arboard、windows、tray-icon: MIT / Apache-2.0。完整声明见随源码的 THIRD-PARTY-NOTICES.md。",
-                    "Glint and Slint use GPL-3.0-only. tiny-skia: BSD-3-Clause; serde, toml, image, arboard, windows and tray-icon: MIT / Apache-2.0. See THIRD-PARTY-NOTICES.md supplied with source.",
+                    "Glint 与 Slint 采用 GPL-3.0-only 路径。tiny-skia: BSD-3-Clause；serde、toml、image、arboard、windows、tray-icon: MIT / Apache-2.0。内置界面回退字体 Noto Sans SC: SIL OFL 1.1。完整声明见随源码的 THIRD-PARTY-NOTICES.md。",
+                    "Glint and Slint use GPL-3.0-only. tiny-skia: BSD-3-Clause; serde, toml, image, arboard, windows and tray-icon: MIT / Apache-2.0. Bundled UI fallback Noto Sans SC: SIL OFL 1.1. See THIRD-PARTY-NOTICES.md supplied with source.",
                 ),
             ],
         };

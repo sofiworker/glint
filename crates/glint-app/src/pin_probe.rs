@@ -133,9 +133,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     slint::BackendSelector::new()
         .backend_name("winit".into())
         .renderer_name("software".into())
-        .with_winit_window_attributes_hook(|attributes| {
-            attributes.with_active(false).with_transparent(true)
-        })
+        .with_winit_window_attributes_hook(crate::motion::window_attributes)
         .select()?;
     let ui = PinProbe::new()?;
     let (picture, width, height) = if smoke {
@@ -315,17 +313,9 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             let _ = weak.upgrade_in_event_loop(|ui| ui.invoke_action("rescue".into()));
         }
     }));
-    // Code-native icon uses the prototype accent; no external bitmap assets.
-    let mut icon = vec![0; 16 * 16 * 4];
-    for y in 2..14 {
-        for x in 2..14 {
-            let i = (y * 16 + x) * 4;
-            icon[i..i + 4].copy_from_slice(&[75, 92, 250, 255]);
-        }
-    }
     let _tray = TrayIconBuilder::new()
         .with_tooltip("拾光 Glint · M0 贴图验证")
-        .with_icon(tray_icon::Icon::from_rgba(icon, 16, 16)?)
+        .with_icon(crate::brand::tray_icon()?)
         .with_menu(Box::new(menu))
         .build()?;
     let backdrop = if smoke { Some(Backdrop::new()?) } else { None };
