@@ -10,6 +10,30 @@ thread_local! {
     static CREATING_SETTINGS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// Observe only lifecycle events, never pointer movement, keystrokes or window titles.
+pub struct WindowDiagnostics;
+impl slint::winit_030::CustomApplicationHandler for WindowDiagnostics {
+    fn window_event(
+        &mut self,
+        _: &winit::event_loop::ActiveEventLoop,
+        _: winit::window::WindowId,
+        _: Option<&winit::window::Window>,
+        _: Option<&slint::Window>,
+        event: &winit::event::WindowEvent,
+    ) -> slint::winit_030::EventResult {
+        use glint_platform::diagnostic_log::{Event, emit};
+        if let winit::event::WindowEvent::Focused(focused) = event {
+            emit(if *focused {
+                Event::WindowFocused
+            } else {
+                Event::WindowBlurred
+            });
+            glint_platform::diagnostic_log::record_pointer_state();
+        }
+        slint::winit_030::EventResult::Propagate
+    }
+}
+
 /// Settings have an opaque background; only desktop pins need transparent composition.
 pub fn create_settings<T>(create: impl FnOnce() -> T) -> T {
     struct Restore(bool);

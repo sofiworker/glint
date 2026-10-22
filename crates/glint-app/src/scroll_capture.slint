@@ -1,0 +1,77 @@
+import { Button, ScrollView, Theme, Motion, HorizontalBox, VerticalBox } from "@glint_ui/glint-ui.slint";
+import { SpinBox } from "std-widgets.slint";
+
+export struct ScrollLabels { title: string, hint: string, capture: string, undo: string, stop: string, edit: string, cancel: string, overlap: string, accept: string, discard: string, preview: string, resume: string }
+export component ScrollCaptureWindow inherits Window {
+    title: root.labels.title;
+    always-on-top: true;
+    preferred-width: 470px; preferred-height: root.review ? 680px : 330px;
+    min-width: 400px; min-height: 280px;
+    default-font-family: Motion.ui-font-family; default-font-size: 13px;
+    background: Theme.background;
+    in property <ScrollLabels> labels;
+    in property <bool> dark;
+    in property <color> accent;
+    init => { Theme.apply(root.dark, false, root.accent); }
+    changed dark => { Theme.apply(root.dark, false, root.accent); }
+    changed accent => { Theme.apply(root.dark, false, root.accent); }
+    in property <bool> busy;
+    in property <bool> review;
+    in property <bool> pending;
+    in property <bool> can-undo;
+    in property <bool> can-finish;
+    in property <string> status;
+    in property <image> picture;
+    in property <float> picture-width: 1;
+    in property <float> picture-height: 1;
+    in property <[float]> seams;
+    in property <int> maximum-overlap: 1;
+    in-out property <int> overlap;
+    callback action(string);
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape { root.action("cancel"); return accept; }
+            return reject;
+        }
+        VerticalBox {
+            padding: 14px; spacing: 10px;
+            Text { text: root.labels.hint; color: Theme.muted; wrap: word-wrap; vertical-stretch: 0; }
+            Text { text: root.status; color: Theme.ink; wrap: word-wrap; vertical-stretch: 0; }
+            if root.review: ScrollView {
+                content-width: self.visible-width;
+                content-height: root.picture-height * (self.visible-width / 1px) / max(1, root.picture-width) * 1px;
+                Image {
+                    width: parent.width;
+                    height: root.picture-height * (self.width / 1px) / max(1, root.picture-width) * 1px;
+                    source: root.picture; image-fit: fill;
+                    for seam in root.seams: Rectangle {
+                        y: seam * (parent.width / 1px) / max(1, root.picture-width) * 1px;
+                        width: parent.width; height: 2px; background: root.accent;
+                    }
+                }
+            }
+            if root.pending: HorizontalBox {
+                padding: 0px; spacing: 6px; vertical-stretch: 0;
+                Text { text: root.labels.overlap; color: Theme.ink; vertical-alignment: center; }
+                SpinBox { minimum: 0; maximum: root.maximum-overlap; value <=> root.overlap; enabled: !root.busy; }
+                Button { text: root.labels.preview; enabled: !root.busy; clicked => { root.action("preview"); } }
+            }
+            if root.pending: HorizontalBox {
+                padding: 0px; spacing: 6px; vertical-stretch: 0;
+                Button { text: root.labels.discard; enabled: !root.busy; clicked => { root.action("discard"); } }
+                Button { text: root.labels.accept; enabled: !root.busy; clicked => { root.action("accept"); } }
+            }
+            HorizontalBox {
+                padding: 0px; spacing: 6px; vertical-stretch: 0;
+                Button { text: root.labels.undo; enabled: !root.busy && root.can-undo; clicked => { root.action("undo"); } }
+                Button { text: root.review ? root.labels.resume : root.labels.capture; enabled: !root.busy && !root.pending; clicked => { root.action(root.review ? "resume" : "capture"); } }
+                Button { text: root.labels.stop; enabled: !root.busy && root.can-finish; clicked => { root.action("stop"); } }
+            }
+            HorizontalBox {
+                padding: 0px; spacing: 6px; vertical-stretch: 0;
+                Button { text: root.labels.cancel; clicked => { root.action("cancel"); } }
+                Button { text: root.labels.edit; primary: true; enabled: root.review && !root.busy && root.can-finish && !root.pending; clicked => { root.action("edit"); } }
+            }
+        }
+    }
+}

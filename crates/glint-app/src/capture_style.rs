@@ -144,6 +144,7 @@ pub(crate) fn apply_system_theme(ui: &CaptureProbe, dark: bool) {
     ui.invoke_apply_theme();
 }
 pub fn apply_labels(ui: &CaptureProbe) {
+    ui.set_scroll_label(messages::text(Message::ScrollTitle, ui.get_english()).into());
     ui.set_output_error_title(
         messages::text(Message::CaptureOutputFailed, ui.get_english()).into(),
     );

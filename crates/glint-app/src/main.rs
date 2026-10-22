@@ -66,6 +66,8 @@ mod runtime_diagnostics;
 #[cfg(all(feature = "native-shell", windows))]
 mod scale_preview;
 #[cfg(all(feature = "native-shell", windows))]
+mod scroll_capture;
+#[cfg(all(feature = "native-shell", windows))]
 mod settings;
 #[cfg(all(feature = "native-shell", windows))]
 mod settings_policy_smoke;
@@ -77,6 +79,7 @@ mod ui_font;
 fn main() {
     #[cfg(feature = "native-shell")]
     if let Err(error) = run() {
+        glint_platform::diagnostic_log::emit(glint_platform::diagnostic_log::Event::StartupFailed);
         eprintln!("Glint: {error}");
         #[cfg(windows)]
         if !std::env::args().any(|arg| {

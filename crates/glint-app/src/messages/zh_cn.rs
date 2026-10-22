@@ -2,6 +2,35 @@ use super::Message;
 
 pub fn text(id: Message) -> Option<&'static str> {
     match id {
+        Message::ScrollTitle => Some("滚动长截图"),
+        Message::ScrollHint => Some(
+            "手动向下滚动，等待内容静止，再按截图快捷键或点击“采集下一段”。至少保留四分之一屏重叠；选区避开固定页头、侧栏和滚动条。不自动滚动。",
+        ),
+        Message::ScrollCapture => Some("采集下一段"),
+        Message::ScrollUndo => Some("撤销上一段"),
+        Message::ScrollStop => Some("停止并检查"),
+        Message::ScrollEdit => Some("确认并标注"),
+        Message::ScrollOverlap => Some("重叠高度(px)"),
+        Message::ScrollAccept => Some("确认接缝"),
+        Message::ScrollDiscard => Some("丢弃待确认片段"),
+        Message::ScrollPreview => Some("预览接缝"),
+        Message::ScrollResume => Some("继续采集"),
+        Message::ScrollBusy => Some("正在采集 / 拼接…"),
+        Message::ScrollReady => Some("片段保留在内存中"),
+        Message::ScrollDuplicate => Some("已跳过完全相同的片段。向下滚动后重试。"),
+        Message::ScrollUncertain => Some(
+            "匹配不可靠，待确认片段已保留。调整重叠高度并预览接缝，可确认、丢弃该片段或结束已有结果。",
+        ),
+        Message::ScrollFailed => Some("采集 / 拼接失败，已有片段保留。可重试或结束已有结果。"),
+        Message::ScrollBudget => {
+            Some("已达到源片段/结果 64 MiB 或 128 段上限。可撤销上一段或结束已有结果。")
+        }
+        Message::ScrollPlainRegion => {
+            Some("请从单个屏幕内、尚未标注的桌面选区开始长截图，区域至少 32 × 64 像素。")
+        }
+        Message::ScrollReviewHint => {
+            Some("滚动检查接缝，彩色线仅用于预览。进入标注后用滚轮查看长图；复制/保存保持源像素。")
+        }
         Message::CaptureFailureLabel => Some("截图失败"),
         Message::CaptureFocusUnavailable => Some("点击截图浮层后即可框选；Esc 取消。"),
         Message::ExclusionInvalid => Some(
@@ -140,7 +169,9 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::ToolbarColumns => Some("列数"),
         Message::ToolbarRows => Some("行数"),
         Message::ToolbarWidth => Some("最大宽度 (px)"),
-        Message::ToolbarWidthHint => Some("输入最大宽度；实际宽度会按完整按钮向下对齐，避免露出半个图标。超出部分可横向滚动查看。"),
+        Message::ToolbarWidthHint => Some(
+            "输入最大宽度；实际宽度会按完整按钮向下对齐，避免露出半个图标。超出部分可横向滚动查看。",
+        ),
         Message::ToolbarSettingsPreviewHint => {
             Some("仅外观预览；保存设置或应用自定义后生效。选区与标注保持不变。")
         }

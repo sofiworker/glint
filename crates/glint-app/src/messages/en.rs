@@ -2,6 +2,37 @@ use super::Message;
 
 pub fn text(id: Message) -> &'static str {
     match id {
+        Message::ScrollTitle => "Scrolling capture",
+        Message::ScrollHint => {
+            "Scroll down manually, wait for content to settle, then use your capture shortcut or Capture next. Keep at least 1/4 screen overlap. Exclude fixed headers, sidebars and scrollbars. No automatic scrolling."
+        }
+        Message::ScrollCapture => "Capture next",
+        Message::ScrollUndo => "Undo fragment",
+        Message::ScrollStop => "Stop & inspect",
+        Message::ScrollEdit => "Confirm & annotate",
+        Message::ScrollOverlap => "Overlap (px)",
+        Message::ScrollAccept => "Accept join",
+        Message::ScrollDiscard => "Discard pending",
+        Message::ScrollPreview => "Preview seam",
+        Message::ScrollResume => "Continue capture",
+        Message::ScrollBusy => "Capturing / stitching…",
+        Message::ScrollReady => "Fragments retained in memory",
+        Message::ScrollDuplicate => "Identical fragment skipped. Scroll farther down and retry.",
+        Message::ScrollUncertain => {
+            "Match uncertain. Pending fragment retained. Adjust overlap and preview the seam; accept it, discard it or finish existing fragments."
+        }
+        Message::ScrollFailed => {
+            "Capture / stitch failed. Existing fragments retained. Retry or finish the existing result."
+        }
+        Message::ScrollBudget => {
+            "64 MiB source/result or 128 fragment limit reached. Undo a fragment or finish the current result."
+        }
+        Message::ScrollPlainRegion => {
+            "Start scrolling capture from an unannotated desktop region inside one display (at least 32 × 64 pixels)."
+        }
+        Message::ScrollReviewHint => {
+            "Scroll to inspect the joins (colored lines are preview only). Mouse wheel scrolls the long image in the annotation overlay; copy/save uses source pixels."
+        }
         Message::CaptureFailureLabel => "Capture failed",
         Message::CaptureFocusUnavailable => "Click the capture overlay to focus it; Esc cancels.",
         Message::ExclusionInvalid => {
@@ -168,7 +199,9 @@ pub fn text(id: Message) -> &'static str {
         Message::ToolbarColumns => "Columns",
         Message::ToolbarRows => "Rows",
         Message::ToolbarWidth => "Max width (px)",
-        Message::ToolbarWidthHint => "Enter the maximum width. The toolbar rounds down to fit whole buttons, so icons are never cut in half. Scroll horizontally to see the remaining tools.",
+        Message::ToolbarWidthHint => {
+            "Enter the maximum width. The toolbar rounds down to fit whole buttons, so icons are never cut in half. Scroll horizontally to see the remaining tools."
+        }
         Message::ToolbarSettingsPreviewHint => {
             "Appearance preview only. Save settings or apply customization to use this toolbar. Selection and annotations are retained."
         }

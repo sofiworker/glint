@@ -20,6 +20,7 @@ pub enum Input {
     Desktop(glint_platform::DesktopSnapshot),
     Pin(Prepared),
     Local(Prepared),
+    Scroll(Prepared),
 }
 impl Source {
     pub fn prepare(self) -> Result<Prepared, String> {

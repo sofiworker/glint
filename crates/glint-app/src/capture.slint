@@ -158,6 +158,10 @@ export component CaptureProbe inherits Window {
     callback frame-completed;
     callback finished;
     callback request-pin(image, int, int);
+    callback scroll-start(int, int, int, int);
+    in property <string> scroll-label;
+    in property <bool> scroll-editor;
+    in-out property <length> image-scroll-y;
     callback output-succeeded(int, int, int, int);
     // Content-free internal diagnostic signal; failure text stays in the editor.
     callback output-failed();
@@ -229,11 +233,16 @@ export component CaptureProbe inherits Window {
                 }
                 if root.toolbar-modal == 2: ScrollView {
                     x: 12px; y: 44px; width: parent.width - 24px; height: parent.height - 90px;
-                    content-height: root.toolbar-hidden.length * 38px;
+                    content-height: (root.toolbar-hidden.length + (!root.pin-editing && !root.color-only ? 1 : 0)) * 38px;
                     for catalog-index[index] in root.toolbar-hidden: Button {
                         x: 0px; y: index * 38px; width: parent.width; height: 34px;
                         text: root.actions[catalog-index].label;
                         clicked => { root.toolbar-command("cancel", 0, 0); if root.text-editing { root.action("cancel-text"); } root.action("deselect-object"); root.tool = root.actions[catalog-index].tool; keys.focus(); }
+                    }
+                    if !root.pin-editing && !root.color-only: Button {
+                        y: root.toolbar-hidden.length * 38px; width: parent.width; height: 34px;
+                        text: root.scroll-label;
+                        clicked => { root.toolbar-command("cancel", 0, 0); root.action("scroll-start"); }
                     }
                 }
                 if root.toolbar-modal == 1: Text { x: 12px; y: parent.height - 88px; width: parent.width - 24px; height: 42px; text: root.toolbar-feedback == "" ? (root.labels.toolbar-preview-hint) : root.toolbar-feedback; color: root.ink; wrap: word-wrap; overflow: elide; }
@@ -243,7 +252,9 @@ export component CaptureProbe inherits Window {
         }
     }
     property <float> sx: root.width / 1px / source-w;
-    property <float> sy: root.height / 1px / source-h;
+    property <float> sy: root.scroll-editor ? root.sx : root.height / 1px / source-h;
+    property <length> image-scroll-limit: max(0px, root.source-h * root.sy * 1px - root.height);
+    changed image-scroll-limit => { root.image-scroll-y = min(root.image-scroll-y, root.image-scroll-limit); }
     in-out property <length> toolbar-scroll-x;
     in-out property <length> toolbar-scroll-y;
     property <length> cell-width: root.toolbar-icons ? 36px : 88px;
@@ -282,7 +293,7 @@ export component CaptureProbe inherits Window {
     property <length> below: (root.top + root.high) * root.sy * 1px + 12px;
     property <length> above: root.top * root.sy * 1px - root.toolbar-total-height - 12px;
     property <length> safe-top: max(12px, min(70px, root.height - root.toolbar-total-height - 12px));
-    out property <length> toolbar-y: root.color-only ? max(12px,root.height - root.toolbar-total-height - 12px) : root.toolbar-position == 1 ? root.safe-top : root.toolbar-position == 2 ? max(12px, root.height - root.toolbar-total-height - 12px) : max(root.safe-top, min(root.below + root.toolbar-total-height <= root.height - 12px ? root.below : root.above >= 70px ? root.above : root.height - root.toolbar-total-height - 12px, root.height - root.toolbar-total-height - 12px));
+    out property <length> toolbar-y: root.scroll-editor ? 12px : root.color-only ? max(12px,root.height - root.toolbar-total-height - 12px) : root.toolbar-position == 1 ? root.safe-top : root.toolbar-position == 2 ? max(12px, root.height - root.toolbar-total-height - 12px) : max(root.safe-top, min(root.below + root.toolbar-total-height <= root.height - 12px ? root.below : root.above >= 70px ? root.above : root.height - root.toolbar-total-height - 12px, root.height - root.toolbar-total-height - 12px));
     property <[CaptureAction]> actions: [
         { label: root.labels.select, tool: 0, action: "", enabled: !root.busy },
         { label: root.labels.rectangle, tool: 3, action: "", enabled: !root.busy },
@@ -319,6 +330,9 @@ export component CaptureProbe inherits Window {
         background: root.surface; border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 4px;
         hint-label := Text { x: 6px; width: parent.width - 12px; height: parent.height; text: root.toolbar-hint-label; color: root.ink; horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
     }
+    Rectangle {
+    y: -root.image-scroll-y;
+    width: root.width; height: root.scroll-editor ? root.source-h * root.sy * 1px : root.height;
     Image { source: root.desktop; width: parent.width; height: parent.height; image-fit: fill; }
     Rectangle {
         x: root.left * root.sx * 1px; y: root.top * root.sy * 1px;
@@ -356,9 +370,10 @@ export component CaptureProbe inherits Window {
     if root.selected && root.tool == 0 && root.object-selected: Rectangle {
         for grip in root.object-grips: Rectangle {
             x: min(root.width - 7px, max(0px, (root.left + grip.x) * root.sx * 1px - 3.5px));
-            y: min(root.height - 7px, max(0px, (root.top + grip.y) * root.sy * 1px - 3.5px));
+            y: root.scroll-editor ? (root.top + grip.y) * root.sy * 1px - 3.5px : min(root.height - 7px, max(0px, (root.top + grip.y) * root.sy * 1px - 3.5px));
             width: 7px; height: 7px; background: #ffffff; border-width: 1px; border-color: root.accent;
         }
+    }
     }
     keys := FocusScope {
         focus-on-tab-navigation: root.background-active; focus-on-click: root.background-active;
@@ -380,19 +395,25 @@ export component CaptureProbe inherits Window {
         TouchArea {
             enabled: root.background-active && (!root.busy && root.toolbar-modal == 0);
             mouse-cursor: root.tool != 0 || root.cursor == 0 ? crosshair : root.cursor == 1 ? move : root.cursor == 2 ? ew-resize : root.cursor == 3 ? ns-resize : root.cursor == 4 ? nwse-resize : nesw-resize;
+            scroll-event(event) => {
+                if !root.scroll-editor || self.pressed || root.text-editing || root.text-busy { return reject; }
+                root.image-scroll-y = max(0px, min(root.image-scroll-limit, root.image-scroll-y - event.delta-y));
+                root.canvas-left();
+                return accept;
+            }
             pointer-event(event) => {
                 if event.kind == PointerEventKind.cancel { root.pointer(3, 0, 0); }
                 // `moved` only fires during a pointer grab. Move events also
                 // arrive with no button pressed and drive window preselection.
                 if event.kind == PointerEventKind.move {
                     if self.pressed {
-                        root.pointer(1, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy);
+                        root.pointer(1, self.mouse-x / 1px / root.sx, (self.mouse-y + root.image-scroll-y) / 1px / root.sy);
                     } else {
-                        root.hover(self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy);
+                        root.hover(self.mouse-x / 1px / root.sx, (self.mouse-y + root.image-scroll-y) / 1px / root.sy);
                     }
                 }
-                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) { root.pointer(0, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); }
-                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) { root.pointer(2, self.mouse-x / 1px / root.sx, self.mouse-y / 1px / root.sy); }
+                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) { root.pointer(0, self.mouse-x / 1px / root.sx, (self.mouse-y + root.image-scroll-y) / 1px / root.sy); }
+                if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) { root.pointer(2, self.mouse-x / 1px / root.sx, (self.mouse-y + root.image-scroll-y) / 1px / root.sy); }
                 if (event.button == PointerEventButton.right && event.kind == PointerEventKind.up) { root.action("cancel-pointer"); }
             }
             changed has-hover => { if !self.has-hover { root.canvas-left(); } }
@@ -406,7 +427,7 @@ export component CaptureProbe inherits Window {
             if root.auto-save-failed: Button { x: 12px; y: parent.height - 44px; height: 32px; width: min(parent.width - 24px, 420px); text: root.labels.save-elsewhere; enabled: root.background-active && (!root.busy); clicked => { root.action("save-without-auto"); } }
         }
         selection-metrics := Rectangle {
-            visible: root.dimensions && root.has-region && !root.color-only && !root.text-editing && root.background-active;
+            visible: root.dimensions && root.has-region && !root.color-only && !root.scroll-editor && !root.text-editing && root.background-active;
             width: min(metrics-text.preferred-width + 16px, max(0px, root.width - 8px)); height: 24px;
             x: max(4px, min(root.left * root.sx * 1px, root.width - self.width - 4px));
             property <length> above: root.top * root.sy * 1px - self.height - 4px;
@@ -564,7 +585,7 @@ export component CaptureProbe inherits Window {
         Rectangle {
             visible: root.text-editing;
             x: max(12px, min(root.text-anchor-x * root.sx * 1px, root.width - self.width - 12px));
-            y: max(12px, min(root.text-anchor-y * root.sy * 1px, root.height - self.height - 12px));
+            y: max(12px, min(root.text-anchor-y * root.sy * 1px - root.image-scroll-y, root.height - self.height - 12px));
             width: min(480px, root.width - 24px); height: 202px;
             background: root.surface; border-width: 2px; border-color: root.accent; border-radius: 6px;
             text-input := LineEdit { x: 12px; y: 12px; width: parent.width - 24px; height: 34px; text <=> root.text-value; placeholder-text: root.labels.text-hint; enabled: root.background-active && (!root.text-busy); accepted => { root.action("commit-text"); } }

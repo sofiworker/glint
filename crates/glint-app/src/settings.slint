@@ -4,6 +4,7 @@ import { FontPicker, FontLabels } from "@glint_ui/components/font_picker.slint";
 import { Motion } from "@glint_ui/widgets/motion.slint";
 import { Button, CheckBox, ComboBox, LineEdit, Slider, ScrollView, HorizontalBox, VerticalBox } from "@glint_ui/widgets/widgets.slint";
 import { ToolbarEditor, ToolbarRow } from "@glint_ui/components/toolbar_editor.slint";
+import { SpinBox } from "std-widgets.slint";
 
 export struct SettingRow { key: string, section: string, title: string, description: string, kind: int, editable: bool, checked: bool, text: string, options: [string], colors: [color], selected: int, number: float, minimum: float, maximum: float }
 export component SettingsWindow inherits Window {
@@ -261,6 +262,14 @@ export component SettingsWindow inherits Window {
                     if row.kind == 3: HorizontalBox { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; height: 36px; padding: 0px;
                         Slider { enabled: root.background-active && (row.editable); minimum: row.minimum; maximum: row.maximum; value: row.number; changed(value) => { root.change(row.key, round(value) + ""); } }
                         Text { width: 48px; text: round(row.number); color: root.ink; horizontal-alignment: right; vertical-alignment: center; }
+                    }
+                    if row.kind == 7: SpinBox {
+                        x: root.compact-form ? 18px : parent.width - 282px;
+                        y: root.compact-form ? parent.height - 48px : 28px;
+                        width: root.compact-form ? parent.width - 36px : 262px; height: 36px;
+                        enabled: root.background-active && row.editable;
+                        minimum: round(row.minimum); maximum: round(row.maximum); value: round(row.number);
+                        edited(value) => { root.change(row.key, value + ""); }
                     }
                     if row.kind == 4 && !(root.modal == 3 && root.recording-key == row.key): Button { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; enabled: (root.background-active || root.modal == 3) && row.editable; text: row.text == "" ? root.unbound-label : row.text; clicked => { root.record(row.key); } }
                     if row.kind == 4 && root.modal == 3 && root.recording-key == row.key: InlineShortcut {

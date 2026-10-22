@@ -33,6 +33,16 @@ pub fn install(ui: &SettingsWindow, state: Rc<RefCell<AppState>>) {
             glint_platform::LifecycleEvent::Resumed => "lifecycle-resume",
             glint_platform::LifecycleEvent::Stopped => "lifecycle-unavailable",
         };
+        use glint_platform::diagnostic_log::{Event, emit};
+        match action {
+            "lifecycle-lock" => emit(Event::Locked),
+            "lifecycle-unlock" => emit(Event::Unlocked),
+            "lifecycle-disconnect" => emit(Event::Disconnected),
+            "lifecycle-connect" => emit(Event::Connected),
+            "lifecycle-sleep" => emit(Event::Sleeping),
+            "lifecycle-resume" => emit(Event::Resumed),
+            _ => {}
+        }
         let _ = receiver.upgrade_in_event_loop(move |ui| ui.invoke_action(action.into()));
     });
     match installed {
@@ -65,6 +75,9 @@ pub fn handle(action: &str, state: &mut AppState, ui: &SettingsWindow) -> bool {
         _ => return false,
     }
     if state.lifecycle.blocked() && !was_blocked {
+        // A scroll capture must never continue acquiring pixels across a suspend
+        // boundary. Its frozen original remains subject to the normal policy.
+        state.scroll_capture.take();
         state.capture_settings_visible = false;
         let clipboard_error = crate::clipboard_pin::cancel_pending(state).err();
         let had_capture = state.capture.is_some() || state.capturing || state.capture_pending;

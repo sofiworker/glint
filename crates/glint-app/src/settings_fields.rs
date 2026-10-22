@@ -44,6 +44,17 @@ const UI_FONT: &[Choice] = &[
     ("system", "跟随系统（默认）", "Follow system (default)"),
     ("noto_sans_sc", "内置 Noto Sans SC", "Bundled Noto Sans SC"),
 ];
+const LOG_LEVEL: &[Choice] = &[
+    ("error", "Error · 仅错误", "Error · Errors only"),
+    ("warn", "Warn · 警告及错误", "Warn · Warnings and errors"),
+    ("info", "Info · 常规（默认）", "Info · Normal (default)"),
+    ("debug", "Debug · 详细阶段", "Debug · Detailed stages"),
+    (
+        "trace",
+        "Trace · 输入状态诊断",
+        "Trace · Input state diagnostics",
+    ),
+];
 const THEME: &[Choice] = &[
     ("light", "雾白 / 浅色", "Mist / Light"),
     ("dark", "石墨 / 深色", "Graphite / Dark"),
@@ -437,11 +448,34 @@ pub const FIELDS: [&[Field]; 10] = [
             "允许保存诊断日志",
             "Save diagnostic logs",
             Boolean
+        ),
+        (
+            "privacy.log_level",
+            "日志等级",
+            "Log level",
+            Choice(LOG_LEVEL)
+        ),
+        (
+            "privacy.log_file_size_kib",
+            "单文件大小上限（KiB）",
+            "File size limit (KiB)",
+            Number(64, 16384)
+        ),
+        (
+            "privacy.log_backups",
+            "轮转备份份数（不含当前）",
+            "Rotated backups (excludes current)",
+            Number(0, 20)
         )
     ],
     fields![
         ("appearance.theme", "主题", "Theme", Choice(THEME)),
-        ("appearance.ui_font", "应用字体", "Application font", Choice(UI_FONT)),
+        (
+            "appearance.ui_font",
+            "应用字体",
+            "Application font",
+            Choice(UI_FONT)
+        ),
         (
             "appearance.accent",
             "强调色",
@@ -552,6 +586,9 @@ pub fn editable(key: &str) -> bool {
             | "resources.preview_budget_mib"
             | "resources.sleep_release"
             | "privacy.diagnostics"
+            | "privacy.log_level"
+            | "privacy.log_file_size_kib"
+            | "privacy.log_backups"
             | "privacy.excluded_apps"
             | "appearance.ui_font"
             | "appearance.theme"
@@ -614,6 +651,7 @@ fn section_heading(key: &str, english: bool) -> &'static str {
         "pins.hide_on_capture" => ("可见性与恢复", "Visibility & recovery"),
         "privacy.history" => ("保存策略", "Retention policy"),
         "privacy.excluded_apps" => ("边界与诊断", "Boundaries & diagnostics"),
+        "privacy.diagnostics" => ("日志", "Logging"),
         "resources.capture_source" => ("渲染与捕获", "Rendering & capture"),
         "resources.preview_budget_mib" => ("内存预算", "Memory budgets"),
         _ => return "",
@@ -653,6 +691,9 @@ pub fn build(
                 "resources.capture_source" => label(english, "当前使用 GDI 截图，暂不支持切换捕获源。", "Captures with GDI. Switching capture sources is unavailable."),
                 "privacy.excluded_apps" => label(english, "Windows：完整 .exe 文件名，以英文分号、逗号或换行分隔，最多 128 项；不支持路径或通配符。保存后在桌面采集前后检查可见窗口（含被遮挡窗口），命中或检查失败则拒绝整次截图。最小化或关闭目标窗口后重试。两次检查不能覆盖间隙出现的内容，不是持续隐私保护；不影响本地图片或贴图再编辑。", "Windows: full .exe names separated by semicolons, commas or newlines; up to 128 entries, no paths or wildcards. After Save, visible windows (including covered windows) are checked before and after desktop capture. A match or failed check rejects the whole capture; minimize or close the target and retry. Two checks cannot cover content appearing between them; this is not continuous privacy protection. Local images and pin editing are unaffected."),
                 "privacy.diagnostics" => label(english, "默认关闭，保存后生效。仅记录时间及固定事件代码；容量、位置、失败提示和清理入口见下方。", "Off by default; Save applies. Records only timestamps and fixed event codes. Limits, location, failures and clearing are shown below."),
+                "privacy.log_level" => label(english, "所选等级包含更严重事件。Debug 增加阶段细节，Trace 增加只读输入状态；不记录具体按键或图像。保存后生效。", "Includes more severe events. Debug adds stage details; Trace adds read-only input state. No actual keys or images. Save applies."),
+                "privacy.log_file_size_kib" => label(english, "64–16384 KiB，默认 512 KiB。保存后用于后续写入和轮转，不截断已有日志。", "64–16384 KiB; default 512 KiB. Save applies to subsequent writes and rotation; existing logs are not truncated."),
+                "privacy.log_backups" => label(english, "0–20 份，不含当前 events.log。默认 1 份备份，共 2 份；设为 0 仅保留当前日志。日志开启时保存降低份数会清理多余备份；关闭则在下次启用写入时清理。", "0–20, excluding events.log. Default 1 backup, 2 files total; 0 keeps only the current log. When logging is active, saving a lower count removes excess backups; otherwise cleanup occurs on the next write after enabling."),
                 "resources.sleep_release" => label(english, "锁屏、断开会话或休眠时取消倒计时及未完成截图；关闭时隐藏并保留已有编辑。进行中的导出仍可能完成。", "Cancel countdowns and unfinished captures on lock, disconnect or sleep. When off, hide and retain existing edits. An export in progress may still finish."),
                 "resources.preview_budget_mib" => label(english, "保存后用于新截图及图片再编辑的标注像素分块；超限保留编辑，可撤销或重新框选。不含源图、导出与渲染器内存。", "Saved limit applies to annotation pixel tiles in new captures and image editors. Over budget keeps edits; undo or reselect to recover. Excludes source images, export and renderer memory."),
                 "appearance.reduce_motion" => label(english, "控件状态立即切换；不改变选区拖动、绘制或倒计时。保存后用于新浮层与贴图。", "Switch control states immediately; selection, drawing and countdown timing stay unchanged. Save applies to new overlays and pins."),
@@ -733,7 +774,14 @@ pub fn build(
                 }
                 Text => row.kind = 2,
                 Number(min, max) => {
-                    row.kind = 3;
+                    row.kind = if matches!(
+                        field.key,
+                        "privacy.log_file_size_kib" | "privacy.log_backups"
+                    ) {
+                        7
+                    } else {
+                        3
+                    };
                     row.number = value.as_integer().ok_or("config.field_type")? as f32;
                     row.minimum = min as f32;
                     row.maximum = max as f32;
@@ -783,10 +831,16 @@ pub fn build(
             )],
             11 => vec![
                 (
-                    "截图增强与本地 OCR",
-                    "Capture enhancements & local OCR",
-                    "暂不可用。将滚动内容拼接为长图，或从图片中识别文字。",
-                    "Unavailable. Stitch scrolling content into a long image or recognize text in images.",
+                    "滚动长截图",
+                    "Scrolling capture",
+                    "桌面截图框选后，从工具条“更多”进入。手动向下滚动，按截图快捷键或点击采集下一段；停止后检查接缝并进入标注。选区需在单个屏幕内，避开固定页头、侧栏和滚动条。不自动滚动。",
+                    "Select a desktop region, then choose Scrolling capture in More tools. Scroll down manually and use the capture shortcut or Capture next. Stop to inspect seams and annotate. Keep the region within one display, excluding fixed headers, sidebars and scrollbars. No automatic scrolling.",
+                ),
+                (
+                    "本地 OCR",
+                    "Local OCR",
+                    "暂不可用。从图片中识别文字。",
+                    "Unavailable. Recognize text in images.",
                 ),
                 (
                     "录屏 / GIF / 录后编辑",

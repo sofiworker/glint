@@ -19,6 +19,13 @@ choice!(Theme {
     System
 });
 choice!(UiFont { System, NotoSansSc });
+choice!(LogLevel {
+    Info,
+    Error,
+    Warn,
+    Debug,
+    Trace
+});
 choice!(Scale {
     System,
     Percent100,
@@ -342,6 +349,9 @@ pub struct Privacy {
     pub history_budget_mib: u16,
     pub excluded_apps: String,
     pub diagnostics: bool,
+    pub log_level: LogLevel,
+    pub log_file_size_kib: u16,
+    pub log_backups: u8,
     pub clear_on_exit: bool,
 }
 impl Default for Privacy {
@@ -353,6 +363,9 @@ impl Default for Privacy {
             history_budget_mib: 128,
             excluded_apps: String::new(),
             diagnostics: false,
+            log_level: LogLevel::Info,
+            log_file_size_kib: 512,
+            log_backups: 1,
             clear_on_exit: true,
         }
     }
@@ -539,6 +552,16 @@ impl Config {
             self.privacy.excluded_apps.len() <= 16384 && !self.privacy.excluded_apps.contains('\0'),
             "privacy.excluded_apps",
             "config.invalid_text",
+        );
+        check(
+            (64..=16384).contains(&self.privacy.log_file_size_kib),
+            "privacy.log_file_size_kib",
+            "config.out_of_range",
+        );
+        check(
+            self.privacy.log_backups <= 20,
+            "privacy.log_backups",
+            "config.out_of_range",
         );
         check(
             valid_hex(&self.appearance.accent),

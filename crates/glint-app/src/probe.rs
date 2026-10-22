@@ -797,7 +797,11 @@ fn selection_metrics(ui: &CaptureProbe, dimensions: (u32, u32)) -> ((u32, u32), 
     let scale = ui.window().scale_factor();
     let ratio = (
         dimensions.0 as f32 * scale / physical.width.max(1) as f32,
-        dimensions.1 as f32 * scale / physical.height.max(1) as f32,
+        if ui.get_scroll_editor() {
+            dimensions.0 as f32 * scale / physical.width.max(1) as f32
+        } else {
+            dimensions.1 as f32 * scale / physical.height.max(1) as f32
+        },
     );
     (
         (
@@ -1267,6 +1271,30 @@ fn prepare_capture(
             return;
         }
         if ui.get_busy() {
+            return;
+        }
+        if action == "scroll-start" {
+            let s = state.borrow();
+            if s.fixed_selection
+                || !s.edits.marks().is_empty()
+                || pointer_pending(&s)
+                || s.selection.width < 32
+                || s.selection.height < 64
+            {
+                ui.set_status(text(&ui, Message::ScrollPlainRegion).into());
+                ui.set_service_notice(text(&ui, Message::ScrollPlainRegion).into());
+                return;
+            }
+            let x = i64::from(s.source_origin.0) + i64::from(s.selection.x);
+            let y = i64::from(s.source_origin.1) + i64::from(s.selection.y);
+            if let (Ok(x), Ok(y), Ok(w), Ok(h)) = (
+                i32::try_from(x),
+                i32::try_from(y),
+                i32::try_from(s.selection.width),
+                i32::try_from(s.selection.height),
+            ) {
+                ui.invoke_scroll_start(x, y, w, h);
+            }
             return;
         }
         if action == "deselect-object" {

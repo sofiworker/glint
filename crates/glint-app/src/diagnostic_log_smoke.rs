@@ -33,7 +33,7 @@ impl Run {
         app: &Rc<RefCell<AppState>>,
         directory: &Path,
     ) -> Result<bool, String> {
-        let logs = directory.join("diagnostics");
+        let logs = directory.join("logs");
         let current = logs.join("events.log");
         let change = |value| ui.invoke_change("privacy.diagnostics".into(), value);
         let scroll = || {
@@ -181,7 +181,7 @@ impl Run {
                     return self.waiting();
                 }
                 if current.exists()
-                    || logs.join("events.previous.log").exists()
+                    || logs.join("events.log.1").exists()
                     || std::fs::read(logs.join("unrelated.txt")).map_err(|e| e.to_string())?
                         != b"keep fixture"
                 {
@@ -267,24 +267,78 @@ fn verify_lines(path: &PathBuf) -> Result<(), String> {
     let body = read(path)?;
     for line in body.lines() {
         let fields: Vec<_> = line.split(' ').collect();
-        if fields.len() != 3
+        if fields.len() != 6
             || fields[0].parse::<u64>().is_err()
-            || fields[1] != "v1"
+            || fields[1] != "v2"
+            || fields[3]
+                .strip_prefix("pid=")
+                .and_then(|v| v.parse::<u32>().ok())
+                .is_none()
+            || fields[4]
+                .strip_prefix("thread=ThreadId(")
+                .and_then(|v| v.strip_suffix(')'))
+                .and_then(|v| v.parse::<u64>().ok())
+                .is_none()
             || ![
+                "level=ERROR",
+                "level=WARN",
+                "level=INFO",
+                "level=DEBUG",
+                "level=TRACE",
+            ]
+            .contains(&fields[5])
+            || ![
+                "app.panic",
+                "app.shutdown",
+                "app.startup",
+                "app.startup_failed",
+                "capture.cancelled",
+                "capture.closed.busy",
+                "capture.completed",
+                "capture.exit.api_cancel",
+                "capture.exit.color_copy",
+                "capture.exit.copy",
+                "capture.exit.direct",
+                "capture.exit.escape",
+                "capture.exit.open",
+                "capture.exit.pin",
+                "capture.exit.pin_update",
+                "capture.exit.save",
+                "capture.exit.secondary_click",
+                "capture.exit.toolbar_cancel",
+                "capture.exit.window_request",
+                "capture.failed",
+                "capture.output.failed",
+                "capture.ready",
+                "capture.requested",
+                "diagnostics.failed",
+                "diagnostics.ready",
+                "hotkey.failed",
+                "hotkey.pressed",
+                "input.cursor_restricted",
+                "input.cursor_unrestricted",
+                "input.pointer_captured",
+                "input.pointer_released",
                 "log.enabled",
                 "log.retry",
-                "settings.saved",
+                "scroll.acquired",
+                "scroll.cancelled",
+                "scroll.queued",
+                "scroll.ready",
+                "scroll.started",
+                "settings.blurred",
+                "settings.focused",
                 "settings.save_failed",
-                "capture.ready",
-                "capture.cancelled",
-                "capture.completed",
-                "capture.failed",
-                "capture.exit.api_cancel",
-                "capture.closed.busy",
-                "capture.output.failed",
-                "diagnostics.ready",
-                "diagnostics.failed",
-                "app.shutdown",
+                "settings.saved",
+                "settings.shown",
+                "system.connected",
+                "system.disconnected",
+                "system.locked",
+                "system.resumed",
+                "system.sleeping",
+                "system.unlocked",
+                "window.blurred",
+                "window.focused",
             ]
             .contains(&fields[2])
         {

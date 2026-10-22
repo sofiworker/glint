@@ -34,6 +34,9 @@ Glint 自有代码与 HTML 原型采用 `GPL-3.0-only`，全文见 [LICENSE](LIC
 | windows | 0.58.0 | https://github.com/microsoft/windows-rs | MIT OR Apache-2.0 |
 | tray-icon | 0.19.3 | https://github.com/tauri-apps/tray-icon | MIT OR Apache-2.0 |
 | raw-window-handle | 0.6.2 | https://github.com/rust-windowing/raw-window-handle | MIT OR Apache-2.0 OR Zlib |
+| tracing | 0.1.44 | https://github.com/tokio-rs/tracing | MIT |
+| tracing-subscriber | 0.3.23 | https://github.com/tokio-rs/tracing | MIT |
+| file-rotate | 0.8.0 | https://github.com/kstrafe/file-rotate | MIT |
 | resvg（构建依赖） | 0.48.1 | https://github.com/linebender/resvg | Apache-2.0 OR MIT |
 | winresource（构建依赖） | 0.1.31 | https://github.com/BenjaminRi/winresource | MIT |
 

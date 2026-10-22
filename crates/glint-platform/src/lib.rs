@@ -93,7 +93,7 @@ mod capture_cursor;
 #[cfg(all(windows, feature = "windows-bindings"))]
 mod win;
 #[cfg(all(windows, feature = "windows-bindings"))]
-pub use win::{capture_after_composition, capture_desktop};
+pub use win::{capture_after_composition, capture_desktop, capture_region_guarded};
 
 #[cfg(all(windows, feature = "windows-bindings"))]
 mod exclusions;

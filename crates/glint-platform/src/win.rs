@@ -32,12 +32,65 @@ pub fn capture_desktop() -> Result<DesktopFrame, String> {
     capture_desktop_options(false)
 }
 fn capture_desktop_options(include_cursor: bool) -> Result<DesktopFrame, String> {
+    unsafe {
+        capture_area(
+            GetSystemMetrics(SM_XVIRTUALSCREEN),
+            GetSystemMetrics(SM_YVIRTUALSCREEN),
+            GetSystemMetrics(SM_CXVIRTUALSCREEN),
+            GetSystemMetrics(SM_CYVIRTUALSCREEN),
+            include_cursor,
+        )
+    }
+}
+
+/// Source-pixel capture of one screen-contained scrolling viewport.
+pub fn capture_region_guarded(
+    region: (i32, i32, u32, u32),
+    expected: &[crate::DisplayInfo],
+    exclusions: &[String],
+) -> Result<DesktopFrame, String> {
+    let before = crate::desktop_environment()?.displays;
+    if before != expected {
+        return Err("Display layout changed".into());
+    }
+    let (x, y, w, h) = region;
+    if w < 32
+        || h < 64
+        || u64::from(w) * u64::from(h) * 4 > 64 * 1024 * 1024
+        || !before.iter().any(|d| {
+            x >= d.bounds.left
+                && y >= d.bounds.top
+                && i64::from(x) + i64::from(w) <= i64::from(d.bounds.right)
+                && i64::from(y) + i64::from(h) <= i64::from(d.bounds.bottom)
+        })
+    {
+        return Err("Select a scrolling region inside one display".into());
+    }
+    crate::check_visible_exclusions(exclusions).map_err(|_| "Capture excluded or unavailable")?;
+    use windows::Win32::Graphics::Dwm::{DwmFlush, DwmIsCompositionEnabled};
+    if unsafe { DwmIsCompositionEnabled() }
+        .map_err(|e| e.to_string())?
+        .as_bool()
+    {
+        unsafe { DwmFlush() }.map_err(|e| e.to_string())?;
+    }
+    let frame = capture_area(x, y, w as i32, h as i32, false)?;
+    crate::check_visible_exclusions(exclusions).map_err(|_| "Capture excluded or unavailable")?;
+    if crate::desktop_environment()?.displays != before {
+        return Err("Display layout changed".into());
+    }
+    Ok(frame)
+}
+
+fn capture_area(
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    include_cursor: bool,
+) -> Result<DesktopFrame, String> {
     // All GDI resources are thread-local and released on every error path.
     unsafe {
-        let x = GetSystemMetrics(SM_XVIRTUALSCREEN);
-        let y = GetSystemMetrics(SM_YVIRTUALSCREEN);
-        let width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-        let height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
         if width <= 0 || height <= 0 {
             return Err("No desktop display available".into());
         }

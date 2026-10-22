@@ -49,6 +49,7 @@ pub struct AppState {
     pub capture_focus: Option<glint_platform::FocusTarget>,
     pub capture_settings_visible: bool,
     pub scale_preview: crate::scale_preview::State,
+    pub scroll_capture: Option<crate::scroll_capture::Run>,
     pub capture: Option<crate::probe::CaptureProbe>,
     pub capturing: bool,
     pub capture_output: Option<PathBuf>,
@@ -457,12 +458,14 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     let directory = directory.canonicalize().unwrap_or(directory);
+    let session = SettingsSession::open(&directory.join("config.toml"));
     slint::BackendSelector::new()
         .backend_name("winit".into())
         .renderer_name("software".into())
         // Slint invokes this before applying Window title/properties. Settings and
         // capture explicitly focus their peers; a new desktop pin never does.
         .with_winit_window_attributes_hook(crate::motion::window_attributes)
+        .with_winit_custom_application_handler(crate::motion::WindowDiagnostics)
         .select()?;
     let ui = crate::motion::create_settings(SettingsWindow::new)?;
     crate::font_picker::install(&ui);
@@ -474,7 +477,16 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         InstanceStart::Activated => return Ok(()),
         InstanceStart::Primary(instance) => instance,
     };
-    let session = SettingsSession::open(&directory.join("config.toml"));
+    // Only the primary instance may open and rotate the shared log files.
+    let mut diagnostic =
+        glint_platform::diagnostic_log::DiagnosticLog::new(directory.join("logs"), || {});
+    diagnostic.install_tracing();
+    crate::diagnostic_log::configure(&mut diagnostic, &session.preferences.saved().privacy);
+    if std::env::var("GLINT_DIAGNOSTICS").as_deref() == Ok("1") {
+        diagnostic.enable_for_run();
+    }
+    diagnostic.record(glint_platform::diagnostic_log::Event::Startup);
+
     let guide_initial =
         !smoke && crate::onboarding::initial(&session, explicit_settings, background);
     if guide_initial {
@@ -486,7 +498,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         || !session.notice.is_empty()
         || (!background && (session.is_new || !session.preferences.saved().general.start_in_tray));
     let state = Rc::new(RefCell::new(AppState {
-        log: Rc::new(crate::diagnostic_log::new(&directory, &ui)),
+        log: Rc::new(crate::diagnostic_log::attach(diagnostic, &ui)),
         output_settings: Default::default(),
         diagnostics: Default::default(),
         lifecycle: Default::default(),
@@ -510,6 +522,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         capture_focus: None,
         capture_settings_visible: false,
         scale_preview: Default::default(),
+        scroll_capture: None,
         countdown: None,
         delay_elapsed: false,
         delay_ticket: 0,
@@ -541,6 +554,10 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         }));
     let weak = ui.as_weak();
     let hotkeys = Rc::new(HotkeyService::new(vec![], move |event| {
+        glint_platform::diagnostic_log::emit(match &event {
+            HotkeyEvent::Pressed(_) => glint_platform::diagnostic_log::Event::HotkeyPressed,
+            HotkeyEvent::Error(_) => glint_platform::diagnostic_log::Event::HotkeyFailed,
+        });
         let _ = weak.upgrade_in_event_loop(move |ui| {
             if ui.get_modal() == 3
                 && let HotkeyEvent::Pressed(action) = &event
@@ -601,7 +618,6 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         let Some(ui) = weak.upgrade() else {
             return;
         };
-
         let mut state = shared.borrow_mut();
         if !state.session.writable || state.pin_session.busy() {
             return;
@@ -623,7 +639,9 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             Err(_) => state.feedback = state.message(Message::OptionUnavailable),
         }
         state.sync(&ui);
-        if key == "appearance.scale" && state.session.preferences.draft.appearance.scale != previous_scale {
+        if key == "appearance.scale"
+            && state.session.preferences.draft.appearance.scale != previous_scale
+        {
             crate::scale_preview::begin(&mut state, &shared, &ui, previous_scale);
         }
     });
@@ -766,6 +784,21 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         let Some(ui) = weak.upgrade() else {
             return;
         };
+        if matches!(
+            action.as_str(),
+            "capture"
+                | "window-capture"
+                | "repeat-capture"
+                | "all-screens-capture"
+                | "current-screen-capture"
+        ) {
+            glint_platform::diagnostic_log::emit(
+                glint_platform::diagnostic_log::Event::CaptureRequested,
+            );
+        }
+        if crate::scroll_capture::handle(action.as_str(), &shared, &ui) {
+            return;
+        }
         if crate::scale_preview::handle(action.as_str(), &shared, &ui) {
             return;
         }
@@ -1159,7 +1192,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                                 };
                                 unsafe {
                                     glint_platform::NativePinWindow::from_raw(
-                                        handle.hwnd.get() as *mut std::ffi::c_void,
+                                        handle.hwnd.get() as *mut std::ffi::c_void
                                     )
                                 }
                                 .flush_composition()
@@ -1355,6 +1388,23 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                                     complete,
                                 )
                             }
+                            crate::pin_edit::Input::Scroll(prepared) => {
+                                let (capture, payload) = crate::probe::resident_pin_editor(
+                                    true,
+                                    prepared,
+                                    presentation,
+                                    state.capture_output.clone(),
+                                    complete,
+                                )?;
+                                capture.set_scroll_editor(true);
+                                capture.set_magnifier_enabled(false);
+                                let mut labels = capture.get_labels();
+                                labels.title =
+                                    messages::text(Message::ScrollTitle, capture.get_english())
+                                        .into();
+                                capture.set_labels(labels);
+                                Ok((capture, payload))
+                            }
                             crate::pin_edit::Input::Pin(prepared) => {
                                 crate::probe::resident_pin_editor(
                                     false,
@@ -1367,6 +1417,14 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                         }
                     })
                     .and_then(|(capture, pin_payload)| {
+                        let owner = ui.as_weak();
+                        capture.on_scroll_start(move |x, y, width, height| {
+                            let _ = owner.upgrade_in_event_loop(move |ui| {
+                                ui.invoke_action(
+                                    format!("scroll-start:{x}:{y}:{width}:{height}").into(),
+                                );
+                            });
+                        });
                         let log = state.log.clone();
                         let receipt = capture.as_weak();
                         capture.on_closed_event(move || {
@@ -1561,7 +1619,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                                 };
                                 let native = unsafe {
                                     glint_platform::NativePinWindow::from_raw(
-                                        handle.hwnd.get() as *mut std::ffi::c_void,
+                                        handle.hwnd.get() as *mut std::ffi::c_void
                                     )
                                 };
                                 window.set_window_level(winit::window::WindowLevel::AlwaysOnTop);
@@ -1664,11 +1722,13 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 let _ = show_settings(&ui);
             }
             "capture-finished" => {
+                state.scroll_capture.take();
                 let blocked = state.lifecycle.blocked();
                 let restore_settings = std::mem::take(&mut state.capture_settings_visible);
                 // External focus restoration checks ownership before hiding the overlay.
                 if let Some(focus) = state.capture_focus.take()
-                    && !blocked && !restore_settings
+                    && !blocked
+                    && !restore_settings
                 {
                     let _ = focus.restore();
                 }
@@ -1698,7 +1758,9 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 // Restore settings through Slint after the full-desktop overlay is hidden.
                 // A raw HWND show would bypass Slint's dirty-region/visibility state.
-                if restore_settings && !blocked && !state.guide_practice
+                if restore_settings
+                    && !blocked
+                    && !state.guide_practice
                     && let Err(error) = show_settings(&ui)
                 {
                     state.feedback = error;
@@ -1843,10 +1905,10 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 };
                 match result {
                     Ok(()) => {
-                        state
-                            .log
-                            .borrow_mut()
-                            .configure(state.session.preferences.saved().privacy.diagnostics);
+                        crate::diagnostic_log::configure(
+                            &mut state.log.borrow_mut(),
+                            &state.session.preferences.saved().privacy,
+                        );
                         state
                             .log
                             .borrow_mut()
@@ -1927,6 +1989,15 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     });
     let weak = ui.as_weak();
     ui.window().on_winit_window_event(move |window, event| {
+        match event {
+            winit::event::WindowEvent::Focused(true) => glint_platform::diagnostic_log::emit(
+                glint_platform::diagnostic_log::Event::SettingsFocused,
+            ),
+            winit::event::WindowEvent::Focused(false) => glint_platform::diagnostic_log::emit(
+                glint_platform::diagnostic_log::Event::SettingsBlurred,
+            ),
+            _ => {}
+        }
         if matches!(event, winit::event::WindowEvent::ThemeChanged(_)) {
             let _ = weak.upgrade_in_event_loop(|ui| ui.invoke_action("system-changed".into()));
         }
@@ -2262,6 +2333,7 @@ fn save_runtime(
 pub(crate) fn show_settings(ui: &SettingsWindow) -> Result<(), String> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     ui.show().map_err(|e| e.to_string())?;
+    glint_platform::diagnostic_log::emit(glint_platform::diagnostic_log::Event::SettingsShown);
     // Showing an existing software-rendered window marks its surface dirty,
     // but needs a redraw request even if no settings property has changed.
     ui.window().request_redraw();
@@ -2287,7 +2359,7 @@ pub(crate) fn show_settings(ui: &SettingsWindow) -> Result<(), String> {
             {
                 let native = unsafe {
                     glint_platform::NativePinWindow::from_raw(
-                        handle.hwnd.get() as *mut std::ffi::c_void,
+                        handle.hwnd.get() as *mut std::ffi::c_void
                     )
                 };
                 if let Err(error) = native.focus_without_attention() {
