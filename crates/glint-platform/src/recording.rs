@@ -23,6 +23,9 @@ use windows_capture::{
 mod audio;
 #[path = "recording_encoder.rs"]
 mod encoder;
+#[path = "recording_output.rs"]
+mod output;
+pub use output::{copy_file, play_file, poster};
 
 static BUSY: AtomicBool = AtomicBool::new(false);
 struct Slot;

@@ -5,9 +5,9 @@ pub fn text(id: Message) -> &'static str {
         Message::RecordingPlainRegion => {
             "Select an unannotated live desktop region first (at least 32 × 64 pixels); local images cannot be recorded."
         }
-        Message::ScrollTitle => "Scrolling capture",
+        Message::ScrollTitle => "Scrolling capture (incomplete; severe bugs)",
         Message::ScrollHint => {
-            "Scroll down manually, wait for content to settle, then use your capture shortcut or Capture next. Keep at least 1/4 screen overlap. Exclude fixed headers, sidebars and scrollbars. No automatic scrolling."
+            "Incomplete; severe bugs. The selection border and preview may be missing. Capture and stitching are unreliable."
         }
         Message::ScrollCapture => "Capture next",
         Message::ScrollUndo => "Undo fragment",
@@ -19,10 +19,12 @@ pub fn text(id: Message) -> &'static str {
         Message::ScrollPreview => "Preview seam",
         Message::ScrollResume => "Continue capture",
         Message::ScrollBusy => "Capturing / stitching…",
-        Message::ScrollReady => "Fragments retained in memory",
-        Message::ScrollDuplicate => "Identical fragment skipped. Scroll farther down and retry.",
+        Message::ScrollReady => "Scroll inside the region to stitch",
+        Message::ScrollDuplicate => {
+            "Previously captured content skipped; scrolling remains available."
+        }
         Message::ScrollUncertain => {
-            "Match uncertain. Pending fragment retained. Adjust overlap and preview the seam; accept it, discard it or finish existing fragments."
+            "Some content is not aligned yet. Sources retained; continue capture or optionally repair after finishing."
         }
         Message::ScrollFailed => {
             "Capture / stitch failed. Existing fragments retained. Retry or finish the existing result."
@@ -33,9 +35,7 @@ pub fn text(id: Message) -> &'static str {
         Message::ScrollPlainRegion => {
             "Start scrolling capture from an unannotated desktop region inside one display (at least 32 × 64 pixels)."
         }
-        Message::ScrollReviewHint => {
-            "Scroll to inspect the joins (colored lines are preview only). Mouse wheel scrolls the long image in the annotation overlay; copy/save uses source pixels."
-        }
+        Message::ScrollReviewHint => "Capture complete; copy, save or edit directly.",
         Message::CaptureFailureLabel => "Capture failed",
         Message::CaptureFocusUnavailable => "Click the capture overlay to focus it; Esc cancels.",
         Message::ExclusionInvalid => {

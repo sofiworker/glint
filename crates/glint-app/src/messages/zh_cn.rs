@@ -5,10 +5,10 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::RecordingPlainRegion => {
             Some("请先框选至少 32 × 64 像素的实时桌面区域，且不要添加批注；本地图片不能用于录屏。")
         }
-        Message::ScrollTitle => Some("滚动长截图"),
-        Message::ScrollHint => Some(
-            "手动向下滚动，等待内容静止，再按截图快捷键或点击“采集下一段”。至少保留四分之一屏重叠；选区避开固定页头、侧栏和滚动条。不自动滚动。",
-        ),
+        Message::ScrollTitle => Some("滚动长截图（未完成 · 严重 Bug）"),
+        Message::ScrollHint => {
+            Some("未完成，存在严重 Bug：选区边框和右侧预览可能不显示，采集及拼接结果不可靠。")
+        }
         Message::ScrollCapture => Some("采集下一段"),
         Message::ScrollUndo => Some("撤销上一段"),
         Message::ScrollStop => Some("停止并检查"),
@@ -19,11 +19,11 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::ScrollPreview => Some("预览接缝"),
         Message::ScrollResume => Some("继续采集"),
         Message::ScrollBusy => Some("正在采集 / 拼接…"),
-        Message::ScrollReady => Some("片段保留在内存中"),
-        Message::ScrollDuplicate => Some("已跳过完全相同的片段。向下滚动后重试。"),
-        Message::ScrollUncertain => Some(
-            "匹配不可靠，待确认片段已保留。调整重叠高度并预览接缝，可确认、丢弃该片段或结束已有结果。",
-        ),
+        Message::ScrollReady => Some("缓慢滚动选区，自动拼接"),
+        Message::ScrollDuplicate => Some("已跳过已有内容，可继续滚动。"),
+        Message::ScrollUncertain => {
+            Some("部分内容尚未对齐，原片段已保留，可继续采集或结束后选择修复。")
+        }
         Message::ScrollFailed => Some("采集 / 拼接失败，已有片段保留。可重试或结束已有结果。"),
         Message::ScrollBudget => {
             Some("已达到源片段/结果 64 MiB 或 128 段上限。可撤销上一段或结束已有结果。")
@@ -31,9 +31,7 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::ScrollPlainRegion => {
             Some("请从单个屏幕内、尚未标注的桌面选区开始长截图，区域至少 32 × 64 像素。")
         }
-        Message::ScrollReviewHint => {
-            Some("滚动检查接缝，彩色线仅用于预览。进入标注后用滚轮查看长图；复制/保存保持源像素。")
-        }
+        Message::ScrollReviewHint => Some("采集完成，可直接复制、保存或编辑。"),
         Message::CaptureFailureLabel => Some("截图失败"),
         Message::CaptureFocusUnavailable => Some("点击截图浮层后即可框选；Esc 取消。"),
         Message::ExclusionInvalid => Some(

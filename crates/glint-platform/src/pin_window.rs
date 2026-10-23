@@ -408,6 +408,12 @@ impl NativePinWindow {
         }
         self.flush_composition()
     }
+    /// Keep the controller visible while Windows omits it from screen capture.
+    /// Call once when creating the window, never toggle affinity per frame.
+    pub fn exclude_from_capture(&self) -> Result<(), String> {
+        unsafe { SetWindowDisplayAffinity(self.0, WDA_EXCLUDEFROMCAPTURE) }
+            .map_err(|e| format!("Exclude capture controller: {e}"))
+    }
     /// Finish visibility changes on the window's UI thread before sampling desktop geometry.
     pub fn flush_composition(&self) -> Result<(), String> {
         use windows::Win32::Graphics::Dwm::{DwmFlush, DwmIsCompositionEnabled};

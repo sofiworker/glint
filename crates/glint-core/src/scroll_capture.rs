@@ -2,6 +2,8 @@
 
 const BUDGET: usize = 64 * 1024 * 1024;
 const MAX_FRAGMENTS: usize = 128;
+mod sequence;
+pub use sequence::ScrollSequence;
 
 pub struct Fragment {
     pub width: u32,
@@ -46,6 +48,9 @@ pub struct ScrollSession {
     frames: Vec<Fragment>,
     overlaps: Vec<u32>,
     pending: Option<Fragment>,
+    pending_upward: bool,
+    unmatched: Vec<(Fragment, bool)>,
+    additions: Vec<bool>,
     retained: usize,
 }
 
@@ -55,6 +60,62 @@ impl ScrollSession {
     }
     pub fn pending_height(&self) -> Option<u32> {
         self.pending.as_ref().map(|f| f.height)
+    }
+    pub fn pending_upward(&self) -> bool {
+        self.pending.is_some() && self.pending_upward
+    }
+    pub fn unresolved_count(&self) -> usize {
+        self.unmatched.len() + usize::from(self.pending.is_some())
+    }
+
+    /// Continue capturing after a failed match without overwriting its pixels.
+    /// Unmatched frames remain explicitly reviewable and share the same budget.
+    pub fn capture(&mut self, frame: Fragment, upward: bool) -> Result<Append, StitchError> {
+        if self.pending.as_ref().is_some_and(|f| f.rgba == frame.rgba)
+            || self.unmatched.iter().any(|(f, _)| f.rgba == frame.rgba)
+        {
+            return Ok(Append::Duplicate);
+        }
+        self.check_budget(&frame)?;
+        if let Some(pending) = self.pending.take() {
+            self.unmatched.push((pending, self.pending_upward));
+        }
+        self.append_direction(frame, upward)
+    }
+
+    pub fn review_next(&mut self) {
+        if self.unmatched.is_empty() {
+            return;
+        }
+        if let Some(frame) = self.pending.take() {
+            self.unmatched.push((frame, self.pending_upward));
+        }
+        let (frame, upward) = self.unmatched.remove(0);
+        self.pending = Some(frame);
+        self.pending_upward = upward;
+    }
+
+    fn check_budget(&self, frame: &Fragment) -> Result<(), StitchError> {
+        let bytes = self.retained
+            + self.pending.as_ref().map_or(0, |f| f.rgba.len())
+            + self
+                .unmatched
+                .iter()
+                .map(|(f, _)| f.rgba.len())
+                .sum::<usize>();
+        if self.frames.len() + self.unresolved_count() >= MAX_FRAGMENTS
+            || bytes + frame.rgba.len() > BUDGET
+        {
+            return Err(StitchError::Budget);
+        }
+        if self
+            .frames
+            .first()
+            .is_some_and(|f| f.width != frame.width || f.height != frame.height)
+        {
+            return Err(StitchError::InvalidFrame);
+        }
+        Ok(())
     }
     pub fn dimensions(&self) -> Option<(u32, u32)> {
         let first = self.frames.first()?;
@@ -90,6 +151,16 @@ impl ScrollSession {
     /// Failed/uncertain matching keeps the entire incoming fragment for manual review.
     /// A second capture cannot overwrite an unresolved pending fragment.
     pub fn append(&mut self, frame: Fragment) -> Result<Append, StitchError> {
+        self.append_direction(frame, false)
+    }
+
+    /// Wheel direction determines which end grows. Revisiting captured content
+    /// leaves the result unchanged, including when reversing within the image.
+    pub fn append_direction(
+        &mut self,
+        frame: Fragment,
+        upward: bool,
+    ) -> Result<Append, StitchError> {
         if self.pending.is_some() {
             return Err(StitchError::NoPending);
         }
@@ -98,18 +169,34 @@ impl ScrollSession {
         {
             return Err(StitchError::InvalidFrame);
         }
-        if self.frames.len() >= MAX_FRAGMENTS || self.retained + frame.rgba.len() > BUDGET {
-            return Err(StitchError::Budget);
-        }
+        self.check_budget(&frame)?;
         let Some(previous) = self.frames.last() else {
             self.retained = frame.rgba.len();
             self.frames.push(frame);
             return Ok(Append::First);
         };
-        if previous.rgba == frame.rgba {
+        if previous.rgba == frame.rgba || self.frames.iter().any(|f| f.rgba == frame.rgba) {
             return Ok(Append::Duplicate);
         }
-        let overlap = find_overlap(previous, &frame);
+        let composed = self.compose(None)?;
+        let stride = frame.width as usize * 4;
+        if composed
+            .rgba
+            .chunks_exact(stride)
+            .enumerate()
+            .any(|(row, _)| {
+                let start = row * stride;
+                composed.rgba.get(start..start + frame.rgba.len()) == Some(frame.rgba.as_slice())
+            })
+        {
+            return Ok(Append::Duplicate);
+        }
+        let overlap = if upward {
+            find_overlap(&frame, &self.frames[0])
+        } else {
+            find_overlap(previous, &frame)
+        };
+        self.pending_upward = upward;
         self.pending = Some(frame);
         if let Some(overlap) = overlap {
             self.accept_pending(overlap)?;
@@ -130,8 +217,14 @@ impl ScrollSession {
         }
         let frame = self.pending.take().ok_or(StitchError::NoPending)?;
         self.retained += frame.rgba.len();
-        self.frames.push(frame);
-        self.overlaps.push(overlap);
+        if self.pending_upward {
+            self.frames.insert(0, frame);
+            self.overlaps.insert(0, overlap);
+        } else {
+            self.frames.push(frame);
+            self.overlaps.push(overlap);
+        }
+        self.additions.push(self.pending_upward);
         Ok(())
     }
     pub fn discard_pending(&mut self) {
@@ -142,10 +235,20 @@ impl ScrollSession {
             return;
         }
         if self.frames.len() > 1 {
-            if let Some(frame) = self.frames.pop() {
+            let upward = self.additions.pop().unwrap_or(false);
+            let removed = if upward {
+                Some(self.frames.remove(0))
+            } else {
+                self.frames.pop()
+            };
+            if let Some(frame) = removed {
                 self.retained -= frame.rgba.len();
             }
-            self.overlaps.pop();
+            if upward {
+                self.overlaps.remove(0);
+            } else {
+                self.overlaps.pop();
+            }
         }
     }
 
@@ -166,15 +269,25 @@ impl ScrollSession {
         let mut rgba = Vec::new();
         rgba.try_reserve_exact(length as usize)
             .map_err(|_| StitchError::Budget)?;
+        if self.pending_upward && pending_overlap.is_some() {
+            let frame = self.pending.as_ref().ok_or(StitchError::NoPending)?;
+            rgba.extend_from_slice(&frame.rgba);
+        }
         for (index, frame) in self.frames.iter().enumerate() {
             let skip = if index == 0 {
-                0
+                if self.pending_upward {
+                    pending_overlap.unwrap_or(0)
+                } else {
+                    0
+                }
             } else {
                 self.overlaps[index - 1]
             };
             rgba.extend_from_slice(&frame.rgba[(skip * width) as usize * 4..]);
         }
-        if let Some(overlap) = pending_overlap {
+        if !self.pending_upward
+            && let Some(overlap) = pending_overlap
+        {
             let frame = self.pending.as_ref().ok_or(StitchError::NoPending)?;
             rgba.extend_from_slice(&frame.rgba[(overlap * width) as usize * 4..]);
         }

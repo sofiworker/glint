@@ -9,7 +9,7 @@ use std::{
     cell::RefCell,
     path::PathBuf,
     rc::Rc,
-    sync::{Arc, Mutex, atomic::Ordering},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -17,6 +17,8 @@ glint_ui::slint! {
     export { Motion } from "@glint_ui/widgets/motion.slint";
     export { RecordingWindow } from "src/recording.slint";
 }
+type PosterResult = (PathBuf, Result<glint_platform::DesktopFrame, String>);
+thread_local! { static POSTER: RefCell<Option<PosterResult>> = const { RefCell::new(None) }; }
 pub struct Run {
     ui: RecordingWindow,
     sources: Vec<Source>,
@@ -28,6 +30,9 @@ pub struct Run {
     quit: bool,
     picker: Option<glint_platform::FolderPickerControl>,
     directory: Option<PathBuf>,
+    file: Option<PathBuf>,
+    frame: Option<glint_platform::LiveCaptureFrame>,
+    live_region: Option<platform::Region>,
 }
 impl Drop for Run {
     fn drop(&mut self) {
@@ -134,6 +139,9 @@ fn open(
         quit: false,
         picker: None,
         directory: None,
+        file: None,
+        frame: None,
+        live_region: region,
     });
     Ok(())
 }
@@ -214,6 +222,8 @@ fn start(run: &mut Run, owner: &SettingsWindow, exclusions: Vec<String>) -> Resu
 }
 pub fn stop_for_desktop(state: &mut AppState) {
     if let Some(run) = &mut state.screen_recording {
+        run.frame.take();
+        let _ = run.ui.hide();
         run.countdown = 0;
         if let Some(recorder) = &run.recorder {
             recorder.stop(false);
@@ -226,6 +236,46 @@ pub fn stop_for_desktop(state: &mut AppState) {
     }
 }
 pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWindow) -> bool {
+    if action == "record-open" && shared.borrow().screen_recording.is_none() {
+        let capture = {
+            let state = shared.borrow();
+            if state.lifecycle.blocked() || state.capturing || state.scroll_capture.is_some() {
+                return true;
+            }
+            state.capture.as_ref().map(ComponentHandle::clone_strong)
+        };
+        if let Some(capture) = capture {
+            capture.invoke_action(
+                if capture.get_capture_mode() == 2 && capture.get_selected() {
+                    "record-start"
+                } else {
+                    "mode-record"
+                }
+                .into(),
+            );
+        } else {
+            let owner = owner.as_weak();
+            let shared = shared.clone();
+            slint::Timer::single_shot(Duration::ZERO, move || {
+                if let Some(owner) = owner.upgrade() {
+                    owner.invoke_action("capture".into());
+                    shared.borrow_mut().capture_mode = 2;
+                }
+            });
+        }
+        return true;
+    }
+    if action == "record:shortcut-stop" {
+        let running = shared
+            .borrow()
+            .screen_recording
+            .as_ref()
+            .is_some_and(|run| run.ui.get_active() || run.countdown > 0);
+        if running {
+            owner.invoke_action("record:stop".into());
+        }
+        return true;
+    }
     let opening = action == "record-open" || action.starts_with("record-region:");
     if opening {
         let region = action
@@ -244,6 +294,15 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
             })
             .transpose();
         let mut state = shared.borrow_mut();
+        let selection_options = state.capture.as_ref().map(|capture| {
+            (
+                capture.get_record_format(),
+                capture.get_record_cursor(),
+                capture.get_record_system_audio(),
+                capture.get_record_microphone(),
+            )
+        });
+        let mut begin = false;
         let result = region.and_then(|region| {
             if region.is_some()
                 && state.screen_recording.as_ref().is_some_and(|run| {
@@ -262,12 +321,64 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
             } else if state.capture.is_some() {
                 return Err("Finish the current screenshot first".into());
             }
-            open(&mut state, owner, region)
+            open(&mut state, owner, region)?;
+            if let Some(region) = region
+                && let Some(run) = &mut state.screen_recording
+            {
+                if let Some((format, cursor, audio, microphone)) = selection_options {
+                    run.ui.set_format(format);
+                    run.ui.set_cursor(cursor);
+                    run.ui.set_system_audio(format == 0 && audio);
+                    run.ui.set_microphone(format == 0 && microphone);
+                }
+                run.frame = Some(glint_platform::LiveCaptureFrame::new(region)?);
+                let scale = run.ui.window().scale_factor();
+                let environment = glint_platform::desktop_environment()?;
+                let display = environment
+                    .displays
+                    .iter()
+                    .find(|d| {
+                        region.0 >= d.bounds.left
+                            && region.0 < d.bounds.right
+                            && region.1 >= d.bounds.top
+                            && region.1 < d.bounds.bottom
+                    })
+                    .ok_or("Recording display changed")?;
+                let work = display.work_area;
+                run.ui.window().set_position(slint::PhysicalPosition::new(
+                    region
+                        .0
+                        .min(work.right.saturating_sub((460. * scale) as i32))
+                        .max(work.left),
+                    region
+                        .1
+                        .saturating_add(region.3 as i32)
+                        .saturating_add(8)
+                        .min(work.bottom.saturating_sub((100. * scale) as i32))
+                        .max(work.top),
+                ));
+                run.ui.window().set_size(slint::PhysicalSize::new(
+                    (460. * scale) as u32,
+                    (64. * scale) as u32,
+                ));
+                run.ui.set_compact(true);
+                begin = true;
+            }
+            Ok(())
         });
         if let Err(error) = result {
             state.feedback = error;
             state.sync(owner);
             let _ = owner.show();
+        }
+        drop(state);
+        if begin {
+            let owner = owner.as_weak();
+            slint::Timer::single_shot(Duration::ZERO, move || {
+                if let Some(owner) = owner.upgrade() {
+                    owner.invoke_action("record:start".into());
+                }
+            });
         }
         return true;
     }
@@ -321,8 +432,14 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                     return Err("Desktop unavailable".into());
                 }
                 run.countdown = 3;
+                if run.frame.is_none()
+                    && let Some(region) = run.live_region
+                {
+                    run.frame = Some(glint_platform::LiveCaptureFrame::new(region)?);
+                }
                 run.ui.set_busy(true);
                 run.ui.set_can_open(false);
+                run.ui.set_statistics("".into());
                 run.ui
                     .set_status(tr(en, "3 秒后开始录屏…", "Recording starts in 3 seconds…"));
                 let weak = owner.as_weak();
@@ -386,8 +503,9 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                         .set_status(tr(en, "正在结束录制…", "Finishing recording…"));
                 } else {
                     run.timer.stop();
+                    run.frame.take();
                     run.ui.set_busy(false);
-                    if action == "record:close" {
+                    if action == "record:close" || action == "record:cancel" {
                         close = true;
                         return Ok(());
                     }
@@ -398,23 +516,12 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
             "record:tick" => {
                 if let Some(recorder) = &run.recorder {
                     let seconds = recorder.elapsed().as_secs();
-                    let stats = recorder.stats();
                     run.ui.set_statistics(
                         format!(
-                            "{:02}:{:02}:{:02} · {} {} · {} {} · {} {}",
+                            "{:02}:{:02}:{:02}",
                             seconds / 3600,
                             seconds / 60 % 60,
                             seconds % 60,
-                            stats.frames.load(Ordering::Relaxed),
-                            if en { "frames" } else { "帧" },
-                            stats.dropped.load(Ordering::Relaxed),
-                            if en { "video dropped" } else { "视频丢帧" },
-                            stats.audio_dropped.load(Ordering::Relaxed),
-                            if en {
-                                "audio discontinuities/drops"
-                            } else {
-                                "音频不连续/丢包"
-                            }
                         )
                         .into(),
                     );
@@ -434,6 +541,21 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                 };
                 run.timer.stop();
                 run.recorder.take();
+                run.frame.take();
+                run.ui.set_compact(false);
+                let scale = run.ui.window().scale_factor();
+                run.ui.window().set_size(slint::PhysicalSize::new(
+                    (680. * scale) as u32,
+                    (500. * scale) as u32,
+                ));
+                if let Ok(environment) = glint_platform::desktop_environment()
+                    && let Some(display) = environment.displays.first()
+                {
+                    run.ui.window().set_position(slint::PhysicalPosition::new(
+                        display.work_area.left + 40,
+                        display.work_area.top + 40,
+                    ));
+                }
                 run.ui.set_active(false);
                 run.ui.set_busy(false);
                 run.ui.set_paused(false);
@@ -450,6 +572,21 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                         "Recording discarded; temporary file removed.",
                     )),
                     Ok(path) => {
+                        run.file = Some(path.clone());
+                        let preview_owner = owner.as_weak();
+                        let poster_path = path.clone();
+                        let _ = std::thread::Builder::new()
+                            .name("glint-recording-poster".into())
+                            .spawn(move || {
+                                let result = platform::poster(&poster_path);
+                                let _ = preview_owner.upgrade_in_event_loop(move |owner| {
+                                    // A path-specific action prevents a late poster from updating a newer run.
+                                    POSTER.with(|slot| {
+                                        *slot.borrow_mut() = Some((poster_path, result))
+                                    });
+                                    owner.invoke_action("record:poster".into());
+                                });
+                            });
                         run.ui.set_status(
                             format!(
                                 "{}\n{}",
@@ -472,10 +609,12 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                             )
                             .into(),
                         );
-                        run.ui.set_can_open(run.directory.is_some());
+                        run.ui.set_can_open(false);
                     }
                 }
-                let _ = run.ui.show();
+                if !blocked {
+                    let _ = run.ui.show();
+                }
                 if run.quit && !failed {
                     close = true;
                     quit_after = true;
@@ -487,16 +626,45 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                     platform::open_directory(directory)?;
                 }
             }
+            "record:poster" => {
+                if let Some((path, frame)) = POSTER.with(|slot| slot.borrow_mut().take())
+                    && run.file.as_ref() == Some(&path)
+                {
+                    match frame {
+                        Ok(frame) => run.ui.set_picture(slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&frame.rgba, frame.width, frame.height))),
+                        Err(error) => run.ui.set_status(format!("{}\n{error}", tr(en, "预览读取失败，视频文件已保留，可使用系统播放器打开。", "Preview failed; the saved file can still be opened in the system player.")).into()),
+                    }
+                }
+            }
+            "record:play" => {
+                if let Some(path) = &run.file {
+                    platform::play_file(path)?;
+                }
+            }
+            "record:copy" => {
+                if let Some(path) = &run.file {
+                    platform::copy_file(path)?;
+                    run.ui
+                        .set_status(tr(en, "已复制视频文件。", "Video file copied."));
+                }
+            }
             _ => {}
         }
         Ok(())
     })();
     if let Err(error) = result
-        && let Some(run) = &state.screen_recording
+        && let Some(run) = &mut state.screen_recording
     {
         run.ui.set_status(error.into());
         if run.recorder.is_none() {
             run.ui.set_busy(false);
+            run.frame.take();
+            run.ui.set_compact(false);
+            let scale = run.ui.window().scale_factor();
+            run.ui.window().set_size(slint::PhysicalSize::new(
+                (680. * scale) as u32,
+                (500. * scale) as u32,
+            ));
         }
     }
     if close {

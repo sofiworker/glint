@@ -159,6 +159,10 @@ pub use config_dialog::{choose_config_path, choose_local_image_path};
 mod hotkeys;
 #[cfg(all(windows, feature = "windows-bindings"))]
 pub use hotkeys::{HotkeyBinding, HotkeyEvent, HotkeyService};
+#[cfg(all(windows, feature = "windows-bindings"))]
+mod live_capture;
+#[cfg(all(windows, feature = "windows-bindings"))]
+pub use live_capture::{LiveCaptureFrame, ScrollSource, ScrollWatch};
 
 #[cfg(all(windows, feature = "windows-bindings"))]
 mod pin_events;

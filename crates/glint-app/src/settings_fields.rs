@@ -216,7 +216,31 @@ pub const FIELDS: [&[Field]; 10] = [
             Hotkey
         ),
         ("shortcuts.color_picker", "取色", "Color picker", Hotkey),
-        ("shortcuts.settings", "打开设置", "Open settings", Hotkey)
+        ("shortcuts.settings", "打开设置", "Open settings", Hotkey),
+        (
+            "shortcuts.scroll_capture",
+            "长截图（未完成 · 严重 Bug）",
+            "Scrolling capture (incomplete; severe bugs)",
+            Hotkey
+        ),
+        (
+            "shortcuts.recording",
+            "打开录屏",
+            "Open screen recorder",
+            Hotkey
+        ),
+        (
+            "shortcuts.recording_pause",
+            "暂停 / 继续录制",
+            "Pause / resume recording",
+            Hotkey
+        ),
+        (
+            "shortcuts.recording_stop",
+            "停止录制并保存 / 取消倒计时",
+            "Stop and save / cancel countdown",
+            Hotkey
+        )
     ],
     fields![
         (
@@ -688,6 +712,10 @@ pub fn build(
             }
             .into();
             row.description = match field.key {
+                "shortcuts.scroll_capture" => label(english, "未完成，存在严重 Bug。选区边框、右侧预览及采集输出流程仍不可靠，尚未通过真实使用验收。默认未绑定。", "Incomplete; severe bugs. Selection, preview and capture/output remain unreliable and have not passed real-use acceptance. Unbound by default."),
+                "shortcuts.recording" => label(english, "默认未绑定。打开录屏配置；选择目标并确认后才倒计时录制。", "Unbound by default. Opens recorder setup; select a source and confirm before the countdown starts."),
+                "shortcuts.recording_pause" => label(english, "默认未绑定，仅在正在录制或已暂停时生效。", "Unbound by default. Only applies to an active or paused recording."),
+                "shortcuts.recording_stop" => label(english, "默认未绑定。停止当前录制并保存；倒计时中按下则取消，未录制时不执行动作。", "Unbound by default. Stop and save the current recording, or cancel its countdown. Does nothing when idle."),
                 "resources.capture_source" => label(english, "当前使用 GDI 截图，暂不支持切换捕获源。", "Captures with GDI. Switching capture sources is unavailable."),
                 "privacy.excluded_apps" => label(english, "Windows：完整 .exe 文件名，以英文分号、逗号或换行分隔，最多 128 项；不支持路径或通配符。保存后在桌面采集前后检查可见窗口（含被遮挡窗口），命中或检查失败则拒绝整次截图。最小化或关闭目标窗口后重试。两次检查不能覆盖间隙出现的内容，不是持续隐私保护；不影响本地图片或贴图再编辑。", "Windows: full .exe names separated by semicolons, commas or newlines; up to 128 entries, no paths or wildcards. After Save, visible windows (including covered windows) are checked before and after desktop capture. A match or failed check rejects the whole capture; minimize or close the target and retry. Two checks cannot cover content appearing between them; this is not continuous privacy protection. Local images and pin editing are unaffected."),
                 "privacy.diagnostics" => label(english, "默认关闭，保存后生效。仅记录时间及固定事件代码；容量、位置、失败提示和清理入口见下方。", "Off by default; Save applies. Records only timestamps and fixed event codes. Limits, location, failures and clearing are shown below."),
@@ -831,10 +859,10 @@ pub fn build(
             )],
             11 => vec![
                 (
-                    "滚动长截图",
-                    "Scrolling capture",
-                    "桌面截图框选后，从工具条“更多”进入。手动向下滚动，按截图快捷键或点击采集下一段；停止后检查接缝并进入标注。选区需在单个屏幕内，避开固定页头、侧栏和滚动条。不自动滚动。",
-                    "Select a desktop region, then choose Scrolling capture in More tools. Scroll down manually and use the capture shortcut or Capture next. Stop to inspect seams and annotate. Keep the region within one display, excluding fixed headers, sidebars and scrollbars. No automatic scrolling.",
+                    "滚动长截图（未完成 · 严重 Bug）",
+                    "Scrolling capture (incomplete; severe bugs)",
+                    "未完成，存在严重 Bug。用户仍报告框选后缺少边框和右侧预览，采集连续性、拼接质量、取消恢复及输出均需重新验收。保留开发实现用于排查，不作为可用功能交付。",
+                    "Incomplete; severe bugs. Users still report missing selection borders and previews. Capture continuity, stitching quality, cancellation and output require renewed acceptance. The development implementation is retained for debugging, not delivered as usable.",
                 ),
                 (
                     "本地 OCR",

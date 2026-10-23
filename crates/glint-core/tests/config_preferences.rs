@@ -1,6 +1,49 @@
 use glint_core::config::*;
 
 #[test]
+fn scrolling_and_recording_shortcuts_migrate_roundtrip_and_detect_conflicts() {
+    let mut config = Config::from_toml("[shortcuts]\ncapture='Ctrl+Shift+S'").unwrap();
+    assert!(
+        config.shortcuts.bindings()[8..]
+            .iter()
+            .all(|(_, key)| key.is_none())
+    );
+    config.shortcuts.scroll_capture = "Ctrl+Alt+F9".into();
+    config.shortcuts.recording = "Ctrl+Alt+F10".into();
+    config.shortcuts.recording_pause = "Ctrl+Alt+F11".into();
+    config.shortcuts.recording_stop = "Ctrl+Alt+F12".into();
+    assert_eq!(
+        Config::from_toml(&config.to_toml().unwrap()).unwrap(),
+        config
+    );
+    for action in [
+        "scroll_capture",
+        "recording",
+        "recording_pause",
+        "recording_stop",
+    ] {
+        let mut value: toml::Value = toml::from_str(&config.to_toml().unwrap()).unwrap();
+        value["shortcuts"][action] = toml::Value::String(" ctrl + shift + s ".into());
+        assert!(
+            matches!(Config::from_toml(&toml::to_string(&value).unwrap()),
+            Err(ConfigError::Invalid(ref issues)) if issues.iter().any(|issue| issue.message == "config.duplicate_shortcut"))
+        );
+    }
+    config.shortcuts.scroll_capture.clear();
+    config.shortcuts.recording.clear();
+    config.shortcuts.recording_pause.clear();
+    config.shortcuts.recording_stop.clear();
+    assert!(
+        Config::from_toml(&config.to_toml().unwrap())
+            .unwrap()
+            .shortcuts
+            .bindings()[8..]
+            .iter()
+            .all(|(_, key)| key.is_none())
+    );
+}
+
+#[test]
 fn defaults_roundtrip_and_keep_privacy_opt_in() {
     let config = Config::from_toml("").unwrap();
     assert_eq!(config, Config::default());

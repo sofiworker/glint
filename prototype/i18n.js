@@ -53,4 +53,10 @@ const english={
   '设置尚未保存':'Unsaved settings','保存后离开、放弃本次修改，或继续编辑。':'Save before leaving, discard your changes, or continue editing.','放弃并离开':'Discard and leave','保存并离开':'Save and leave','快捷键已被占用':'Shortcut already in use','更换快捷键':'Choose another shortcut','录入快捷键':'Record shortcut','请按下组合键':'Press a key combination','使用此组合':'Use shortcut','清除绑定':'Clear binding','请先按下新的组合键。':'Press a new key combination first.','请使用组合键或 F1–F12。':'Use a key combination or F1–F12.','区域截图 / 呼起浮层':'Capture region / Open overlay','直接检测窗口':'Select window','重复上次区域':'Repeat last region','贴出剪贴板图像':'Pin clipboard image','隐藏 / 恢复全部贴图':'Hide / show all pins','救援：取消穿透并显示贴图':'Rescue: show pins and disable click-through','打开设置':'Open settings','未绑定':'Unassigned','原型内无冲突':'No prototype conflict','可选':'Optional','动作':'Action','组合键':'Shortcut','状态':'Status',
   '原型设置已保存在当前浏览器；没有修改操作系统设置。':'Prototype settings saved in this browser. No OS settings changed.','已取消本次修改。':'Changes discarded.','演练完成：标注直接在截图浮层完成。':'Practice complete: annotate directly in the capture overlay.','已复制并退出浮层（模拟，未写入系统剪贴板）。':'Copied and overlay closed (simulation; system clipboard unchanged).','保存成功，已回到桌面（模拟，未写入文件）。':'Saved and back to desktop (simulation; no file written).',
   '保存截图':'Save capture','文件名':'File name','模拟保存并离开':'Simulate save and close','恢复默认设置？':'Restore default settings?','恢复为默认':'Restore defaults','退出拾光':'Quit Glint','退出拾光？':'Quit Glint?','退出':'Quit','恢复贴图并取消穿透':'Show pins and disable click-through','使用引导':'Usage guide','辅助工作台 / 历史':'Optional workspace / History','拾光 Glint · 常驻待命':'Glint · Ready in background','截图并标注':'Capture and annotate','窗口截图':'Window capture'
+  ,'长截图：框选后再次按下开始 / 采集下一段':'Scrolling capture: select then press again / next fragment',
+  '打开录屏':'Open screen recorder',
+  '录屏…':'Record screen…',
+  '录制此区域':'Record this region',
+  '暂停 / 继续录制':'Pause / resume recording',
+  '停止录制并保存 / 取消倒计时':'Stop and save / cancel countdown'
 };

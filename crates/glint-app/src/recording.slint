@@ -1,11 +1,14 @@
 import { Button, ComboBox, LineEdit, ScrollView, Theme, Motion, HorizontalBox, VerticalBox } from "@glint_ui/glint-ui.slint";
 import { CheckBox } from "std-widgets.slint";
 export component RecordingWindow inherits Window {
+    in property <bool> compact;
+    no-frame: root.compact;
+    in property <image> picture;
     in property <bool> english;
     title: root.english ? "Glint · Recording" : "拾光 · 录屏";
     always-on-top: root.active || root.busy;
-    preferred-width: 540px; preferred-height: root.active || root.busy ? 200px : 450px;
-    min-width: 440px; min-height: 350px;
+    preferred-width: root.compact ? 460px : 680px; preferred-height: root.compact ? 64px : 500px;
+    min-width: 320px; min-height: 64px;
     default-font-family: Motion.ui-font-family; default-font-size: 13px;
     background: Theme.background;
     in property <bool> dark;
@@ -28,7 +31,29 @@ export component RecordingWindow inherits Window {
     in property <string> status;
     in property <string> statistics;
     callback action(string);
-    ScrollView {
+    if root.compact: HorizontalBox {
+        padding: 10px; spacing: 8px;
+        Rectangle { width: 8px; height: 8px; background: root.paused ? #d89d33 : #ed5160; border-radius: 4px; }
+        Text { text: root.statistics == "" ? root.status : root.statistics; color: Theme.ink; overflow: elide; vertical-alignment: center; }
+        if root.active: Button { text: root.paused ? (root.english ? "Resume" : "继续") : (root.english ? "Pause" : "暂停"); clicked => { root.action("pause"); } }
+        if root.active: Button { text: root.english ? "End recording" : "结束录屏"; primary: true; clicked => { root.action("stop"); } }
+        Button { text: "×"; clicked => { root.action("cancel"); } }
+    }
+    if !root.compact && root.can-open: VerticalBox {
+        padding: 12px; spacing: 10px;
+        HorizontalBox { padding: 0px;
+            Text { text: root.english ? "Recording preview" : "录屏预览"; color: Theme.ink; font-size: 18px; }
+            Button { text: "×"; clicked => { root.action("close"); } }
+        }
+        Image { source: root.picture; image-fit: contain; vertical-stretch: 1; }
+        Text { text: root.status; color: Theme.muted; wrap: word-wrap; vertical-stretch: 0; }
+        HorizontalBox { padding: 0px; spacing: 8px;
+            Button { text: root.english ? "Play in system player" : "使用系统播放器播放"; clicked => { root.action("play"); } }
+            Button { text: root.english ? "Show saved file" : "查看已保存文件"; clicked => { root.action("open"); } }
+            Button { text: root.english ? "Copy video file" : "复制视频文件"; primary: true; clicked => { root.action("copy"); } }
+        }
+    }
+    if !root.compact && !root.can-open: ScrollView {
         width: parent.width; height: parent.height; content-width: self.visible-width;
         VerticalBox {
             padding: 18px; spacing: 12px; alignment: start;

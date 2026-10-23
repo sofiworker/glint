@@ -86,6 +86,8 @@ fn main() {
         #[cfg(windows)]
         if !std::env::args().any(|arg| {
             arg.starts_with("--m0-")
+                || arg == "--m6-scroll-smoke"
+                || arg == "--m6-browser-scroll-smoke"
                 || arg.starts_with("--m1-")
                 || arg.starts_with("--m4-")
                 || arg == "--m5-resources"
@@ -111,6 +113,24 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(windows)]
     ui_font::initialize()?;
     let args: Vec<_> = std::env::args().skip(1).collect();
+    #[cfg(windows)]
+    if args
+        .first()
+        .is_some_and(|arg| arg == "--m0-scroll-source-fixture")
+    {
+        return scroll_capture::source_fixture(args.get(1).ok_or("Expected fixture directory")?);
+    }
+    #[cfg(windows)]
+    if args
+        .first()
+        .is_some_and(|arg| arg == "--m0-scroll-preview-smoke")
+    {
+        return scroll_capture::preview_smoke(
+            args.get(1).ok_or("Expected output PNG path")?,
+            args.iter().any(|arg| arg == "--english"),
+            args.iter().any(|arg| arg == "--pending"),
+        );
+    }
     #[cfg(windows)]
     if !args.first().is_some_and(|arg| arg.starts_with("--m0-")) {
         return resident::run(&args);

@@ -50,6 +50,8 @@ pub struct AppState {
     pub capture_settings_visible: bool,
     pub scale_preview: crate::scale_preview::State,
     pub scroll_capture: Option<crate::scroll_capture::Run>,
+    pub capture_mode: i32,
+    pub scroll_output: Option<String>,
     pub screen_recording: Option<crate::recording::Run>,
     pub capture: Option<crate::probe::CaptureProbe>,
     pub capturing: bool,
@@ -68,6 +70,7 @@ pub struct AppState {
 }
 pub struct TrayLabels {
     workbench: MenuItem,
+    scroll_capture: MenuItem,
     screen_recording: MenuItem,
     repeat: MenuItem,
     clipboard: MenuItem,
@@ -125,6 +128,7 @@ impl AppState {
         ui.set_can_save(self.session.preferences.is_dirty() || self.session.repair_pending);
         if let Some(TrayLabels {
             workbench,
+            scroll_capture,
             screen_recording,
             repeat,
             clipboard,
@@ -144,6 +148,11 @@ impl AppState {
                 &self.languages,
             );
             workbench.set_text(messages::text(Message::Workbench, english));
+            scroll_capture.set_text(settings::fields::label(
+                english,
+                "滚动长截图（未完成 · 严重 Bug）…",
+                "Scrolling capture (incomplete; severe bugs)…",
+            ));
             screen_recording.set_text(settings::fields::label(english, "录屏…", "Record screen…"));
             clipboard.set_text(settings::fields::label(
                 english,
@@ -245,6 +254,10 @@ fn runtime_bindings(config: &Config) -> Result<Vec<HotkeyBinding>, String> {
     bindings.extend(chord_binding(&config.shortcuts.toggle_pins, 5)?);
     bindings.extend(chord_binding(&config.shortcuts.rescue, 6)?);
     bindings.extend(chord_binding(&config.shortcuts.color_picker, 7)?);
+    bindings.extend(chord_binding(&config.shortcuts.scroll_capture, 9)?);
+    bindings.extend(chord_binding(&config.shortcuts.recording, 10)?);
+    bindings.extend(chord_binding(&config.shortcuts.recording_pause, 11)?);
+    bindings.extend(chord_binding(&config.shortcuts.recording_stop, 12)?);
     Ok(bindings)
 }
 fn chord_binding(text: &str, action: u32) -> Result<Vec<HotkeyBinding>, String> {
@@ -288,6 +301,10 @@ fn chord_binding(text: &str, action: u32) -> Result<Vec<HotkeyBinding>, String> 
 
 fn recorded_binding<'a>(config: &'a mut Config, key: &str) -> Option<&'a mut String> {
     match key {
+        "shortcuts.scroll_capture" => Some(&mut config.shortcuts.scroll_capture),
+        "shortcuts.recording" => Some(&mut config.shortcuts.recording),
+        "shortcuts.recording_pause" => Some(&mut config.shortcuts.recording_pause),
+        "shortcuts.recording_stop" => Some(&mut config.shortcuts.recording_stop),
         "shortcuts.settings" => Some(&mut config.shortcuts.settings),
         "shortcuts.capture" => Some(&mut config.shortcuts.capture),
         "shortcuts.window" => Some(&mut config.shortcuts.window),
@@ -323,6 +340,8 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let mut endurance = false;
     let mut settings_policy_smoke = false;
     let mut shortcuts_smoke = false;
+    let mut scroll_smoke = false;
+    let mut browser_scroll_smoke = false;
     let mut session_probe = None;
     let mut index = 0;
     while index < args.len() {
@@ -381,9 +400,13 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             | "--m5-endurance"
             | "--m4-settings-policy-smoke"
             | "--m4-shortcuts-smoke"
+            | "--m6-scroll-smoke"
+            | "--m6-browser-scroll-smoke"
             | "--m4-output-conflict-smoke" => {
                 scale_smoke = args[index] == "--m4-scale-smoke";
                 shortcuts_smoke = args[index] == "--m4-shortcuts-smoke";
+                browser_scroll_smoke = args[index] == "--m6-browser-scroll-smoke";
+                scroll_smoke = args[index] == "--m6-scroll-smoke" || browser_scroll_smoke;
                 motion_smoke = args[index] == "--m4-motion-smoke";
                 budget_smoke = args[index] == "--m4-preview-budget-smoke";
                 output_settings_smoke = args[index] == "--m4-output-settings-smoke";
@@ -414,6 +437,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                     || resource_smoke
                     || settings_policy_smoke
                     || shortcuts_smoke
+                    || scroll_smoke
                     || output_conflict_smoke;
                 index += 1;
                 directory = Some(PathBuf::from(
@@ -449,6 +473,13 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                     .into(),
             );
         }
+    }
+    if browser_scroll_smoke {
+        let mode = std::env::var("GLINT_SCROLL_PROBE_SOURCE").unwrap_or_else(|_| "article".into());
+        if !matches!(mode.as_str(), "article" | "dark" | "pinned") {
+            return Err("Unknown browser scroll probe source".into());
+        }
+        std::fs::write(directory.join("external-source.txt"), mode)?;
     }
     if let Some(mode) = session_probe.as_deref() {
         let marker = directory.join(".pin-session-probe");
@@ -530,6 +561,8 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         capture_settings_visible: false,
         scale_preview: Default::default(),
         scroll_capture: None,
+        capture_mode: 0,
+        scroll_output: None,
         screen_recording: None,
         countdown: None,
         delay_elapsed: false,
@@ -574,10 +607,17 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 ui.invoke_registered_shortcut(*action as i32);
                 return;
             }
+            if ui.get_modal() != 0 && matches!(&event, HotkeyEvent::Pressed(9..=12)) {
+                return;
+            }
             match event {
                 HotkeyEvent::Pressed(2) => ui.invoke_action("window-capture".into()),
                 HotkeyEvent::Pressed(3) => ui.invoke_action("repeat-capture".into()),
                 HotkeyEvent::Pressed(1) => ui.invoke_action("capture".into()),
+                HotkeyEvent::Pressed(9) => ui.invoke_action("scroll-open".into()),
+                HotkeyEvent::Pressed(10) => ui.invoke_action("record-open".into()),
+                HotkeyEvent::Pressed(11) => ui.invoke_action("record:pause".into()),
+                HotkeyEvent::Pressed(12) => ui.invoke_action("record:shortcut-stop".into()),
                 HotkeyEvent::Pressed(8) => ui.invoke_action("open".into()),
                 HotkeyEvent::Pressed(4) => ui.invoke_action("clipboard-pin".into()),
                 HotkeyEvent::Pressed(5) => ui.invoke_action("toggle-pins".into()),
@@ -696,6 +736,10 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                     | "shortcuts.toggle_pins"
                     | "shortcuts.rescue"
                     | "shortcuts.color_picker"
+                    | "shortcuts.scroll_capture"
+                    | "shortcuts.recording"
+                    | "shortcuts.recording_pause"
+                    | "shortcuts.recording_stop"
             )
         {
             return;
@@ -1408,6 +1452,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                                     complete,
                                 )?;
                                 capture.set_scroll_editor(true);
+                                capture.set_capture_mode(0);
                                 capture.set_magnifier_enabled(false);
                                 let mut labels = capture.get_labels();
                                 labels.title =
@@ -1428,6 +1473,12 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                         }
                     })
                     .and_then(|(capture, pin_payload)| {
+                        if !capture.get_scroll_editor() {
+                            capture.set_capture_mode(state.capture_mode);
+                            if state.capture_mode > 0 {
+                                capture.set_tool(0);
+                            }
+                        }
                         let owner = ui.as_weak();
                         capture.on_record_start(move |x, y, width, height| {
                             let _ = owner.upgrade_in_event_loop(move |ui| {
@@ -1653,6 +1704,17 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                                     native.align_capture_desktop(x, y, width, height)?;
                                 }
                                 capture.show().map_err(|e| e.to_string())?;
+                                if let Some(action) = owner.borrow_mut().scroll_output.take() {
+                                    let weak = capture.as_weak();
+                                    slint::Timer::single_shot(
+                                        std::time::Duration::ZERO,
+                                        move || {
+                                            if let Some(capture) = weak.upgrade() {
+                                                capture.invoke_action(action.into());
+                                            }
+                                        },
+                                    );
+                                }
                                 // winit's Windows focus_window() injects an Alt press/release.
                                 // That interferes with Alt-based capture shortcuts and menus.
                                 if !native.focus_without_attention()? {
@@ -1741,6 +1803,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 let _ = show_settings(&ui);
             }
             "capture-finished" => {
+                state.capture_mode = 0;
                 state.scroll_capture.take();
                 let blocked = state.lifecycle.blocked();
                 let restore_settings = std::mem::take(&mut state.capture_settings_visible);
@@ -2053,6 +2116,16 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         true,
         None,
     );
+    let scroll_capture = MenuItem::with_id(
+        "scroll-open",
+        settings::fields::label(
+            english,
+            "滚动长截图（未完成 · 严重 Bug）…",
+            "Scrolling capture (incomplete; severe bugs)…",
+        ),
+        true,
+        None,
+    );
     let window = MenuItem::with_id(
         "window-capture",
         settings::fields::label(english, "窗口截图", "Capture window"),
@@ -2109,6 +2182,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     );
     menu.append_items(&[
         &capture,
+        &scroll_capture,
         &screen_recording,
         &window,
         &all_screens,
@@ -2126,6 +2200,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     ])?;
     state.borrow_mut().tray_labels = Some(TrayLabels {
         workbench,
+        scroll_capture,
         screen_recording,
         repeat,
         clipboard,
@@ -2210,7 +2285,9 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             hotkeys.clone(),
             directory,
             smoke_error.clone(),
-            if shortcuts_smoke {
+            if scroll_smoke {
+                370
+            } else if shortcuts_smoke {
                 352
             } else if exclusion_smoke {
                 344
@@ -2487,6 +2564,60 @@ fn instance_namespace(directory: &std::path::Path) -> std::io::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn optional_capture_and_recording_bindings_keep_action_indices_and_rollback() {
+        let mut config = Config::default();
+        for key in [
+            "shortcuts.capture",
+            "shortcuts.window",
+            "shortcuts.last_region",
+            "shortcuts.pin_clipboard",
+            "shortcuts.toggle_pins",
+            "shortcuts.rescue",
+        ] {
+            recorded_binding(&mut config, key).unwrap().clear();
+        }
+        for (index, key) in [
+            "shortcuts.scroll_capture",
+            "shortcuts.recording",
+            "shortcuts.recording_pause",
+            "shortcuts.recording_stop",
+        ]
+        .iter()
+        .enumerate()
+        {
+            *recorded_binding(&mut config, key).unwrap() =
+                format!("Ctrl+Alt+Shift+F{}", 21 + index);
+        }
+        let bindings = runtime_bindings(&config).unwrap();
+        for action in 9..=12 {
+            let binding = bindings
+                .iter()
+                .find(|binding| binding.action == action)
+                .unwrap();
+            assert_eq!(binding.key, 0x6f + 12 + action);
+            assert_eq!(binding.modifiers, 7);
+            assert!(config.shortcuts.bindings()[action as usize - 1].1.is_some());
+        }
+        let service = HotkeyService::new(vec![], |_| {}).unwrap();
+        // Actual Windows registration, occupancy failure and previous-set retention.
+        service.replace(bindings.clone()).unwrap();
+        let occupied = HotkeyService::new(
+            vec![HotkeyBinding {
+                action: 99,
+                key: 0x6f + 20,
+                modifiers: 7,
+            }],
+            |_| {},
+        )
+        .unwrap();
+        config.shortcuts.recording_stop = "Ctrl+Alt+Shift+F20".into();
+        assert!(service.replace(runtime_bindings(&config).unwrap()).is_err());
+        assert_eq!(service.bindings().unwrap(), bindings);
+        drop(occupied);
+        service.replace(vec![]).unwrap();
+        assert!(service.bindings().unwrap().is_empty());
+    }
     #[test]
     fn first_run_directory_creation_keeps_live_instance_identity() {
         let base = std::env::temp_dir().join(format!(

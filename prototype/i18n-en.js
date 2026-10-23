@@ -1,5 +1,52 @@
 // Extended English catalog, kept separate from locale detection and rendering.
 Object.assign(english,{
+'采集已结束，统一调整未对齐片段。':'Capture finished. Adjust unmatched joins together.',
+'本段待对齐，采集继续；可滚回重试或稍后处理。':'Join pending; capture continues. Scroll back to retry or review later.',
+'截图模式':'Capture mode',
+'滚动截图':'Scrolling capture',
+'录屏':'Recording',
+'开始滚动截图':'Start scrolling capture',
+'开始录制':'Start recording',
+'鼠标指针':'Cursor',
+'系统声音':'System audio',
+'麦克风':'Microphone',
+'框选区域仅包含可滚动内容，避开固定页头、滚动条及动画。':'Select only scrolling content, avoiding fixed headers, scrollbars and animation.',
+'Glint · 原型示意':'Glint · Prototype sample',
+'项目进展记录':'Project progress',
+'本周工作':'This week',
+'方案与进度':'Plans and progress',
+'数据回顾':'Data review',
+'下一步计划':'Next steps',
+'内容仅用于交互演示，不读取真实屏幕。':'Illustrative content; the real screen is not captured.',
+'保留重要信息，让内容自然连接。':'Keep the details and connect the content.',
+'滚动查看后续内容，右侧同步展示拼接效果。':'Scroll for more content; the stitched result appears on the right.',
+'滚动采集区域':'Live scrolling region',
+'拼接结果预览':'Stitched image preview',
+'内容没有对齐，已暂停采集。':'The join needs review. Capture is paused.',
+'↓ 自动滚动':'↓ Auto scroll',
+'Ⅱ 停止滚动':'Ⅱ Stop scrolling',
+'自动滚动演示':'Automatic scrolling demo',
+'缓慢滚动选区，自动拼接':'Scroll slowly within the selection to stitch',
+'结束采集':'Finish capture',
+'继续采集':'Resume capture',
+'编辑长截图':'Edit long screenshot',
+'保存长截图':'Save long screenshot',
+'取消滚动截图':'Cancel scrolling capture',
+'复制长截图':'Copy long screenshot',
+'录屏预览':'Recording preview',
+'录屏预览 · MP4':'Recording preview · MP4',
+'录屏预览 · GIF':'Recording preview · GIF',
+'原型演示，不生成视频文件':'Prototype only; no video file is generated',
+'录制进度':'Playback position',
+'复制到剪贴板':'Copy to clipboard',
+'Ⅱ 暂停':'Ⅱ Pause',
+'▶ 继续':'▶ Resume',
+'结束录屏':'End recording',
+'放弃录制':'Discard recording',
+'原型演示':'Prototype demo',
+'请先撤销标注，再切换采集模式。':'Undo annotations before changing capture mode.',
+'交互演示，不生成文件或修改剪贴板。':'Prototype only; files and clipboard remain unchanged.',
+'原型仅展示播放入口，不模拟视频播放成功。':'The prototype shows the playback entry only; it does not play a video.',
 '保存已取消；选区与标注已保留，可继续编辑或重试。':'Save cancelled. Selection and annotations are preserved; continue editing or retry.',
 '请先松开鼠标完成当前操作，再输出。':'Release the mouse to finish the current operation before exporting.',
 '跟随系统主题时，截图浮层、贴图和倒计时响应系统深浅色变化；手动主题不受影响。不改变截图像素、标注或贴图位置。':'When following the system theme, overlays, pins and countdowns respond to light/dark changes. Manual themes stay unchanged. Capture pixels, annotations and pin positions stay intact.',
@@ -231,3 +278,26 @@ Object.assign(english,{"应用界面默认使用系统字体，缺失时回退�
 Object.assign(english,{"应用字体":"Application font","内置 Noto Sans SC":"Bundled Noto Sans SC","只影响应用界面，不影响批注文字。跟随系统时，缺失字体回退到内置 Noto Sans SC。":"Applies to the application UI only, not annotations. Follow system falls back to bundled Noto Sans SC when needed."});
 
 Object.assign(english,{"保留此缩放比例？":"Keep this interface scale?","请确认界面是否清晰且易于操作。15 秒后未确认将自动还原；保留后仍需保存设置。":"Check that the interface is easy to use. Revert automatically after 15 seconds unless confirmed; Save settings after keeping the scale.","还原":"Revert","保留此比例":"Keep this scale"});
+Object.assign(english,{
+ '向下滚动左侧内容，再采集下一段；右侧持续更新拼接结果。':'Scroll the source, then capture the next fragment. The stitched result stays visible on the right.',
+ '原型示意 · 不采集真实屏幕':'Prototype only · No desktop capture',
+ '拼接结果预览':'Stitched preview','长图总览':'Overview','待确认接缝':'Proposed seam','拼接片段':'Fragment',
+ '项目记录':'Project notes','内容与进度':'Content and progress',
+ '此处仅示意长图内容；原生版展示实际采集并拼接的像素。':'Sample content only. The native app shows actual captured and stitched pixels.',
+ '继续采集时，右侧预览随拼接结果增长，可滚动检查细节。':'The preview grows with each capture. Scroll to inspect details.'
+});
+Object.assign(english, {
+  '部分内容未能拼接，当前展示已对齐部分。片段已保留，可继续采集或主动修复。': 'Some content could not be joined. Showing the aligned portion; source fragments are retained. Continue capturing or adjust the joins.',
+  '部分内容未能拼接，片段已保留。可输出已对齐部分或主动修复。': 'Some content could not be joined. Source fragments are retained. Export the aligned portion or adjust the joins.',
+  '收起修复': 'Hide adjustments',
+  '调整拼接': 'Adjust joins',
+  '编辑已对齐部分': 'Edit aligned portion',
+  '保存已对齐部分': 'Save aligned portion',
+  '复制已对齐部分': 'Copy aligned portion'
+});
+Object.assign(english, {
+  '滚动截图（未完成）': 'Scrolling (incomplete)',
+  '滚动长截图（未完成 · 严重 Bug）': 'Scrolling capture (incomplete; severe bugs)',
+  '未完成 · 严重 Bug': 'Incomplete; severe bugs',
+  '未完成 · 严重 Bug：选区及预览可能不显示，采集与拼接结果不可靠。': 'Incomplete; severe bugs. Selection and preview may be missing; capture and stitching are unreliable.'
+});

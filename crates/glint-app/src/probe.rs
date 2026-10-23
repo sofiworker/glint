@@ -1273,6 +1273,39 @@ fn prepare_capture(
         if ui.get_busy() {
             return;
         }
+        if matches!(
+            action.as_str(),
+            "mode-capture" | "mode-scroll" | "mode-record"
+        ) {
+            let s = state.borrow();
+            if s.fixed_selection || !s.edits.marks().is_empty() || pointer_pending(&s) {
+                ui.set_service_notice(text(&ui, Message::ScrollPlainRegion).into());
+                return;
+            }
+            ui.set_tool(0);
+            ui.set_capture_mode(match action.as_str() {
+                "mode-scroll" => 1,
+                "mode-record" => 2,
+                _ => 0,
+            });
+            return;
+        }
+        if action == "finish" && ui.get_capture_mode() > 0 {
+            let weak = ui.as_weak();
+            slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                if let Some(ui) = weak.upgrade() {
+                    ui.invoke_action(
+                        if ui.get_capture_mode() == 1 {
+                            "scroll-start"
+                        } else {
+                            "record-start"
+                        }
+                        .into(),
+                    );
+                }
+            });
+            return;
+        }
         if action == "scroll-start" || action == "record-start" {
             let s = state.borrow();
             if s.fixed_selection

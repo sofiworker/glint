@@ -521,6 +521,23 @@ impl Run {
             .upgrade()
             .ok_or("Settings window vanished during verification")?;
         match self.phase {
+            370..=381 if self.focused == 370 => {
+                if self.child_started.elapsed() > Duration::from_secs(30) {
+                    return Err("Scrolling sequence probe timed out".into());
+                }
+                if !crate::scroll_capture::smoke_stage(
+                    self.phase - 370,
+                    &ui,
+                    &self.app,
+                    &self.directory,
+                )? {
+                    return Ok(false);
+                }
+                if self.phase == 381 {
+                    ui.invoke_action("quit".into());
+                    return Ok(true);
+                }
+            }
             0 => {
                 verify_window_snapshot_adapter(&self.directory)?;
                 pixelation_smoke::verify(&self.directory)?;

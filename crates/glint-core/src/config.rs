@@ -144,6 +144,10 @@ pub struct Shortcuts {
     pub rescue: String,
     pub color_picker: String,
     pub settings: String,
+    pub scroll_capture: String,
+    pub recording: String,
+    pub recording_pause: String,
+    pub recording_stop: String,
 }
 impl Default for Shortcuts {
     fn default() -> Self {
@@ -156,11 +160,15 @@ impl Default for Shortcuts {
             rescue: "Ctrl+Alt+Escape".into(),
             color_picker: String::new(),
             settings: String::new(),
+            scroll_capture: String::new(),
+            recording: String::new(),
+            recording_pause: String::new(),
+            recording_stop: String::new(),
         }
     }
 }
 impl Shortcuts {
-    fn raw_bindings(&self) -> [(&'static str, &str); 8] {
+    fn raw_bindings(&self) -> [(&'static str, &str); 12] {
         [
             ("capture", &self.capture),
             ("window", &self.window),
@@ -170,10 +178,14 @@ impl Shortcuts {
             ("rescue", &self.rescue),
             ("color_picker", &self.color_picker),
             ("settings", &self.settings),
+            ("scroll_capture", &self.scroll_capture),
+            ("recording", &self.recording),
+            ("recording_pause", &self.recording_pause),
+            ("recording_stop", &self.recording_stop),
         ]
         .map(|(action, value)| (action, value.as_str()))
     }
-    pub fn bindings(&self) -> [(&'static str, Option<&str>); 8] {
+    pub fn bindings(&self) -> [(&'static str, Option<&str>); 12] {
         self.raw_bindings().map(|(action, value)| {
             (
                 action,

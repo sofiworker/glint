@@ -41,3 +41,7 @@ opt-level = 2
 
 [profile.dev.package.tiny-skia]
 opt-level = 2
+
+# Source-pixel scrolling alignment must also stay responsive in development builds.
+[profile.dev.package.glint-core]
+opt-level = 2
