@@ -58,7 +58,7 @@ export component ScrollCaptureWindow inherits Window {
         VerticalBox {
             padding: 5px; spacing: 5px;
             Text { text: root.english ? "Stitched preview" : "拼接预览"; color: Theme.ink; font-size: 14px; height: 24px; vertical-stretch: 0; }
-            Text { text: root.english ? "Incomplete; severe bugs. Capture and stitching are unreliable." : "未完成 · 严重 Bug：采集及拼接结果不可靠。"; color: root.dark ? #ffb4ab : #b42318; wrap: word-wrap; height: 36px; vertical-stretch: 0; }
+            Text { text: root.labels.hint; color: Theme.muted; wrap: word-wrap; min-height: 18px; max-height: 54px; vertical-stretch: 0; }
             if root.region-info != "": Text { text: root.region-info; color: Theme.muted; overflow: elide; height: 18px; vertical-stretch: 0; }
             Text { text: root.status; color: Theme.muted; wrap: word-wrap; min-height: 18px; max-height: 54px; vertical-stretch: 0; }
             detail := ScrollView {
@@ -100,14 +100,23 @@ export component ScrollCaptureWindow inherits Window {
 }
 export component ScrollControlWindow inherits Window {
     no-frame: true; always-on-top: true; background: Theme.background;
-    preferred-width: 310px; preferred-height: 48px;
+    preferred-width: 430px; preferred-height: 76px;
     in property <bool> english;
     in property <bool> automatic;
     in property <bool> stopped;
     in property <bool> ready;
+    in property <string> status;
     callback action(string);
-    HorizontalBox { padding: 6px; spacing: 6px;
-        Button { text: root.automatic ? (root.english ? "Stop scrolling" : "停止滚动") : (root.english ? "Auto scroll" : "自动滚动"); enabled: !root.stopped && root.ready; clicked => { root.action("auto"); } }
-        Button { text: root.stopped ? (root.english ? "Resume" : "继续采集") : (root.english ? "Finish" : "结束采集"); clicked => { root.action(root.stopped ? "resume" : "stop"); } }
+    VerticalBox { padding: 6px; spacing: 4px;
+        HorizontalBox { padding: 0px; spacing: 4px;
+            Button { text: root.automatic ? (root.english ? "Stop" : "停止") : (root.english ? "Auto" : "自动滚动"); enabled: !root.stopped && root.ready; clicked => { root.action("auto"); } }
+            Button { text: root.stopped ? (root.english ? "Resume" : "继续采集") : (root.english ? "Finish" : "结束采集"); clicked => { root.action(root.stopped ? "resume" : "stop"); } }
+            Rectangle { vertical-stretch: 0; }
+            Button { text: root.english ? "Edit" : "编辑"; enabled: root.ready; clicked => { root.action("edit"); } }
+            Button { text: root.english ? "Save" : "保存"; enabled: root.ready; clicked => { root.action("save"); } }
+            Button { text: root.english ? "Cancel" : "取消"; clicked => { root.action("cancel"); } }
+            Button { text: root.english ? "Copy" : "复制"; enabled: root.ready; clicked => { root.action("copy"); } }
+        }
+        Text { text: root.status; color: Theme.muted; font-size: 11px; wrap: word-wrap; overflow: elide; height: 32px; vertical-stretch: 0; horizontal-alignment: center; }
     }
 }

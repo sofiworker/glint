@@ -1,15 +1,28 @@
 //! Ordered source frames: acquisition never depends on a successful join.
 //! Each join belongs to its two neighbours and is reviewed only after capture.
+//! A cursor tracks the frame matching the latest viewport, so scrolling up,
+//! down, or back and forth always places a new frame relative to what the user
+//! is currently looking at instead of blindly extending one end.
 use super::{Append, BUDGET, Fragment, MAX_FRAGMENTS, StitchError};
+
+/// One accepted capture: where its frame lives and what a later undo must restore.
+enum Operation {
+    /// Appended at one end of the strip.
+    End { upward: bool },
+    /// Inserted between `index - 1` and `index`; `restored` is the join that
+    /// previously connected those neighbours and must come back on undo.
+    Insert { index: usize, restored: Option<u32> },
+}
 
 #[derive(Default)]
 pub struct ScrollSequence {
     frames: Vec<Fragment>,
     joins: Vec<Option<u32>>,
     cuts: Vec<u32>,
-    operations: Vec<bool>,
+    operations: Vec<Operation>,
     retained: usize,
     review: usize,
+    cursor: usize,
 }
 impl ScrollSequence {
     pub fn count(&self) -> usize {
@@ -37,6 +50,27 @@ impl ScrollSequence {
     pub fn review_position(&self) -> Option<(usize, usize)> {
         self.pending_index().map(|i| (i + 1, i + 2))
     }
+
+    /// Strip position of every frame's top row, when known. Positions derive
+    /// from verified joins only; an unresolved join makes everything past it
+    /// unknown until the join is accepted or bridged.
+    fn positions(&self) -> Vec<Option<i64>> {
+        let Some(first) = self.frames.first() else {
+            return Vec::new();
+        };
+        let height = first.height as i64;
+        let mut positions = Vec::with_capacity(self.frames.len());
+        positions.push(Some(0i64));
+        for (index, join) in self.joins.iter().enumerate() {
+            let next = match (positions[index], join) {
+                (Some(previous), Some(overlap)) => Some(previous + height - i64::from(*overlap)),
+                _ => None,
+            };
+            positions.push(next);
+        }
+        positions
+    }
+
     pub fn capture(&mut self, frame: Fragment, upward: bool) -> Result<Append, StitchError> {
         if self
             .frames
@@ -45,8 +79,14 @@ impl ScrollSequence {
         {
             return Err(StitchError::InvalidFrame);
         }
+        if self.frames.is_empty() {
+            self.retained = frame.rgba.len();
+            self.frames.push(frame);
+            self.cursor = 0;
+            return Ok(Append::First);
+        }
         // A transient frame must not poison the chain forever. Reacquiring a
-        // verified overlap with the last connected source replaces that tail.
+        // verified overlap with the source before a gap replaces that tail.
         if !upward
             && let Some(anchor) = self.joins.iter().position(Option::is_none)
             && align(&self.frames[anchor], &frame).is_some()
@@ -56,68 +96,257 @@ impl ScrollSequence {
             }
             self.joins.truncate(anchor);
             self.cuts.truncate(anchor);
-            self.operations = vec![false; anchor];
+            self.operations.clear();
             self.review = 0;
+            self.cursor = self.cursor.min(anchor);
         }
+        let cursor = self.cursor.min(self.frames.len() - 1);
         if self.frames.iter().any(|f| f.rgba == frame.rgba)
-            || (if upward {
-                self.frames.first()
-            } else {
-                self.frames.last()
-            })
-            .is_some_and(|previous| stationary(previous, &frame))
+            || stationary(&self.frames[cursor], &frame)
         {
             return Ok(Append::Duplicate);
         }
         self.compact_for(frame.rgba.len());
+        self.cursor = self.cursor.min(self.frames.len() - 1);
         if self.frames.len() >= MAX_FRAGMENTS || self.retained + frame.rgba.len() > BUDGET {
             return Err(StitchError::Budget);
         }
-        let previous = if upward {
-            self.frames.first()
-        } else {
-            self.frames.last()
-        };
-        let join = previous.and_then(|previous| {
-            if upward {
-                align(&frame, previous)
+        // Align the viewport against the frame the user last looked at, then
+        // the ends: a revisit lands next to the cursor, new territory extends
+        // the strip. `upward` only reorders the cheap candidates.
+        let last = self.frames.len() - 1;
+        let mut candidates: Vec<usize> = vec![self.cursor, if upward { 0 } else { last }];
+        candidates.push(if upward { last } else { 0 });
+        candidates.dedup();
+        let mut placement: Option<(usize, bool, u32)> = None;
+        for candidate in candidates {
+            if let Some(overlap) = align(&self.frames[candidate], &frame) {
+                placement = Some((candidate, true, overlap));
+                break;
+            }
+            if let Some(overlap) = align(&frame, &self.frames[candidate]) {
+                placement = Some((candidate, false, overlap));
+                break;
+            }
+        }
+        let Some((candidate, below, overlap)) = placement else {
+            // Disconnected source: retained at the hint end for review/repair.
+            self.retained += frame.rgba.len();
+            let index = if upward {
+                self.frames.insert(0, frame);
+                self.joins.insert(0, None);
+                self.cuts.insert(0, 0);
+                0
             } else {
-                align(previous, &frame)
+                self.frames.push(frame);
+                self.joins.push(None);
+                self.cuts.push(0);
+                self.frames.len() - 1
+            };
+            self.operations.push(Operation::End { upward });
+            self.cursor = index;
+            return Ok(Append::NeedsReview);
+        };
+        let height = frame.height as i64;
+        let positions = self.positions();
+        let Some(base) = positions[candidate] else {
+            // The candidate itself sits behind an unresolved join; only a
+            // verified end extension is safe without position arithmetic.
+            let at_end = if below {
+                candidate == last
+            } else {
+                candidate == 0
+            };
+            return if at_end {
+                Ok(self.place_at_end(frame, below, overlap))
+            } else {
+                Ok(self.hold_unresolved(frame, upward))
+            };
+        };
+        let position = if below {
+            base + height - i64::from(overlap)
+        } else {
+            base + i64::from(overlap) - height
+        };
+        // Connected extent from the candidate: verified joins only.
+        let mut connected_bottom = base + height;
+        let mut connected_top = base;
+        let mut bound = candidate;
+        while below && bound < self.joins.len() {
+            match self.joins[bound] {
+                Some(_) => {
+                    bound += 1;
+                    connected_bottom = positions[bound].unwrap_or(connected_bottom) + height;
+                }
+                None => break,
             }
-        });
-        let first = self.frames.is_empty();
+        }
+        while !below && bound > 0 {
+            match self.joins[bound - 1] {
+                Some(_) => {
+                    bound -= 1;
+                    connected_top = positions[bound].unwrap_or(connected_top);
+                }
+                None => break,
+            }
+        }
+        let inside = if below {
+            position + height <= connected_bottom
+        } else {
+            position >= connected_top
+        };
+        if inside {
+            // Revisiting captured content: nothing new, just follow the viewport.
+            self.cursor = Self::frame_at(&positions, position, candidate);
+            return Ok(Append::Duplicate);
+        }
+        // Walk to the neighbour pair the frame belongs between.
+        let mut index = candidate;
+        if below {
+            while index + 1 < self.frames.len()
+                && matches!(positions[index + 1], Some(p) if p <= position)
+            {
+                index += 1;
+            }
+        } else {
+            while index > 0 && matches!(positions[index - 1], Some(p) if p >= position) {
+                index -= 1;
+            }
+        }
+        // Joins derive from verified positions; alignment only fills unknowns.
+        let left = if below || index > 0 {
+            let neighbour = if below { index } else { index - 1 };
+            match positions[neighbour] {
+                Some(p) => clamp_join(p + height - position, height),
+                None => align(&self.frames[neighbour], &frame),
+            }
+        } else {
+            None
+        };
+        let right = if !below || index + 1 < self.frames.len() {
+            let neighbour = if below { index + 1 } else { index };
+            match positions[neighbour] {
+                Some(p) => clamp_join(position + height - p, height),
+                None => align(&frame, &self.frames[neighbour]),
+            }
+        } else {
+            None
+        };
         self.retained += frame.rgba.len();
-        if upward {
-            self.frames.insert(0, frame);
-            if !first {
-                self.joins.insert(0, join);
-                self.cuts.insert(0, join.unwrap_or(0) / 2);
+        let applied;
+        if below {
+            let has_right = index + 1 < self.frames.len();
+            let restored = if has_right { self.joins[index] } else { None };
+            let left = left.unwrap_or(overlap);
+            applied = left;
+            self.frames.insert(index + 1, frame);
+            if has_right {
+                self.joins[index] = Some(left);
+                self.cuts[index] = left / 2;
+                self.joins.insert(index + 1, right);
+                self.cuts.insert(index + 1, right.unwrap_or(0) / 2);
+                self.operations.push(Operation::Insert {
+                    index: index + 1,
+                    restored,
+                });
+            } else {
+                self.joins.push(Some(left));
+                self.cuts.push(left / 2);
+                self.operations.push(Operation::End { upward: false });
             }
+            self.cursor = index + 1;
+        } else {
+            let has_left = index > 0;
+            let restored = if has_left {
+                self.joins[index - 1]
+            } else {
+                None
+            };
+            let right = right.unwrap_or(overlap);
+            applied = right;
+            self.frames.insert(index, frame);
+            if has_left {
+                self.joins[index - 1] = left;
+                self.cuts[index - 1] = left.unwrap_or(0) / 2;
+                self.joins.insert(index, Some(right));
+                self.cuts.insert(index, right / 2);
+                self.operations.push(Operation::Insert { index, restored });
+            } else {
+                self.joins.insert(0, Some(right));
+                self.cuts.insert(0, right / 2);
+                self.operations.push(Operation::End { upward: true });
+            }
+            self.cursor = index;
+        }
+        Ok(Append::Added { overlap: applied })
+    }
+
+    /// The deepest frame whose verified position contains `position`.
+    fn frame_at(positions: &[Option<i64>], position: i64, fallback: usize) -> usize {
+        let mut best = fallback;
+        let mut best_pos = i64::MIN;
+        for (index, known) in positions.iter().enumerate() {
+            if let Some(p) = known
+                && *p <= position
+                && *p >= best_pos
+            {
+                best = index;
+                best_pos = *p;
+            }
+        }
+        best
+    }
+
+    /// Extend one end with a verified overlap; no neighbour pair to re-join.
+    fn place_at_end(&mut self, frame: Fragment, below: bool, overlap: u32) -> Append {
+        self.retained += frame.rgba.len();
+        if below {
+            self.frames.push(frame);
+            self.joins.push(Some(overlap));
+            self.cuts.push(overlap / 2);
+            self.operations.push(Operation::End { upward: false });
+            self.cursor = self.frames.len() - 1;
+        } else {
+            self.frames.insert(0, frame);
+            self.joins.insert(0, Some(overlap));
+            self.cuts.insert(0, overlap / 2);
+            self.operations.push(Operation::End { upward: true });
+            self.cursor = 0;
+        }
+        Append::Added { overlap }
+    }
+
+    /// A frame that matches no verified neighbour stays at the hint end with an
+    /// unresolved join, exactly like the previous acquisition model.
+    fn hold_unresolved(&mut self, frame: Fragment, upward: bool) -> Append {
+        self.retained += frame.rgba.len();
+        let index = if upward {
+            self.frames.insert(0, frame);
+            self.joins.insert(0, None);
+            self.cuts.insert(0, 0);
+            0
         } else {
             self.frames.push(frame);
-            if !first {
-                self.joins.push(join);
-                self.cuts.push(join.unwrap_or(0) / 2);
-            }
-        }
-        if !first {
-            self.operations.push(upward);
-        }
-        Ok(if first {
-            Append::First
-        } else if let Some(overlap) = join {
-            Append::Added { overlap }
-        } else {
-            Append::NeedsReview
-        })
+            self.joins.push(None);
+            self.cuts.push(0);
+            self.frames.len() - 1
+        };
+        self.operations.push(Operation::End { upward });
+        self.cursor = index;
+        Append::NeedsReview
     }
+
     pub fn append(&mut self, frame: Fragment) -> Result<Append, StitchError> {
         self.capture(frame, false)
     }
     /// Remove only a redundant intermediate viewport with a separately verified
     /// direct overlap. Do not raise the memory ceiling to retain duplicate rows.
     fn compact_for(&mut self, incoming: usize) {
-        if self.operations.iter().any(|upward| *upward) {
+        if self
+            .operations
+            .iter()
+            .any(|op| !matches!(op, Operation::End { upward: false }))
+        {
             return;
         }
         while self.retained + incoming > BUDGET || self.frames.len() >= MAX_FRAGMENTS {
@@ -139,7 +368,10 @@ impl ScrollSequence {
             self.cuts.remove(index);
             self.joins[index - 1] = Some(overlap);
             self.cuts[index - 1] = overlap / 2;
-            self.operations = vec![false; self.frames.len() - 1];
+            self.operations.clear();
+            if self.cursor >= index {
+                self.cursor = self.cursor.saturating_sub(1);
+            }
             self.review = 0;
         }
     }
@@ -165,24 +397,58 @@ impl ScrollSequence {
             self.joins[index] = align(&self.frames[index], &self.frames[index + 1]);
             self.cuts[index] = self.joins[index].unwrap_or(0) / 2;
         }
-        // After a user edits the sequence, remaining undo operations remove the end.
-        self.operations = vec![false; self.frames.len().saturating_sub(1)];
+        // After a user edits the sequence, recorded insertion points are stale.
+        self.operations.clear();
+        self.cursor = if self.cursor > index {
+            self.cursor - 1
+        } else if self.cursor == index {
+            index.min(self.frames.len().saturating_sub(1))
+        } else {
+            self.cursor
+        };
         self.review = index.min(self.joins.len());
     }
     pub fn undo(&mut self) {
-        let Some(upward) = self.operations.pop() else {
+        let Some(operation) = self.operations.pop() else {
             return;
         };
-        let frame = if upward {
-            self.joins.remove(0);
-            self.cuts.remove(0);
-            self.frames.remove(0)
-        } else {
-            self.joins.pop();
-            self.cuts.pop();
-            self.frames.pop().expect("operation has a source frame")
-        };
-        self.retained -= frame.rgba.len();
+        match operation {
+            Operation::End { upward } => {
+                if self.frames.len() <= 1 {
+                    return;
+                }
+                let frame = if upward {
+                    self.joins.remove(0);
+                    self.cuts.remove(0);
+                    self.frames.remove(0)
+                } else {
+                    self.joins.pop();
+                    self.cuts.pop();
+                    self.frames.pop().expect("operation has a source frame")
+                };
+                self.retained -= frame.rgba.len();
+                if upward && self.cursor > 0 {
+                    self.cursor -= 1;
+                }
+                self.cursor = self.cursor.min(self.frames.len() - 1);
+            }
+            Operation::Insert { index, restored } => {
+                if index >= self.frames.len() {
+                    return;
+                }
+                let frame = self.frames.remove(index);
+                self.retained -= frame.rgba.len();
+                self.joins.remove(index);
+                if index > 0 && index - 1 < self.joins.len() {
+                    self.joins[index - 1] = restored;
+                    self.cuts[index - 1] = restored.unwrap_or(0) / 2;
+                }
+                if self.cursor >= index && self.cursor > 0 {
+                    self.cursor -= 1;
+                }
+                self.cursor = self.cursor.min(self.frames.len() - 1);
+            }
+        }
         self.review = self.review.min(self.joins.len());
     }
     pub fn retry_alignment(&mut self) {
@@ -208,10 +474,16 @@ impl ScrollSequence {
                 self.cuts.drain(index..next);
                 self.joins.insert(index, Some(overlap));
                 self.cuts.insert(index, overlap / 2);
-                self.operations = vec![false; self.frames.len() - 1];
+                self.operations.clear();
+                if self.cursor >= next {
+                    self.cursor -= next - index - 1;
+                } else if self.cursor > index {
+                    self.cursor = index + 1;
+                }
             }
             index += 1;
         }
+        self.cursor = self.cursor.min(self.frames.len().saturating_sub(1));
         self.review = 0;
     }
     /// Only the continuous, verified range belongs to the normal preview/export.
@@ -349,6 +621,16 @@ impl ScrollSequence {
             height: (rgba.len() / (width as usize * 4)) as u32,
             rgba,
         })
+    }
+}
+
+/// Derived overlaps must stay inside one frame height; a contradiction keeps
+/// the join unresolved instead of inventing geometry.
+fn clamp_join(value: i64, height: i64) -> Option<u32> {
+    if value < 0 || value >= height {
+        None
+    } else {
+        Some(value as u32)
     }
 }
 

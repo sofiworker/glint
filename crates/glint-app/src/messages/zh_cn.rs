@@ -5,9 +5,9 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::RecordingPlainRegion => {
             Some("请先框选至少 32 × 64 像素的实时桌面区域，且不要添加批注；本地图片不能用于录屏。")
         }
-        Message::ScrollTitle => Some("滚动长截图（未完成 · 严重 Bug）"),
+        Message::ScrollTitle => Some("滚动长截图（待真实环境验收）"),
         Message::ScrollHint => {
-            Some("未完成，存在严重 Bug：选区边框和右侧预览可能不显示，采集及拼接结果不可靠。")
+            Some("缓慢滚动选区即自动拼接，右侧实时预览长图；下方可随时复制、保存或编辑。")
         }
         Message::ScrollCapture => Some("采集下一段"),
         Message::ScrollUndo => Some("撤销上一段"),

@@ -296,8 +296,8 @@ Object.assign(english, {
   '复制已对齐部分': 'Copy aligned portion'
 });
 Object.assign(english, {
-  '滚动截图（未完成）': 'Scrolling (incomplete)',
-  '滚动长截图（未完成 · 严重 Bug）': 'Scrolling capture (incomplete; severe bugs)',
-  '未完成 · 严重 Bug': 'Incomplete; severe bugs',
-  '未完成 · 严重 Bug：选区及预览可能不显示，采集与拼接结果不可靠。': 'Incomplete; severe bugs. Selection and preview may be missing; capture and stitching are unreliable.'
+  '滚动长截图（待验收）': 'Scrolling (pending acceptance)',
+  '滚动长截图（待验收）': 'Scrolling capture (pending acceptance)',
+  '待真实环境验收': 'Pending real-environment acceptance',
+  '缓慢滚动选区即自动拼接，右侧实时预览长图；可随时复制、保存或编辑。正在真实环境验收，如遇问题请反馈。': 'Scroll slowly and frames stitch with a live right-hand preview; copy, save or edit at any time. Real-environment acceptance in progress.'
 });

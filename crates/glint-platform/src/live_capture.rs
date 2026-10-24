@@ -32,41 +32,10 @@ unsafe extern "system" fn paint_window(
             let mut bounds = RECT::default();
             let _ = unsafe { GetClientRect(hwnd, &mut bounds) };
             let dark = unsafe { CreateSolidBrush(COLORREF(0x00100c08)) };
-            let blue = unsafe { CreateSolidBrush(COLORREF(0x00fa5c4b)) };
             unsafe {
                 FillRect(dc, &bounds, dark);
-                let r = &(*state).region;
-                for rect in [
-                    RECT {
-                        left: r.left - 2,
-                        top: r.top - 2,
-                        right: r.right + 2,
-                        bottom: r.top,
-                    },
-                    RECT {
-                        left: r.left - 2,
-                        top: r.bottom,
-                        right: r.right + 2,
-                        bottom: r.bottom + 2,
-                    },
-                    RECT {
-                        left: r.left - 2,
-                        top: r.top,
-                        right: r.left,
-                        bottom: r.bottom,
-                    },
-                    RECT {
-                        left: r.right,
-                        top: r.top,
-                        right: r.right + 2,
-                        bottom: r.bottom,
-                    },
-                ] {
-                    FillRect(dc, &rect, blue);
-                }
-                let _ = DeleteObject(dark);
-                let _ = DeleteObject(blue);
             }
+            let _ = unsafe { DeleteObject(dark) };
         }
         let _ = unsafe { EndPaint(hwnd, &ps) };
         return LRESULT(0);
@@ -184,12 +153,209 @@ impl LiveCaptureFrame {
     }
     pub fn show(&self) {
         let _ = unsafe { ShowWindow(self.hwnd, SW_SHOWNOACTIVATE) };
+        // Other topmost windows may have appeared after this one; the boundary
+        // must stay above every source window for the whole live session.
+        let _ = unsafe {
+            SetWindowPos(
+                self.hwnd,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            )
+        };
     }
     pub fn visible(&self) -> bool {
         unsafe { IsWindowVisible(self.hwnd) }.as_bool()
     }
 }
 impl Drop for LiveCaptureFrame {
+    fn drop(&mut self) {
+        let _ = unsafe { DestroyWindow(self.hwnd) };
+    }
+}
+
+/// Fully opaque selection ring for the live region. Colour-keyed transparency
+/// keeps the ring crisp on any desktop, while the interior stays invisible and
+/// click-through, so the source page keeps receiving wheel and pointer input.
+pub struct LiveBorder {
+    hwnd: HWND,
+    _paint: Box<BorderPaint>,
+}
+const BORDER: i32 = 3;
+const BORDER_KEY: COLORREF = COLORREF(0x00040302);
+/// Prototype default accent (#4b5cfa) as 0x00RRGGBB.
+const DEFAULT_ACCENT: u32 = 0x4b5cfa;
+
+struct BorderPaint {
+    inner: RECT,
+    accent: COLORREF,
+}
+
+unsafe extern "system" fn border_window(
+    hwnd: HWND,
+    message: u32,
+    wp: WPARAM,
+    lp: LPARAM,
+) -> LRESULT {
+    if message == WM_PAINT {
+        let mut ps = PAINTSTRUCT::default();
+        let dc = unsafe { BeginPaint(hwnd, &mut ps) };
+        let state = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const BorderPaint };
+        if !state.is_null() {
+            let mut bounds = RECT::default();
+            let _ = unsafe { GetClientRect(hwnd, &mut bounds) };
+            let key = unsafe { CreateSolidBrush(BORDER_KEY) };
+            let accent = unsafe { CreateSolidBrush((*state).accent) };
+            unsafe {
+                FillRect(dc, &bounds, key);
+                let r = &(*state).inner;
+                for rect in [
+                    RECT {
+                        left: 0,
+                        top: 0,
+                        right: bounds.right,
+                        bottom: r.top,
+                    },
+                    RECT {
+                        left: 0,
+                        top: r.bottom,
+                        right: bounds.right,
+                        bottom: bounds.bottom,
+                    },
+                    RECT {
+                        left: 0,
+                        top: r.top,
+                        right: r.left,
+                        bottom: r.bottom,
+                    },
+                    RECT {
+                        left: r.right,
+                        top: r.top,
+                        right: bounds.right,
+                        bottom: r.bottom,
+                    },
+                ] {
+                    FillRect(dc, &rect, accent);
+                }
+            }
+            let _ = unsafe { DeleteObject(key) };
+            let _ = unsafe { DeleteObject(accent) };
+        }
+        let _ = unsafe { EndPaint(hwnd, &ps) };
+        return LRESULT(0);
+    }
+    unsafe { DefWindowProcW(hwnd, message, wp, lp) }
+}
+
+impl LiveBorder {
+    /// `accent` is 0x00RRGGBB. The ring lies entirely outside `region`, so
+    /// source frames never contain it and no capture exclusion is needed.
+    pub fn new(region: Region, accent: u32) -> Result<Self, String> {
+        static CLASS: OnceLock<Result<(), String>> = OnceLock::new();
+        CLASS
+            .get_or_init(|| {
+                let module = unsafe { GetModuleHandleW(None) }.map_err(|e| e.to_string())?;
+                let wc = WNDCLASSW {
+                    lpfnWndProc: Some(border_window),
+                    hInstance: HINSTANCE(module.0),
+                    lpszClassName: w!("Glint.LiveCaptureBorder"),
+                    ..Default::default()
+                };
+                if unsafe { RegisterClassW(&wc) } == 0 {
+                    return Err("Could not register live capture border".into());
+                }
+                Ok(())
+            })
+            .clone()?;
+        let (x, y, w, h) = region;
+        if w < 32 || h < 64 {
+            return Err("Invalid live capture region".into());
+        }
+        let vx = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
+        let vy = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
+        let vw = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
+        let vh = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
+        let left = (x - BORDER).max(vx);
+        let top = (y - BORDER).max(vy);
+        let right =
+            (i64::from(x) + i64::from(w) + i64::from(BORDER)).min(i64::from(vx) + i64::from(vw));
+        let bottom =
+            (i64::from(y) + i64::from(h) + i64::from(BORDER)).min(i64::from(vy) + i64::from(vh));
+        let width = (right - i64::from(left)).max(1) as i32;
+        let height = (bottom - i64::from(top)).max(1) as i32;
+        let paint = Box::new(BorderPaint {
+            inner: RECT {
+                left: x - left,
+                top: y - top,
+                right: x - left + w as i32,
+                bottom: y - top + h as i32,
+            },
+            // Callers pass 0x00RRGGBB; COLORREF stores 0x00BBGGRR.
+            accent: {
+                let value = if accent == 0 { DEFAULT_ACCENT } else { accent };
+                COLORREF(((value & 0xff) << 16) | (value & 0xff00) | ((value >> 16) & 0xff))
+            },
+        });
+        let hwnd = unsafe {
+            CreateWindowExW(
+                WS_EX_LAYERED
+                    | WS_EX_TRANSPARENT
+                    | WS_EX_TOPMOST
+                    | WS_EX_TOOLWINDOW
+                    | WS_EX_NOACTIVATE,
+                w!("Glint.LiveCaptureBorder"),
+                w!("Glint capture border"),
+                WS_POPUP,
+                left,
+                top,
+                width,
+                height,
+                None,
+                None,
+                HINSTANCE(GetModuleHandleW(None).map_err(|e| e.to_string())?.0),
+                None,
+            )
+        }
+        .map_err(|e| e.to_string())?;
+        unsafe {
+            SetWindowLongPtrW(
+                hwnd,
+                GWLP_USERDATA,
+                (&*paint as *const BorderPaint) as isize,
+            );
+            SetLayeredWindowAttributes(hwnd, BORDER_KEY, 0, LWA_COLORKEY)
+                .map_err(|e| format!("Colour-key the live capture border: {e}"))?;
+        }
+        Ok(Self {
+            hwnd,
+            _paint: paint,
+        })
+    }
+    pub fn hide(&self) {
+        let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };
+    }
+    pub fn show(&self) {
+        let _ = unsafe { ShowWindow(self.hwnd, SW_SHOWNOACTIVATE) };
+        let _ = unsafe {
+            SetWindowPos(
+                self.hwnd,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            )
+        };
+    }
+    pub fn visible(&self) -> bool {
+        unsafe { IsWindowVisible(self.hwnd) }.as_bool()
+    }
+}
+impl Drop for LiveBorder {
     fn drop(&mut self) {
         let _ = unsafe { DestroyWindow(self.hwnd) };
     }

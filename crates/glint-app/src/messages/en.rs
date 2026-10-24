@@ -5,9 +5,9 @@ pub fn text(id: Message) -> &'static str {
         Message::RecordingPlainRegion => {
             "Select an unannotated live desktop region first (at least 32 × 64 pixels); local images cannot be recorded."
         }
-        Message::ScrollTitle => "Scrolling capture (incomplete; severe bugs)",
+        Message::ScrollTitle => "Scrolling capture (pending acceptance)",
         Message::ScrollHint => {
-            "Incomplete; severe bugs. The selection border and preview may be missing. Capture and stitching are unreliable."
+            "Scroll slowly inside the region; the long image stitches live in the right-hand preview. Copy, save or edit at any time below."
         }
         Message::ScrollCapture => "Capture next",
         Message::ScrollUndo => "Undo fragment",

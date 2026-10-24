@@ -150,8 +150,8 @@ impl AppState {
             workbench.set_text(messages::text(Message::Workbench, english));
             scroll_capture.set_text(settings::fields::label(
                 english,
-                "滚动长截图（未完成 · 严重 Bug）…",
-                "Scrolling capture (incomplete; severe bugs)…",
+                "滚动长截图（待验收）…",
+                "Scrolling capture (pending acceptance)…",
             ));
             screen_recording.set_text(settings::fields::label(english, "录屏…", "Record screen…"));
             clipboard.set_text(settings::fields::label(
@@ -2120,8 +2120,8 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         "scroll-open",
         settings::fields::label(
             english,
-            "滚动长截图（未完成 · 严重 Bug）…",
-            "Scrolling capture (incomplete; severe bugs)…",
+            "滚动长截图（待验收）…",
+            "Scrolling capture (pending acceptance)…",
         ),
         true,
         None,

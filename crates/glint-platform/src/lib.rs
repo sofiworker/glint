@@ -162,7 +162,7 @@ pub use hotkeys::{HotkeyBinding, HotkeyEvent, HotkeyService};
 #[cfg(all(windows, feature = "windows-bindings"))]
 mod live_capture;
 #[cfg(all(windows, feature = "windows-bindings"))]
-pub use live_capture::{LiveCaptureFrame, ScrollSource, ScrollWatch};
+pub use live_capture::{LiveBorder, LiveCaptureFrame, ScrollSource, ScrollWatch};
 
 #[cfg(all(windows, feature = "windows-bindings"))]
 mod pin_events;

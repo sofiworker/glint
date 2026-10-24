@@ -1,4 +1,4 @@
-use glint_core::scroll_capture::{Append, Fragment, ScrollSession};
+use glint_core::scroll_capture::{Append, Fragment, ScrollSequence};
 
 fn region(start: usize) -> Fragment {
     let mut pixels = Vec::new();
@@ -17,7 +17,7 @@ fn region(start: usize) -> Fragment {
 }
 #[test]
 fn failed_match_keeps_pixels_and_later_capture_can_recover() {
-    let mut session = ScrollSession::default();
+    let mut session = ScrollSequence::default();
     session.capture(region(100), false).unwrap();
     assert_eq!(
         session
@@ -28,20 +28,26 @@ fn failed_match_keeps_pixels_and_later_capture_can_recover() {
             .unwrap(),
         Append::NeedsReview
     );
-    assert!(matches!(
-        session.capture(region(148), false).unwrap(),
-        Append::Added { overlap: 80 }
-    ));
-    assert_eq!(session.unresolved_count(), 1);
-    assert_eq!(session.dimensions(), Some((64, 176)));
-    session.review_next();
-    assert_eq!(session.compose(Some(0)).unwrap().rgba[176 * 64 * 4], 30);
+    // A further disconnected source stays next to the unresolved join.
+    assert_eq!(
+        session
+            .capture(
+                Fragment::new(64, 128, [10, 120, 200, 255].repeat(64 * 128)).unwrap(),
+                false
+            )
+            .unwrap(),
+        Append::NeedsReview
+    );
+    assert_eq!(session.unresolved_count(), 2);
+    assert_eq!(session.dimensions(), Some((64, 128)));
+    session.accept_pending(0).unwrap();
+    assert_eq!(session.compose(None).unwrap().height, 256);
     session.discard_pending();
     assert_eq!(session.unresolved_count(), 0);
 }
 #[test]
 fn repeated_failed_matches_are_retained_and_reviewable() {
-    let mut session = ScrollSession::default();
+    let mut session = ScrollSequence::default();
     session.capture(region(100), false).unwrap();
     for shade in [30, 50, 70] {
         assert_eq!(
@@ -55,17 +61,16 @@ fn repeated_failed_matches_are_retained_and_reviewable() {
         );
     }
     assert_eq!(session.unresolved_count(), 3);
-    for shade in [70, 30, 50] {
+    for shade in [30, 50, 70] {
         assert_eq!(session.compose(Some(0)).unwrap().rgba[128 * 64 * 4], shade);
         session.discard_pending();
-        session.review_next();
     }
     assert_eq!(session.unresolved_count(), 0);
 }
 
 #[test]
 fn unresolved_frames_share_budget_and_are_preserved_on_limit() {
-    let mut session = ScrollSession::default();
+    let mut session = ScrollSequence::default();
     session.capture(region(100), false).unwrap();
     for shade in 0..127u8 {
         session

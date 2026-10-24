@@ -456,7 +456,7 @@ export component CaptureProbe inherits Window {
             background: root.surface; border-radius: 8px;
             HorizontalLayout { padding: 5px; spacing: 4px;
                 Button { text: root.english ? "Screenshot" : "截图"; primary: root.capture-mode == 0; clicked => { root.action("mode-capture"); } }
-                Button { text: root.english ? "Scrolling (incomplete)" : "滚动截图（未完成）"; primary: root.capture-mode == 1; clicked => { root.action("mode-scroll"); } }
+                Button { text: root.english ? "Scrolling (pending acceptance)" : "滚动长截图（待验收）"; primary: root.capture-mode == 1; clicked => { root.action("mode-scroll"); } }
                 Button { text: root.english ? "Recording" : "录屏"; primary: root.capture-mode == 2; clicked => { root.action("mode-record"); } }
             }
         }
@@ -467,7 +467,7 @@ export component CaptureProbe inherits Window {
             background: root.surface; border-radius: 8px; border-width: 1px; border-color: root.line;
             if root.capture-mode == 1: Text {
                 x: 12px; y: 8px; width: parent.width - 24px; height: 40px;
-                text: root.english ? "Incomplete; severe bugs. Selection and preview may be missing; stitching is unreliable." : "未完成 · 严重 Bug：选区及预览可能不显示，采集与拼接结果不可靠。";
+                text: root.english ? "Scroll slowly and frames stitch with a live right-hand preview; copy, save or edit at any time. Real-environment acceptance in progress." : "缓慢滚动选区即自动拼接，右侧实时预览长图；可随时复制、保存或编辑。正在真实环境验收，如遇问题请反馈。";
                 wrap: word-wrap; color: root.dark ? #ffb4ab : #b42318; font-size: 11px;
             }
             if root.capture-mode == 2: HorizontalLayout {

@@ -332,8 +332,8 @@ pub fn smoke_stage(
                 }
                 return Ok(false);
             };
-            std::fs::write(directory.join("live-start-state.txt"), format!("worker_pending={} affinity={} session_frames={:?} preview_visible={} controls_visible={} boundary_visible={} busy={} status={}\n",
-                run.result.is_some(),run.capture_affinity,run.session.as_ref().map(|s|s.count()),run.ui.window().is_visible(),run.controls.window().is_visible(),run._frame.visible(),run.ui.get_busy(),run.ui.get_status())).map_err(|e|e.to_string())?;
+            std::fs::write(directory.join("live-start-state.txt"), format!("worker_pending={} affinity={} session_frames={:?} preview_visible={} controls_visible={} boundary_visible={} shade_visible={} busy={} status={}\n",
+                run.result.is_some(),run.capture_affinity,run.session.as_ref().map(|s|s.count()),run.ui.window().is_visible(),run.controls.window().is_visible(),run._border.visible(),run._frame.visible(),run.ui.get_busy(),run.ui.get_status())).map_err(|e|e.to_string())?;
             if run.result.is_some() || !run.capture_affinity {
                 return Ok(false);
             }
@@ -367,6 +367,10 @@ pub fn smoke_stage(
                 return Err("Fixture did not exercise an unresolved join".into());
             }
             save_smoke_snapshot(&run.ui, &directory.join("scroll-acquiring.png"))?;
+            save_smoke_snapshot(
+                &run.controls,
+                &directory.join("scroll-acquiring-controls.png"),
+            )?;
             let action = format!("scroll:{}:stop", run.ticket);
             drop(state);
             settings.invoke_action(action.into());
@@ -653,7 +657,7 @@ pub fn smoke_stage(
     Ok(true)
 }
 
-fn save_smoke_snapshot(ui: &ScrollCaptureWindow, path: &std::path::Path) -> Result<(), String> {
+fn save_smoke_snapshot(ui: &impl ComponentHandle, path: &std::path::Path) -> Result<(), String> {
     let pixels = ui.window().take_snapshot().map_err(|e| e.to_string())?;
     image::save_buffer(
         path,
@@ -686,18 +690,18 @@ fn smoke_verify_live(
             })
             .ok_or("Live window missing")?
     }
-    let preview = native(run.ui.window())?;
     let controls = native(run.controls.window())?;
-    let panel = preview.state()?;
     let toolbar = controls.state()?;
-    if !run._frame.visible()
-        || !panel.visible
-        || !toolbar.visible
-        || !panel.topmost
-        || !toolbar.topmost
-    {
+    if !run._border.visible() || !toolbar.visible || !toolbar.topmost {
         return Err(format!(
-            "Live selection/preview/controls not visibly topmost: {panel:?}, {toolbar:?}"
+            "Live border/controls not visibly topmost: {toolbar:?}"
+        ));
+    }
+    let preview = native(run.ui.window())?;
+    let panel = preview.state()?;
+    if !panel.visible || !panel.topmost {
+        return Err(format!(
+            "Live preview/controls not visibly topmost: {panel:?}"
         ));
     }
     if !run.ui.get_has_picture() || panel.x < run.region.0 + run.region.2 as i32 {
@@ -769,6 +773,7 @@ pub struct Run {
     ui: ScrollCaptureWindow,
     controls: ScrollControlWindow,
     _frame: glint_platform::LiveCaptureFrame,
+    _border: glint_platform::LiveBorder,
     _watch: glint_platform::ScrollWatch,
     source: Result<glint_platform::ScrollSource, String>,
     debounce: slint::Timer,
@@ -780,6 +785,7 @@ pub struct Run {
     auto_stable: u8,
     auto_attempts: u8,
     auto_idle_steps: u8,
+    burst_stable: u8,
     capture_affinity: bool,
     upward: bool,
     output: Option<String>,
@@ -978,7 +984,8 @@ fn start(
     crate::motion::install(&ui, true);
     crate::interface_scale::install_factor(&ui, capture.get_interface_scale());
     ui.set_english(english);
-    ui.set_dark(capture.get_dark());
+    // Feishu's stitched preview is a light card regardless of system theme.
+    ui.set_dark(false);
     ui.set_accent(capture.get_accent());
     ui.set_labels(labels(english));
     ui.set_region_info(format!("{w} × {h} px · ({x}, {y})").into());
@@ -1003,10 +1010,20 @@ fn start(
     let exclusions =
         glint_core::exclusions::parse(&state.session.preferences.saved().privacy.excluded_apps)
             .map_err(|_| "Invalid exclusions")?;
+    // The dim shade matches the reviewed prototype; the stitched preview card is
+    // forced light like Feishu's, so it never reads as a black rectangle.
     let frame = glint_platform::LiveCaptureFrame::prepare(region)?;
+    let accent = capture.get_accent();
+    let border = glint_platform::LiveBorder::new(
+        region,
+        (u32::from(accent.red()) << 16)
+            | (u32::from(accent.green()) << 8)
+            | u32::from(accent.blue()),
+    )?;
     let controls =
         crate::motion::create_settings(ScrollControlWindow::new).map_err(|e| e.to_string())?;
     controls.set_english(english);
+    controls.set_status(tr(Message::ScrollBusy, english));
     let owner = settings.as_weak();
     controls.on_action(move |action| {
         if let Some(owner) = owner.upgrade() {
@@ -1036,7 +1053,8 @@ fn start(
     let work_right = i64::from(work.0) + i64::from(work.2);
     let left = i64::from(region.0) - i64::from(panel_width) - 12;
     // Prefer beside the live selection; if neither side fits, use the work-area
-    // edge. Windows excludes the visible controllers from later acquisitions.
+    // edge. The reviewed panel appears only after finishing, so later
+    // acquisitions never include it while it is hidden.
     let x = if right + i64::from(panel_width) <= work_right {
         right
     } else if left >= i64::from(work.0) {
@@ -1051,20 +1069,29 @@ fn start(
             .max(work.1 + 12)
             .min(work.1 + work.3.saturating_sub(panel_height + 12) as i32),
     ));
+    let controls_width = (430. * scale) as u32;
+    let controls_height = (76. * scale) as u32;
+    controls
+        .window()
+        .set_size(slint::PhysicalSize::new(controls_width, controls_height));
+    // The control strip sits centered right below the selection, like the
+    // reviewed prototype; it never overlaps the source pixels.
     controls.window().set_position(slint::PhysicalPosition::new(
-        region
-            .0
-            .max(work.0)
-            .min((i64::from(work.0) + i64::from(work.2) - (310. * scale) as i64) as i32),
+        (i64::from(region.0) + i64::from(region.2) / 2 - i64::from(controls_width) / 2).clamp(
+            i64::from(work.0),
+            i64::from(work.0) + i64::from(work.2) - i64::from(controls_width),
+        ) as i32,
         (i64::from(region.1) + i64::from(region.3) + 8)
-            .min(i64::from(work.1) + i64::from(work.3) - (52. * scale) as i64) as i32,
+            .min(i64::from(work.1) + i64::from(work.3) - i64::from(controls_height) - 8)
+            as i32,
     ));
-    // Keep the frozen selection until both native controller windows exist.
+    // Visible-first handoff with an explicit z-order: the shade and border sit
+    // below the control strip and the preview card, so the dim can never darken
+    // them. A stalled setup still leaves the ring, strip and card visible.
+    frame.show();
+    border.show();
+    controls.show().map_err(|e| e.to_string())?;
     ui.show().map_err(|e| e.to_string())?;
-    if let Err(error) = controls.show() {
-        let _ = ui.hide();
-        return Err(error.to_string());
-    }
     let weak_ui = ui.as_weak();
     let weak_controls = controls.as_weak();
     let owner = settings.as_weak();
@@ -1096,6 +1123,7 @@ fn start(
         ui,
         controls,
         _frame: frame,
+        _border: border,
         _watch: watch,
         source: Err("Capture is initializing".into()),
         debounce: slint::Timer::default(),
@@ -1107,6 +1135,7 @@ fn start(
         auto_stable: 0,
         auto_attempts: 0,
         auto_idle_steps: 0,
+        burst_stable: 0,
         capture_affinity: false,
         upward: false,
         output: None,
@@ -1389,6 +1418,10 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                     run.work.0 + 20,
                     run.work.1 + 20,
                 ));
+                // Shade and border first, then the controller windows, so the
+                // dim can never cover the panel or the control strip.
+                run._frame.show();
+                run._border.show();
                 // Moving the panel can make it overlap the source. Reapply its
                 // capture policy before accepting another acquisition.
                 if run.capture_affinity
@@ -1403,6 +1436,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                 if run.result.is_none() {
                     let _ = run.ui.show();
                 }
+                let _ = run.controls.show();
             }
             return true;
         }
@@ -1429,8 +1463,13 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             if command == "initialize-failed" {
                 return Err("Native preview window initialization failed".into());
             }
-            configure_controller(run.ui.window(), run.region)?;
+            // Re-assert the dim shade and border FIRST: each show() lifts them to
+            // the top of the topmost band, and the controller windows configured
+            // afterwards must end up above the shade, never dimmed by it.
+            run._frame.show();
+            run._border.show();
             configure_controller(run.controls.window(), run.region)?;
+            configure_controller(run.ui.window(), run.region)?;
             Ok(())
         })();
         let initialized = initialized.and_then(|()| {
@@ -1446,7 +1485,6 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             let run = state.scroll_capture.as_mut().ok_or("Capture cancelled")?;
             run.target = glint_platform::remember_foreground();
             run.source = glint_platform::ScrollSource::new(run.region);
-            run._frame.show();
             run.capture_affinity = true;
             queue(run, settings, Task::Capture);
             Ok(())
@@ -1560,6 +1598,15 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                     .into(),
                 );
             }
+            // A manual burst ends once two consecutive acquisitions see no
+            // movement; the settled debounce remains the animated-content
+            // backstop. Wheel notches reset the counter and keep sampling.
+            if run.sampling.running() && matches!(result.notice, Message::ScrollDuplicate) {
+                run.burst_stable = run.burst_stable.saturating_add(1);
+                if run.burst_stable >= 2 {
+                    run.sampling.stop();
+                }
+            }
             if run.auto_sampling && run.controls.get_automatic() {
                 run.auto_attempts = run.auto_attempts.saturating_add(1);
                 if matches!(result.notice, Message::ScrollDuplicate) {
@@ -1633,20 +1680,28 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                 run.ui.set_has_picture(false);
             }
             run.session = Some(result.session);
+            // Feishu-style layout: the live preview card and the control strip
+            // stay visible for the whole session, above the dim shade.
+            run.controls.set_status(run.ui.get_status());
             if !run.ui.window().is_visible() {
                 // Affinity is installed once, before any subsequent acquisition.
+                // Shade and border are re-asserted first so the controller
+                // windows configured afterwards sit above the dim, never under it.
+                run._frame.show();
+                run._border.show();
                 let shown = run
-                    .ui
+                    .controls
                     .show()
                     .map_err(|e| e.to_string())
-                    .and_then(|_| run.controls.show().map_err(|e| e.to_string()))
-                    .and_then(|_| configure_controller(run.ui.window(), run.region))
-                    .and_then(|_| configure_controller(run.controls.window(), run.region));
+                    .and_then(|_| configure_controller(run.controls.window(), run.region))
+                    .and_then(|_| run.ui.show().map_err(|e| e.to_string()))
+                    .and_then(|_| configure_controller(run.ui.window(), run.region));
                 run.capture_affinity = shown.is_ok();
                 if let Err(error) = shown {
                     run.controls.set_stopped(true);
                     run.controls.set_automatic(false);
-                    run.ui.set_status(error.into());
+                    run.ui.set_status(error.clone().into());
+                    run.controls.set_status(error.into());
                 }
                 if let Some(target) = &run.target {
                     let _ = target.restore();
@@ -1684,13 +1739,20 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             return true;
         }
         run.upward = direction == "up";
+        // Every notch restarts the burst: intermediate frames while the page is
+        // still moving keep overlap matching possible during fast scrolling.
+        run.burst_stable = 0;
         run.dirty = true;
         if !run.sampling.running() {
+            if run.result.is_none() {
+                run.dirty = false;
+                queue(run, settings, Task::Capture);
+            }
             let owner = settings.as_weak();
             let ticket = run.ticket;
             run.sampling.start(
                 slint::TimerMode::Repeated,
-                Duration::from_millis(120),
+                Duration::from_millis(110),
                 move || {
                     if let Some(owner) = owner.upgrade() {
                         owner.invoke_action(format!("scroll:{ticket}:sample").into());
@@ -1702,7 +1764,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         let ticket = run.ticket;
         run.debounce.start(
             slint::TimerMode::SingleShot,
-            Duration::from_millis(360),
+            Duration::from_millis(550),
             move || {
                 if let Some(owner) = owner.upgrade() {
                     owner.invoke_action(format!("scroll:{ticket}:settled").into());
@@ -1828,6 +1890,8 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             run.output_requested = false;
             run.output = None;
             run.controls.set_stopped(false);
+            run.controls
+                .set_status(tr(Message::ScrollReady, run.english));
             return true;
         }
         _ => return true,

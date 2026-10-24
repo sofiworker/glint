@@ -219,8 +219,8 @@ pub const FIELDS: [&[Field]; 10] = [
         ("shortcuts.settings", "打开设置", "Open settings", Hotkey),
         (
             "shortcuts.scroll_capture",
-            "长截图（未完成 · 严重 Bug）",
-            "Scrolling capture (incomplete; severe bugs)",
+            "长截图（待验收）",
+            "Scrolling capture (pending acceptance)",
             Hotkey
         ),
         (
@@ -712,7 +712,7 @@ pub fn build(
             }
             .into();
             row.description = match field.key {
-                "shortcuts.scroll_capture" => label(english, "未完成，存在严重 Bug。选区边框、右侧预览及采集输出流程仍不可靠，尚未通过真实使用验收。默认未绑定。", "Incomplete; severe bugs. Selection, preview and capture/output remain unreliable and have not passed real-use acceptance. Unbound by default."),
+                "shortcuts.scroll_capture" => label(english, "已重构：滚动期间自动拼接并实时预览，结束后进入标注输出。正在真实环境验收，如遇问题请反馈。默认未绑定。", "Rewritten: frames stitch with a live preview while scrolling; finishing opens the annotation output. Real-environment acceptance is in progress; please report issues. Unbound by default."),
                 "shortcuts.recording" => label(english, "默认未绑定。打开录屏配置；选择目标并确认后才倒计时录制。", "Unbound by default. Opens recorder setup; select a source and confirm before the countdown starts."),
                 "shortcuts.recording_pause" => label(english, "默认未绑定，仅在正在录制或已暂停时生效。", "Unbound by default. Only applies to an active or paused recording."),
                 "shortcuts.recording_stop" => label(english, "默认未绑定。停止当前录制并保存；倒计时中按下则取消，未录制时不执行动作。", "Unbound by default. Stop and save the current recording, or cancel its countdown. Does nothing when idle."),
@@ -859,10 +859,10 @@ pub fn build(
             )],
             11 => vec![
                 (
-                    "滚动长截图（未完成 · 严重 Bug）",
-                    "Scrolling capture (incomplete; severe bugs)",
-                    "未完成，存在严重 Bug。用户仍报告框选后缺少边框和右侧预览，采集连续性、拼接质量、取消恢复及输出均需重新验收。保留开发实现用于排查，不作为可用功能交付。",
-                    "Incomplete; severe bugs. Users still report missing selection borders and previews. Capture continuity, stitching quality, cancellation and output require renewed acceptance. The development implementation is retained for debugging, not delivered as usable.",
+                    "滚动长截图（待真实环境验收）",
+                    "Scrolling capture (pending acceptance)",
+                    "已按飞书/微信式交互重构：可见选区边框、右侧实时拼接预览、滚动期间连续采集与稳定收尾、结束进入标注输出。等待真实环境验收，历史问题需按反馈继续确认。",
+                    "Rewritten with the Feishu/WeChat-style flow: a visible selection ring, a live stitched preview, continuous capture with stability-based burst ends while scrolling, and annotation output after finishing. Awaiting real-environment acceptance; historical issues still need confirmation from feedback.",
                 ),
                 (
                     "本地 OCR",

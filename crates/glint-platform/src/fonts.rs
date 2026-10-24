@@ -63,23 +63,6 @@ pub fn installed_font_families() -> Result<Vec<String>, String> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn actual_families_are_unique_bounded_and_can_be_rasterized() {
-        let fonts = super::installed_font_families().unwrap();
-        assert!(!fonts.is_empty() && fonts.len() <= 4096);
-        let mut previous = String::new();
-        for font in &fonts {
-            assert!(!font.starts_with('@') && font.encode_utf16().count() <= 31);
-            let key = font.to_lowercase();
-            assert!(key > previous);
-            previous = key;
-        }
-        assert!(crate::rasterize_text("Glint", &fonts[0], 22).is_ok());
-    }
-}
-
 /// The user's Windows message/UI font, independent of annotation preferences.
 pub fn system_ui_font_family() -> Result<String, String> {
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -107,4 +90,21 @@ pub fn system_ui_font_family() -> Result<String, String> {
         return Err("System UI font is empty".into());
     }
     Ok(family)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn actual_families_are_unique_bounded_and_can_be_rasterized() {
+        let fonts = super::installed_font_families().unwrap();
+        assert!(!fonts.is_empty() && fonts.len() <= 4096);
+        let mut previous = String::new();
+        for font in &fonts {
+            assert!(!font.starts_with('@') && font.encode_utf16().count() <= 31);
+            let key = font.to_lowercase();
+            assert!(key > previous);
+            previous = key;
+        }
+        assert!(crate::rasterize_text("Glint", &fonts[0], 22).is_ok());
+    }
 }
