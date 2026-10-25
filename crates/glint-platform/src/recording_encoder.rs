@@ -1,5 +1,5 @@
 //! Synchronous Media Foundation encoding. Owned exclusively by the bounded consumer.
-use std::{cell::RefCell, os::windows::ffi::OsStrExt, path::Path};
+use std::{cell::RefCell, path::Path};
 use windows::{
     Win32::Media::MediaFoundation::*,
     core::{PCWSTR, Result},
@@ -48,7 +48,7 @@ impl Encoder {
                 &MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS,
                 u32::from(hardware),
             )?;
-            let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+            let path: Vec<u16> = crate::interop::wide(path);
             let writer = MFCreateSinkWriterFromURL(PCWSTR(path.as_ptr()), None, &attributes)?;
             let output = MFCreateMediaType()?;
             output.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)?;

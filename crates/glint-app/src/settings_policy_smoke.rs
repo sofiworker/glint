@@ -16,20 +16,20 @@ struct Run {
 }
 const SCENES: &[(usize, bool)] = &[
     (0, false),
-    (4, false),
-    (5, false),
-    (9, false),
+    (2, false),
+    (3, false),
+    (6, false),
     (0, true),
-    (4, true),
-    (5, true),
-    (9, true),
+    (2, true),
+    (3, true),
+    (6, true),
 ];
 const FIELDS: &[(usize, &str)] = &[
     (0, "general.close_to_tray"),
     (0, "general.single_instance"),
-    (4, "annotation.keep_objects"),
-    (5, "output.strip_metadata"),
-    (9, "resources.idle_pause"),
+    (2, "annotation.keep_objects"),
+    (3, "output.strip_metadata"),
+    (6, "resources.idle_pause"),
 ];
 pub fn install(
     ui: &SettingsWindow,
@@ -122,7 +122,7 @@ impl Run {
                 .dispatch_event_with_result(slint::platform::WindowEvent::PointerScrolled {
                     position: slint::LogicalPosition::new(if english { 500. } else { 650. }, 350.),
                     delta_x: 0.,
-                    delta_y: if category == 9 { 10000. } else { -10000. },
+                    delta_y: if category == 6 { 10000. } else { -10000. },
                 })
                 .map_err(|e| e.to_string())?;
             let pixels = ui.window().take_snapshot().map_err(|e| e.to_string())?;

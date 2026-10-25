@@ -1,0 +1,20 @@
+// Copyright (c) 2026 Glint contributors
+// SPDX-License-Identifier: GPL-3.0-only
+import { Theme } from "../theme.slint";
+import { ToolbarAssets } from "toolbar_editor.slint";
+
+// Icon-over-caption tool button shared by the floating capture windows.
+// Previously each window defined its own variant with drifting metrics.
+export component IconTool inherits Rectangle {
+    in property <int> image: 9;
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 42px; min-width: 42px;
+    accessible-role: button; accessible-label: root.label; accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    border-radius: 5px; background: touch.has-hover ? Theme.accent.with-alpha(0.15) : transparent;
+    Image { x: (parent.width - 19px) / 2; y: 4px; width: 19px; height: 19px; source: ToolbarAssets.images[root.image]; colorize: Theme.ink; opacity: root.enabled ? 1 : 0.4; }
+    Text { y: 25px; width: parent.width; height: 15px; text: root.label; color: Theme.muted; font-size: Theme.text-micro; horizontal-alignment: center; overflow: elide; }
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+}

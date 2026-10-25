@@ -5,7 +5,7 @@ pub fn text(id: Message) -> &'static str {
         Message::RecordingPlainRegion => {
             "Select an unannotated live desktop region first (at least 32 × 64 pixels); local images cannot be recorded."
         }
-        Message::ScrollTitle => "Scrolling capture (pending acceptance)",
+        Message::ScrollTitle => "Scrolling capture",
         Message::ScrollHint => {
             "Scroll slowly inside the region; the long image stitches live in the right-hand preview. Copy, save or edit at any time below."
         }
@@ -435,7 +435,6 @@ pub fn text(id: Message) -> &'static str {
         Message::SystemThemeUnavailable => {
             "Cannot read the system theme. Using light; choose a theme manually."
         }
-        Message::UnsavedChanges => "Unsaved changes",
         Message::RecoveredBackup => {
             "Damaged configuration preserved. The last valid backup is loaded; Save repairs the file."
         }
@@ -452,7 +451,6 @@ pub fn text(id: Message) -> &'static str {
         Message::SettingsSubtitle => {
             "Open when needed; capture and annotation stay in the overlay."
         }
-        Message::CloseToTray => "Close · Back to tray",
         Message::SaveSettings => "Save settings",
         Message::CancelChanges => "Cancel changes",
         Message::RestoreDefaults => "Restore defaults",
@@ -462,20 +460,19 @@ pub fn text(id: Message) -> &'static str {
         Message::SaveAndLeave => "Save and leave",
         Message::ClearBinding => "Clear binding",
         Message::AcceptShortcut => "Use this shortcut",
-        Message::DevelopmentStatus => "Capture · Annotate · Pin",
-        Message::DraftExplanation => "Click Save settings to apply your changes.",
+        Message::DraftExplanation => "Changes apply and save automatically.",
         Message::SystemPreference => "System preference:",
         Message::ManualLanguage => "Manual choice takes priority",
         Message::LanguageFallback => "Unsupported language; using English",
         Message::AutomaticLanguage => "Automatic match",
         Message::UnsavedTitle => "Unsaved settings",
-        Message::ResetTitle => "Restore default settings?",
+        Message::ResetTitle => "Restore this page's defaults?",
         Message::RecordShortcutTitle => "Press a new shortcut",
         Message::UnsavedBody => {
             "Save before leaving, discard changes, or continue editing. A failed save keeps the draft."
         }
         Message::ResetBody => {
-            "Reset the settings draft only. Saved preferences change only after Save succeeds."
+            "Reset only this page's settings draft. Other pages keep their edits; saved preferences change only after Save succeeds."
         }
         Message::ShortcutRegistrationFailed => {
             "Global shortcut registration failed. Use the tray to capture or rebind shortcuts."
@@ -491,7 +488,7 @@ pub fn text(id: Message) -> &'static str {
         Message::ShortcutServiceStopped => {
             "The shortcut service stopped. Use the tray and restart Glint."
         }
-        Message::SettingsSaved => "Settings saved.",
+        Message::SettingsSaved => "Applied.",
         Message::SaveRollbackFailed => {
             "Save and system-settings rollback failed. The draft is retained; check login startup and shortcuts, then retry."
         }

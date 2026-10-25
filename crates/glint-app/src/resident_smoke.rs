@@ -649,7 +649,7 @@ impl Run {
             }
             5 => {
                 snapshot(&ui, &self.directory.join("general.png"))?;
-                ui.invoke_choose_page(12);
+                ui.invoke_choose_page(7);
                 ui.window().set_size(slint::LogicalSize::new(900.0, 650.0));
             }
             6 => {

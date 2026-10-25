@@ -4,19 +4,14 @@ use glint_core::config::Config;
 use slint::{ModelRc, SharedString, VecModel};
 use std::rc::Rc;
 
-pub const CATEGORIES: [(&str, &str); 13] = [
-    ("常规", "General"),
+pub const CATEGORIES: [(&str, &str); 8] = [
+    ("常规与外观", "General & appearance"),
     ("快捷键", "Shortcuts"),
     ("截图", "Capture"),
-    ("截图工具条", "Capture toolbar"),
-    ("标注与打码", "Annotations & redaction"),
     ("输出与保存", "Output & saving"),
     ("桌面贴图", "Desktop pins"),
     ("历史与隐私", "History & privacy"),
-    ("外观与配色", "Appearance"),
-    ("资源与兼容", "Resources & compatibility"),
-    ("平台与权限", "Platform & permissions"),
-    ("后续能力", "Planned capabilities"),
+    ("平台与资源", "Platform & resources"),
     ("关于", "About"),
 ];
 type Choice = (&'static str, &'static str, &'static str);
@@ -219,8 +214,8 @@ pub const FIELDS: [&[Field]; 10] = [
         ("shortcuts.settings", "打开设置", "Open settings", Hotkey),
         (
             "shortcuts.scroll_capture",
-            "长截图（待验收）",
-            "Scrolling capture (pending acceptance)",
+            "长截图",
+            "Scrolling capture",
             Hotkey
         ),
         (
@@ -683,6 +678,51 @@ fn section_heading(key: &str, english: bool) -> &'static str {
     label(english, zh, en)
 }
 
+/// Consolidated page -> legacy field arrays it renders for ROWS. The toolbar
+/// editor owns the toolbar fields on the capture page, so they are not
+/// repeated as rows; `page_keys` still includes them for reset/cancel scope.
+const PAGES: [&[usize]; 8] = [&[0, 8], &[1], &[2, 4], &[5], &[6], &[7], &[9], &[]];
+
+/// Every dotted key shown on (or edited through) one consolidated page; used
+/// to scope the page-level "restore defaults" and "cancel" operations.
+fn spinbox(key: &str) -> bool {
+    matches!(key, "privacy.log_file_size_kib" | "privacy.log_backups")
+}
+
+/// The row control kind a settings key renders as; drives the auto-apply
+/// commit timing (sliders defer to release, text fields debounce).
+pub fn row_kind(key: &str) -> Option<i32> {
+    FIELDS
+        .iter()
+        .flat_map(|fields| fields.iter())
+        .find(|field| field.key == key)
+        .map(|field| match field.kind {
+            Boolean => 0,
+            Choice(_) => 1,
+            Text => 2,
+            Number(..) => {
+                if spinbox(key) {
+                    7
+                } else {
+                    3
+                }
+            }
+            Hotkey => 4,
+            Info => 5,
+        })
+}
+
+pub fn page_keys(category: usize) -> Vec<&'static str> {
+    let page: &[usize] = PAGES.get(category).copied().unwrap_or(&[]);
+    let mut keys = Vec::new();
+    for legacy in page {
+        if let Some(fields) = FIELDS.get(*legacy) {
+            keys.extend(fields.iter().map(|field| field.key));
+        }
+    }
+    keys
+}
+
 pub fn build(
     config: &Config,
     category: usize,
@@ -691,8 +731,14 @@ pub fn build(
 ) -> Result<Vec<SettingRow>, String> {
     let serialized = toml::Value::try_from(config).map_err(|_| "config.serialize")?;
     let mut rows = Vec::new();
-    if let Some(fields) = FIELDS.get(category) {
-        for field in *fields {
+    let page: &[usize] = PAGES.get(category).copied().unwrap_or(&[]);
+    let mut rendered = false;
+    for &legacy in page {
+        let Some(fields) = FIELDS.get(legacy) else {
+            continue;
+        };
+        rendered = true;
+        for field in fields.iter() {
             let (section, key) = field.key.split_once('.').ok_or("config.field")?;
             let value = serialized
                 .get(section)
@@ -712,8 +758,8 @@ pub fn build(
             }
             .into();
             row.description = match field.key {
-                "shortcuts.scroll_capture" => label(english, "已重构：滚动期间自动拼接并实时预览，结束后进入标注输出。正在真实环境验收，如遇问题请反馈。默认未绑定。", "Rewritten: frames stitch with a live preview while scrolling; finishing opens the annotation output. Real-environment acceptance is in progress; please report issues. Unbound by default."),
-                "shortcuts.recording" => label(english, "默认未绑定。打开录屏配置；选择目标并确认后才倒计时录制。", "Unbound by default. Opens recorder setup; select a source and confirm before the countdown starts."),
+                "shortcuts.scroll_capture" => label(english, "在选区内缓慢滚动即自动拼接，右侧实时预览；结束后进入标注输出。默认 Ctrl+Shift+L。", "Scroll slowly inside the selection and frames stitch with a live preview; finishing opens the annotation output. Defaults to Ctrl+Shift+L."),
+                "shortcuts.recording" => label(english, "默认 Ctrl+Shift+D。打开录屏配置；选择目标并确认后才倒计时录制。", "Defaults to Ctrl+Shift+D. Opens recorder setup; select a source and confirm before the countdown starts."),
                 "shortcuts.recording_pause" => label(english, "默认未绑定，仅在正在录制或已暂停时生效。", "Unbound by default. Only applies to an active or paused recording."),
                 "shortcuts.recording_stop" => label(english, "默认未绑定。停止当前录制并保存；倒计时中按下则取消，未录制时不执行动作。", "Unbound by default. Stop and save the current recording, or cancel its countdown. Does nothing when idle."),
                 "resources.capture_source" => label(english, "当前使用 GDI 截图，暂不支持切换捕获源。", "Captures with GDI. Switching capture sources is unavailable."),
@@ -802,14 +848,7 @@ pub fn build(
                 }
                 Text => row.kind = 2,
                 Number(min, max) => {
-                    row.kind = if matches!(
-                        field.key,
-                        "privacy.log_file_size_kib" | "privacy.log_backups"
-                    ) {
-                        7
-                    } else {
-                        3
-                    };
+                    row.kind = if spinbox(field.key) { 7 } else { 3 };
                     row.number = value.as_integer().ok_or("config.field_type")? as f32;
                     row.minimum = min as f32;
                     row.maximum = max as f32;
@@ -849,49 +888,75 @@ pub fn build(
             }
             rows.push(row);
         }
-    } else {
-        let sections = match category {
-            10 => vec![(
-                "Windows",
-                "Windows",
-                "普通桌面截图无需管理员权限。受保护内容和安全桌面可能无法捕获。",
-                "Desktop capture needs no administrator access. Protected content and secure desktops may not be captured.",
-            )],
-            11 => vec![
-                (
-                    "滚动长截图（待真实环境验收）",
-                    "Scrolling capture (pending acceptance)",
-                    "已按飞书/微信式交互重构：可见选区边框、右侧实时拼接预览、滚动期间连续采集与稳定收尾、结束进入标注输出。等待真实环境验收，历史问题需按反馈继续确认。",
-                    "Rewritten with the Feishu/WeChat-style flow: a visible selection ring, a live stitched preview, continuous capture with stability-based burst ends while scrolling, and annotation output after finishing. Awaiting real-environment acceptance; historical issues still need confirmation from feedback.",
-                ),
-                (
-                    "本地 OCR",
-                    "Local OCR",
-                    "暂不可用。从图片中识别文字。",
-                    "Unavailable. Recognize text in images.",
-                ),
-                (
-                    "录屏",
-                    "Screen recording",
-                    "Windows：从托盘或此页打开录屏，选择屏幕或窗口；区域录屏从截图选区的更多工具进入。MP4 支持最高 144 FPS 与可选音频；GIF 限制为 30 FPS、30 秒、最长边 1280 像素且无音频。",
-                    "Windows: open the recorder here or from the tray and choose a display or window. For a region, use More tools in capture. MP4 supports up to 144 FPS and optional audio; GIF is limited to 30 FPS, 30 seconds, 1280 px maximum edge and no audio.",
-                ),
-            ],
-            _ => vec![
-                (
-                    "拾光 · Glint 0.0.0",
-                    "Glint 0.0.0",
-                    "截图、标注与桌面贴图。",
-                    "Screen capture, annotation and desktop pins.",
-                ),
-                (
-                    "许可与第三方",
-                    "License & third parties",
-                    "Glint 与 Slint 采用 GPL-3.0-only 路径。tiny-skia: BSD-3-Clause；serde、toml、image、arboard、windows、tray-icon: MIT / Apache-2.0。内置界面回退字体 Noto Sans SC: SIL OFL 1.1。完整声明见随源码的 THIRD-PARTY-NOTICES.md。",
-                    "Glint and Slint use GPL-3.0-only. tiny-skia: BSD-3-Clause; serde, toml, image, arboard, windows and tray-icon: MIT / Apache-2.0. Bundled UI fallback Noto Sans SC: SIL OFL 1.1. See THIRD-PARTY-NOTICES.md supplied with source.",
-                ),
-            ],
-        };
+    }
+    let _ = rendered;
+    if category == 6 {
+        let sections = vec![(
+            "Windows",
+            "Windows",
+            "普通桌面截图无需管理员权限。受保护内容和安全桌面可能无法捕获。",
+            "Desktop capture needs no administrator access. Protected content and secure desktops may not be captured.",
+        )];
+        for (zh, en, body_zh, body_en) in sections {
+            rows.push(SettingRow {
+                title: label(english, zh, en).into(),
+                text: label(english, body_zh, body_en).into(),
+                kind: 5,
+                ..Default::default()
+            });
+        }
+    }
+    if category == 7 {
+        let sections = vec![
+            (
+                "滚动长截图",
+                "Scrolling capture",
+                "已实现：选区边框、右侧实时拼接预览、滚动期间连续采集与稳定收尾、结束后进入标注输出。默认 Ctrl+Shift+L。",
+                "Implemented: a visible selection ring, a live stitched preview, continuous capture with stability-based burst ends while scrolling, and annotation output after finishing. Defaults to Ctrl+Shift+L.",
+            ),
+            (
+                "本地 OCR",
+                "Local OCR",
+                "暂不可用。从图片中识别文字。",
+                "Unavailable. Recognize text in images.",
+            ),
+            (
+                "录屏",
+                "Screen recording",
+                "Windows：从托盘或此页打开录屏，选择屏幕或窗口；区域录屏从截图选区的更多工具进入。MP4 支持最高 144 FPS 与可选音频；GIF 限制为 30 FPS、30 秒、最长边 1280 像素且无音频。",
+                "Windows: open the recorder here or from the tray and choose a display or window. For a region, use More tools in capture. MP4 supports up to 144 FPS and optional audio; GIF is limited to 30 FPS, 30 seconds, 1280 px maximum edge and no audio.",
+            ),
+            (
+                "滚动长截图",
+                "Scrolling capture",
+                "已实现：选区边框、右侧实时拼接预览、滚动期间连续采集与稳定收尾、结束后进入标注输出。默认 Ctrl+Shift+L。",
+                "Implemented: a visible selection ring, a live stitched preview, continuous capture with stability-based burst ends while scrolling, and annotation output after finishing. Defaults to Ctrl+Shift+L.",
+            ),
+            (
+                "本地 OCR",
+                "Local OCR",
+                "暂不可用。从图片中识别文字。",
+                "Unavailable. Recognize text in images.",
+            ),
+            (
+                "录屏",
+                "Screen recording",
+                "Windows：从托盘或此页打开录屏，选择屏幕或窗口；区域录屏从截图选区的更多工具进入。MP4 支持最高 144 FPS 与可选音频；GIF 限制为 30 FPS、30 秒、最长边 1280 像素且无音频。",
+                "Windows: open the recorder here or from the tray and choose a display or window. For a region, use More tools in capture. MP4 supports up to 144 FPS and optional audio; GIF is limited to 30 FPS, 30 seconds, 1280 px maximum edge and no audio.",
+            ),
+            (
+                "拾光 · Glint 0.0.0",
+                "Glint 0.0.0",
+                "截图、标注与桌面贴图。",
+                "Screen capture, annotation and desktop pins.",
+            ),
+            (
+                "许可与第三方",
+                "License & third parties",
+                "Glint 与 Slint 采用 GPL-3.0-only 路径。tiny-skia: BSD-3-Clause；serde、toml、image、arboard、windows、tray-icon: MIT / Apache-2.0。内置界面回退字体 Noto Sans SC: SIL OFL 1.1。完整声明见随源码的 THIRD-PARTY-NOTICES.md。",
+                "Glint and Slint use GPL-3.0-only. tiny-skia: BSD-3-Clause; serde, toml, image, arboard, windows and tray-icon: MIT / Apache-2.0. Bundled UI fallback Noto Sans SC: SIL OFL 1.1. See THIRD-PARTY-NOTICES.md supplied with source.",
+            ),
+        ];
         for (zh, en, body_zh, body_en) in sections {
             rows.push(SettingRow {
                 title: label(english, zh, en).into(),

@@ -32,7 +32,7 @@ impl Run {
                     return Err("Native lifecycle subscription unavailable".into());
                 }
                 ui.invoke_action("open".into());
-                ui.invoke_choose_page(9);
+                ui.invoke_choose_page(6);
                 if !ui
                     .get_rows()
                     .iter()
@@ -257,7 +257,7 @@ impl Run {
                     return Err("Late countdown callback began capture".into());
                 }
                 ui.invoke_action("open".into());
-                ui.invoke_choose_page(9);
+                ui.invoke_choose_page(6);
             }
             5 => {
                 let disk = Config::from_toml(

@@ -1497,8 +1497,19 @@ impl Run {
                 self.settings_click(&ui, 80., 126. + 4. * 40., false)?;
                 self.phase = 272;
             }
-            85 => self.settings_click(&ui, 400., 30., true)?,
-            86 => self.settings_click(&ui, 650., 710., false)?,
+            85 => {
+                // Auto-apply settings: the modal scenes open by action.
+                ui.invoke_action("reset".into());
+            }
+            86 => {
+                // Leave interception guards the debounced text window: make
+                // the draft dirty through a pending (not yet flushed) change.
+                {
+                    let mut state = self.app.borrow_mut();
+                    state.session.preferences.draft.capture.delay_seconds = 2;
+                }
+                ui.invoke_action("close".into());
+            }
             87..=98 | 103..=114 | 119..=130 => {
                 let expected_modal = if self.phase < 100 {
                     2

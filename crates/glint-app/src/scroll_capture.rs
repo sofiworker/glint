@@ -343,7 +343,7 @@ pub fn smoke_stage(
             if !smoke_verify_live(run, directory, "native-live-initial.png")? {
                 return Ok(false);
             }
-            let action = format!("scroll:{}:wheel:down", run.ticket);
+            let action = scroll_action(run.ticket, ScrollCommand::Wheel { up: false });
             drop(state);
             SMOKE_FIXTURE.with(|slot| {
                 if let Some(fixture) = slot.borrow().as_ref() {
@@ -371,7 +371,7 @@ pub fn smoke_stage(
                 &run.controls,
                 &directory.join("scroll-acquiring-controls.png"),
             )?;
-            let action = format!("scroll:{}:stop", run.ticket);
+            let action = scroll_action(run.ticket, ScrollCommand::Stop);
             drop(state);
             settings.invoke_action(action.into());
         }
@@ -397,7 +397,7 @@ pub fn smoke_stage(
                 )?;
                 return Ok(true);
             }
-            let action = format!("scroll:{}:cancel", run.ticket);
+            let action = scroll_action(run.ticket, ScrollCommand::Cancel);
             drop(state);
             settings.invoke_action(action.into());
         }
@@ -517,7 +517,7 @@ pub fn smoke_stage(
                 input_smoke::click(&run.controls, 0.25, 0.5)?;
                 return Ok(true);
             }
-            let action = format!("scroll:{}:auto", run.ticket);
+            let action = scroll_action(run.ticket, ScrollCommand::Auto);
             drop(state);
             settings.invoke_action(action.into());
         }
@@ -581,7 +581,7 @@ pub fn smoke_stage(
                 )?;
                 return Ok(true);
             }
-            let action = format!("scroll:{}:copy", run.ticket);
+            let action = scroll_action(run.ticket, ScrollCommand::Copy);
             drop(state);
             settings.invoke_action(action.into());
         }
@@ -758,6 +758,107 @@ fn smoke_verify_live(
     .map_err(|e| e.to_string())?;
     std::fs::write(directory.join(format!("{filename}.txt")), format!("Selection {:?}; preview {panel:?}; controls {toolbar:?}; picture {}x{}; native preview receives pointer. Normal production display affinity, without diagnostic overrides.\n",run.region,run.ui.get_picture_width(),run.ui.get_picture_height())).map_err(|e|e.to_string())?;
     Ok(true)
+}
+
+/// Typed intents routed between the scrolling-capture windows, timers, the
+/// smoke harness and the resident coordinator. The `scroll:{ticket}:{wire}`
+/// text is the only cross-component contract; `wire` and `parse` live beside
+/// the enum so the format cannot drift between emission and handling.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ScrollCommand {
+    Initialize,
+    InitializeFailed,
+    Ready,
+    Capture,
+    Wheel { up: bool },
+    Auto,
+    AutoStep,
+    Sample,
+    Settled,
+    Stop,
+    Cancel,
+    Undo,
+    Discard,
+    Accept,
+    ReviewNext,
+    Repair,
+    Preview,
+    Resume,
+    Edit,
+    Save,
+    Copy,
+}
+
+impl ScrollCommand {
+    fn wire(self) -> &'static str {
+        match self {
+            Self::Initialize => "initialize",
+            Self::InitializeFailed => "initialize-failed",
+            Self::Ready => "ready",
+            Self::Capture => "capture",
+            Self::Wheel { up } => {
+                if up {
+                    "wheel:up"
+                } else {
+                    "wheel:down"
+                }
+            }
+            Self::Auto => "auto",
+            Self::AutoStep => "auto-step",
+            Self::Sample => "sample",
+            Self::Settled => "settled",
+            Self::Stop => "stop",
+            Self::Cancel => "cancel",
+            Self::Undo => "undo",
+            Self::Discard => "discard",
+            Self::Accept => "accept",
+            Self::ReviewNext => "review-next",
+            Self::Repair => "repair",
+            Self::Preview => "preview",
+            Self::Resume => "resume",
+            Self::Edit => "edit",
+            Self::Save => "save",
+            Self::Copy => "copy",
+        }
+    }
+
+    fn parse(wire: &str) -> Option<Self> {
+        Some(match wire {
+            "initialize" => Self::Initialize,
+            "initialize-failed" => Self::InitializeFailed,
+            "ready" => Self::Ready,
+            "capture" => Self::Capture,
+            "wheel:up" => Self::Wheel { up: true },
+            "wheel:down" => Self::Wheel { up: false },
+            "auto" => Self::Auto,
+            "auto-step" => Self::AutoStep,
+            "sample" => Self::Sample,
+            "settled" => Self::Settled,
+            "stop" => Self::Stop,
+            "cancel" => Self::Cancel,
+            "undo" => Self::Undo,
+            "discard" => Self::Discard,
+            "accept" => Self::Accept,
+            "review-next" => Self::ReviewNext,
+            "repair" => Self::Repair,
+            "preview" => Self::Preview,
+            "resume" => Self::Resume,
+            "edit" => Self::Edit,
+            "save" => Self::Save,
+            "copy" => Self::Copy,
+            _ => return None,
+        })
+    }
+}
+
+/// The single wire-format helper for scrolling-capture intents.
+fn scroll_action(ticket: u64, command: ScrollCommand) -> String {
+    format!("scroll:{ticket}:{}", command.wire())
+}
+
+/// Convert a UI-originated action name into the typed intent, then wire it.
+fn scroll_ui_action(ticket: u64, action: &str) -> Option<String> {
+    ScrollCommand::parse(action).map(|command| scroll_action(ticket, command))
 }
 
 static NEXT: AtomicU64 = AtomicU64::new(1);
@@ -996,14 +1097,16 @@ fn start(
     let ticket = NEXT.fetch_add(1, Ordering::Relaxed);
     let owner = settings.as_weak();
     ui.on_action(move |action| {
-        if let Some(owner) = owner.upgrade() {
-            owner.invoke_action(format!("scroll:{ticket}:{action}").into());
+        if let Some(owner) = owner.upgrade()
+            && let Some(action) = scroll_ui_action(ticket, &action)
+        {
+            owner.invoke_action(action.into());
         }
     });
     let owner = settings.as_weak();
     ui.window().on_close_requested(move || {
         if let Some(owner) = owner.upgrade() {
-            owner.invoke_action(format!("scroll:{ticket}:cancel").into());
+            owner.invoke_action(scroll_action(ticket, ScrollCommand::Cancel).into());
         }
         slint::CloseRequestResponse::KeepWindowShown
     });
@@ -1026,8 +1129,10 @@ fn start(
     controls.set_status(tr(Message::ScrollBusy, english));
     let owner = settings.as_weak();
     controls.on_action(move |action| {
-        if let Some(owner) = owner.upgrade() {
-            owner.invoke_action(format!("scroll:{ticket}:{action}").into());
+        if let Some(owner) = owner.upgrade()
+            && let Some(action) = scroll_ui_action(ticket, &action)
+        {
+            owner.invoke_action(action.into());
         }
     });
     let owner = settings.as_weak();
@@ -1300,7 +1405,7 @@ fn queue(run: &mut Run, settings: &SettingsWindow, task: Task) {
                 // Release the global slot before delivering the next UI action.
                 drop(_slot);
                 let _ = owner.upgrade_in_event_loop(move |ui| {
-                    ui.invoke_action(format!("scroll:{ticket}:ready").into())
+                    ui.invoke_action(scroll_action(ticket, ScrollCommand::Ready).into())
                 });
             });
         if worker.is_err() {
@@ -1313,7 +1418,7 @@ fn queue(run: &mut Run, settings: &SettingsWindow, task: Task) {
                 });
             }
             let _ = failed_owner.upgrade_in_event_loop(move |ui| {
-                ui.invoke_action(format!("scroll:{ticket}:ready").into())
+                ui.invoke_action(scroll_action(ticket, ScrollCommand::Ready).into())
             });
         }
     });
@@ -1442,7 +1547,13 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         }
         return false;
     };
-    let Some((ticket, command)) = command.split_once(':') else {
+    let Some((ticket, wire)) = command.split_once(':') else {
+        return true;
+    };
+    let Ok(ticket) = ticket.parse::<u64>() else {
+        return true;
+    };
+    let Some(command) = ScrollCommand::parse(wire) else {
         return true;
     };
     let mut state = shared.borrow_mut();
@@ -1452,15 +1563,18 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
     let Some(run) = &mut state.scroll_capture else {
         return true;
     };
-    if ticket.parse::<u64>().ok() != Some(run.ticket) {
+    if ticket != run.ticket {
         return true;
     }
-    if matches!(command, "initialize" | "initialize-failed") {
+    if matches!(
+        command,
+        ScrollCommand::Initialize | ScrollCommand::InitializeFailed
+    ) {
         if run.capture_affinity {
             return true;
         }
         let initialized = (|| -> Result<(), String> {
-            if command == "initialize-failed" {
+            if command == ScrollCommand::InitializeFailed {
                 return Err("Native preview window initialization failed".into());
             }
             // Re-assert the dim shade and border FIRST: each show() lifts them to
@@ -1504,7 +1618,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         }
         return true;
     }
-    if command == "cancel" {
+    if command == ScrollCommand::Cancel {
         glint_platform::diagnostic_log::emit(
             glint_platform::diagnostic_log::Event::ScrollCancelled,
         );
@@ -1517,7 +1631,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         }
         return true;
     }
-    if command == "ready" {
+    if command == ScrollCommand::Ready {
         glint_platform::diagnostic_log::emit(glint_platform::diagnostic_log::Event::ScrollReady);
         let result = run.result.take().and_then(|rx| rx.try_recv().ok());
         if let Some(result) = result {
@@ -1734,11 +1848,11 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         }
         return true;
     }
-    if let Some(direction) = command.strip_prefix("wheel:") {
+    if let ScrollCommand::Wheel { up } = command {
         if run.controls.get_stopped() {
             return true;
         }
-        run.upward = direction == "up";
+        run.upward = up;
         // Every notch restarts the burst: intermediate frames while the page is
         // still moving keep overlap matching possible during fast scrolling.
         run.burst_stable = 0;
@@ -1755,7 +1869,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                 Duration::from_millis(110),
                 move || {
                     if let Some(owner) = owner.upgrade() {
-                        owner.invoke_action(format!("scroll:{ticket}:sample").into());
+                        owner.invoke_action(scroll_action(ticket, ScrollCommand::Sample).into());
                     }
                 },
             );
@@ -1767,13 +1881,13 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             Duration::from_millis(550),
             move || {
                 if let Some(owner) = owner.upgrade() {
-                    owner.invoke_action(format!("scroll:{ticket}:settled").into());
+                    owner.invoke_action(scroll_action(ticket, ScrollCommand::Settled).into());
                 }
             },
         );
         return true;
     }
-    if command == "auto" {
+    if command == ScrollCommand::Auto {
         if run.controls.get_stopped() {
             return true;
         }
@@ -1788,7 +1902,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         }
         return true;
     }
-    if command == "auto-step" {
+    if command == ScrollCommand::AutoStep {
         if !run.controls.get_automatic() || run.controls.get_stopped() {
             return true;
         }
@@ -1814,11 +1928,14 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         schedule_auto(run, settings);
         return true;
     }
-    let output = matches!(command, "edit" | "save" | "copy");
-    if command == "stop" || (output && !run.ui.get_review()) {
+    let output = matches!(
+        command,
+        ScrollCommand::Edit | ScrollCommand::Save | ScrollCommand::Copy
+    );
+    if command == ScrollCommand::Stop || (output && !run.ui.get_review()) {
         if output {
             run.output_requested = true;
-            run.output = (command != "edit").then(|| command.to_owned());
+            run.output = (command != ScrollCommand::Edit).then(|| command.wire().to_owned());
         }
         run.dirty |= run.auto_sampling;
         run.auto_sampling = false;
@@ -1839,7 +1956,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         }
         return true;
     }
-    if command == "sample" && !run.controls.get_stopped() {
+    if command == ScrollCommand::Sample && !run.controls.get_stopped() {
         if run.result.is_none() {
             run.dirty = false;
             queue(run, settings, Task::Capture);
@@ -1848,7 +1965,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         }
         return true;
     }
-    if command == "settled" {
+    if command == ScrollCommand::Settled {
         run.sampling.stop();
     }
     if run.result.is_some() {
@@ -1859,32 +1976,32 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
     };
     let overlap = run.ui.get_overlap().max(0) as u32;
     let task = match command {
-        "settled" if !run.controls.get_stopped() => {
+        ScrollCommand::Settled if !run.controls.get_stopped() => {
             run.dirty = false;
             Task::Capture
         }
-        "capture" => Task::Capture,
-        "repair" => {
+        ScrollCommand::Capture => Task::Capture,
+        ScrollCommand::Repair => {
             run.ui.set_repair_mode(true);
             Task::Preview(Some(overlap))
         }
-        "review-next" => Task::ReviewNext,
-        "undo" => Task::Undo,
-        "discard" => Task::Discard,
-        "accept" => Task::Accept(overlap),
-        "preview" => Task::Preview(Some(overlap)),
-        "stop" => Task::Preview(None),
-        "edit" | "save" | "copy" => {
+        ScrollCommand::ReviewNext => Task::ReviewNext,
+        ScrollCommand::Undo => Task::Undo,
+        ScrollCommand::Discard => Task::Discard,
+        ScrollCommand::Accept => Task::Accept(overlap),
+        ScrollCommand::Preview => Task::Preview(Some(overlap)),
+        ScrollCommand::Stop => Task::Preview(None),
+        ScrollCommand::Edit | ScrollCommand::Save | ScrollCommand::Copy => {
             run.controls.set_stopped(true);
             run.controls.set_automatic(false);
             run.automatic_timer.stop();
             run.debounce.stop();
             run.sampling.stop();
             run.output_requested = false;
-            run.output = (command != "edit").then(|| command.to_owned());
+            run.output = (command != ScrollCommand::Edit).then(|| command.wire().to_owned());
             Task::Edit
         }
-        "resume" => {
+        ScrollCommand::Resume => {
             run.ui.set_review(false);
             run.ui.set_repair_mode(false);
             run.output_requested = false;
@@ -1909,8 +2026,12 @@ fn schedule_auto(run: &Run, settings: &SettingsWindow) {
         Duration::from_millis(if sampling { 120 } else { 350 }),
         move || {
             if let Some(owner) = owner.upgrade() {
-                let command = if sampling { "sample" } else { "auto-step" };
-                owner.invoke_action(format!("scroll:{ticket}:{command}").into());
+                let command = if sampling {
+                    ScrollCommand::Sample
+                } else {
+                    ScrollCommand::AutoStep
+                };
+                owner.invoke_action(scroll_action(ticket, command).into());
             }
         },
     );

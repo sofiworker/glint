@@ -1,0 +1,19 @@
+// Copyright (c) 2026 Glint contributors
+// SPDX-License-Identifier: GPL-3.0-only
+import { Theme } from "../theme.slint";
+
+// Tone of a shared status/notice line: muted regular feedback, ink emphasised
+// results, danger for warnings and incomplete-feature notes.
+export enum StatusTone { muted, ink, danger }
+
+// Shared presentation for status and notice lines. Windows previously grew
+// their own muted/warning Text elements with drifting sizes and colours.
+export component StatusLine inherits Text {
+    in property <StatusTone> tone: StatusTone.muted;
+    wrap: word-wrap;
+    color: root.tone == StatusTone.muted ? Theme.muted
+        : root.tone == StatusTone.danger ? Theme.danger
+        : Theme.ink;
+    font-size: root.tone == StatusTone.danger ? Theme.text-body : Theme.text-caption;
+    vertical-stretch: 0;
+}

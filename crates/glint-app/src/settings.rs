@@ -63,7 +63,6 @@ pub fn sync(
     ));
     ui.set_heading(tr(Message::Settings).into());
     ui.set_subtitle(tr(Message::SettingsSubtitle).into());
-    ui.set_close_label(tr(Message::CloseToTray).into());
     ui.set_save_label(tr(Message::SaveSettings).into());
     ui.set_cancel_label(tr(Message::CancelChanges).into());
     ui.set_reset_label(tr(Message::RestoreDefaults).into());
@@ -73,7 +72,6 @@ pub fn sync(
     ui.set_save_leave_label(tr(Message::SaveAndLeave).into());
     ui.set_clear_label(tr(Message::ClearBinding).into());
     ui.set_accept_key_label(tr(Message::AcceptShortcut).into());
-    ui.set_stage_label(tr(Message::DevelopmentStatus).into());
     ui.set_page_note(tr(Message::DraftExplanation).into());
     ui.set_writable(writable);
     let names = crate::toolbar::names(en);
@@ -112,8 +110,6 @@ pub fn sync(
     ui.set_status(
         if config.appearance.theme == Theme::System && system_dark.is_none() {
             tr(Message::SystemThemeUnavailable)
-        } else if dirty {
-            tr(Message::UnsavedChanges)
         } else {
             ""
         }
@@ -122,12 +118,7 @@ pub fn sync(
     if ui.get_guide_step() >= 0 || ui.get_workbench() {
         return Ok(());
     }
-    let mut next = fields::build(
-        config,
-        ui.get_category().clamp(0, 12) as usize,
-        en,
-        writable,
-    )?;
+    let mut next = fields::build(config, ui.get_category().clamp(0, 7) as usize, en, writable)?;
     if config.appearance.theme == Theme::System
         && system_dark.is_none()
         && let Some(row) = next.iter_mut().find(|row| row.key == "appearance.theme")
@@ -217,7 +208,7 @@ mod tests {
     #[test]
     fn all_forms_have_schema_fields_and_disabled_capabilities_cannot_be_changed() {
         let config = Config::default();
-        for category in 0..13 {
+        for category in 0..8 {
             for language in [false, true] {
                 assert!(
                     !fields::build(&config, category, language, true)
@@ -252,9 +243,9 @@ mod tests {
         for (category, key) in [
             (0, "general.close_to_tray"),
             (0, "general.single_instance"),
-            (4, "annotation.keep_objects"),
-            (5, "output.strip_metadata"),
-            (9, "resources.idle_pause"),
+            (2, "annotation.keep_objects"),
+            (3, "output.strip_metadata"),
+            (6, "resources.idle_pause"),
         ] {
             for english in [false, true] {
                 for writable in [false, true] {

@@ -76,7 +76,7 @@ fn prepare(initial: &Path, title: &str) -> Result<IFileOpenDialog, String> {
             .SetTitle(PCWSTR(title.as_ptr()))
             .map_err(|e| e.to_string())?;
         if !initial.as_os_str().is_empty() {
-            let initial: Vec<u16> = initial.as_os_str().encode_wide().chain(Some(0)).collect();
+            let initial: Vec<u16> = crate::interop::wide(initial);
             // A missing/invalid initial folder is only a hint; the OS default remains usable.
             if let Ok(item) =
                 SHCreateItemFromParsingName::<_, _, IShellItem>(PCWSTR(initial.as_ptr()), None)

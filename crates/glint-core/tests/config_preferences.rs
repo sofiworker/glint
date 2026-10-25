@@ -3,11 +3,12 @@ use glint_core::config::*;
 #[test]
 fn scrolling_and_recording_shortcuts_migrate_roundtrip_and_detect_conflicts() {
     let mut config = Config::from_toml("[shortcuts]\ncapture='Ctrl+Shift+S'").unwrap();
-    assert!(
-        config.shortcuts.bindings()[8..]
-            .iter()
-            .all(|(_, key)| key.is_none())
-    );
+    // Omitted entries fall back to the defaults; scroll capture and recording
+    // now ship bound, while pause/stop remain unbound unless configured.
+    let bindings = config.shortcuts.bindings();
+    assert_eq!(bindings[8].1, Some("Ctrl+Shift+L"));
+    assert_eq!(bindings[9].1, Some("Ctrl+Shift+D"));
+    assert!(bindings[10..].iter().all(|(_, key)| key.is_none()));
     config.shortcuts.scroll_capture = "Ctrl+Alt+F9".into();
     config.shortcuts.recording = "Ctrl+Alt+F10".into();
     config.shortcuts.recording_pause = "Ctrl+Alt+F11".into();
@@ -41,6 +42,34 @@ fn scrolling_and_recording_shortcuts_migrate_roundtrip_and_detect_conflicts() {
             .iter()
             .all(|(_, key)| key.is_none())
     );
+}
+
+#[test]
+fn v1_configs_adopt_scroll_and_recording_defaults_only_where_unbound() {
+    // v1 shipped both hotkeys unbound: an empty binding is a missing default,
+    // so migration adopts the v2 bindings while explicit choices survive.
+    let migrated = Config::from_toml(
+        "config_version = 1\n[shortcuts]\ncapture = 'Alt+A'\nscroll_capture = ''\nrecording = ''",
+    )
+    .unwrap();
+    assert_eq!(migrated.config_version, CONFIG_VERSION);
+    assert_eq!(migrated.shortcuts.capture, "Alt+A");
+    assert_eq!(migrated.shortcuts.scroll_capture, "Ctrl+Shift+L");
+    assert_eq!(migrated.shortcuts.recording, "Ctrl+Shift+D");
+    let migrated = Config::from_toml(
+        "config_version = 1\n[shortcuts]\nscroll_capture = 'Ctrl+Alt+F9'\nrecording = 'Ctrl+Alt+F10'",
+    )
+    .unwrap();
+    assert_eq!(migrated.shortcuts.scroll_capture, "Ctrl+Alt+F9");
+    assert_eq!(migrated.shortcuts.recording, "Ctrl+Alt+F10");
+    // A v2 file with empty bindings is a deliberate clear and stays empty.
+    let kept = Config::from_toml(
+        "config_version = 2\n[shortcuts]\nscroll_capture = ''\nrecording = ''",
+    )
+    .unwrap();
+    assert_eq!(kept.config_version, CONFIG_VERSION);
+    assert!(kept.shortcuts.scroll_capture.is_empty());
+    assert!(kept.shortcuts.recording.is_empty());
 }
 
 #[test]

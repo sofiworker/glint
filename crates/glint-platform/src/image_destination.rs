@@ -16,7 +16,7 @@ pub fn publish_new_image(pending: &Path, destination: &Path) -> Result<bool, Str
     if pending == destination || pending.parent() != destination.parent() {
         return Err("Image publication requires distinct names in one directory".into());
     }
-    let source: Vec<u16> = pending.as_os_str().encode_wide().chain(Some(0)).collect();
+    let source: Vec<u16> = crate::interop::wide(pending);
     let target: Vec<u16> = destination
         .as_os_str()
         .encode_wide()
@@ -94,7 +94,7 @@ impl ImageReplacement {
         {
             return Err("Destination changed; choose and confirm it again".into());
         }
-        let source: Vec<u16> = pending.as_os_str().encode_wide().chain(Some(0)).collect();
+        let source: Vec<u16> = crate::interop::wide(pending);
         let target: Vec<u16> = destination
             .as_os_str()
             .encode_wide()

@@ -9,7 +9,7 @@ export component RecordingWindow inherits Window {
     always-on-top: root.active || root.busy;
     preferred-width: root.compact ? 460px : 680px; preferred-height: root.compact ? 64px : 500px;
     min-width: 320px; min-height: 64px;
-    default-font-family: Motion.ui-font-family; default-font-size: 13px;
+    default-font-family: Motion.ui-font-family; default-font-size: Theme.text-body;
     background: Theme.background;
     in property <bool> dark;
     in property <color> accent;
@@ -18,6 +18,15 @@ export component RecordingWindow inherits Window {
     in-out property <int> source;
     in-out property <int> fps: 1;
     in-out property <int> format: 0;
+    // GIF cannot carry audio and tops out at 30 FPS: switching format drops
+    // the stale audio flags instead of leaving them hidden-but-armed.
+    changed format => {
+        if root.format == 1 {
+            root.system-audio = false;
+            root.microphone = false;
+            if root.fps > 1 { root.fps = 1; }
+        }
+    }
     in-out property <bool> system-audio;
     in-out property <bool> microphone;
     in-out property <bool> cursor: true;
@@ -42,7 +51,7 @@ export component RecordingWindow inherits Window {
     if !root.compact && root.can-open: VerticalBox {
         padding: 12px; spacing: 10px;
         HorizontalBox { padding: 0px;
-            Text { text: root.english ? "Recording preview" : "录屏预览"; color: Theme.ink; font-size: 18px; }
+            Text { text: root.english ? "Recording preview" : "录屏预览"; color: Theme.ink; font-size: Theme.text-title; }
             Button { text: "×"; clicked => { root.action("close"); } }
         }
         Image { source: root.picture; image-fit: contain; vertical-stretch: 1; }
@@ -57,7 +66,7 @@ export component RecordingWindow inherits Window {
         width: parent.width; height: parent.height; content-width: self.visible-width;
         VerticalBox {
             padding: 18px; spacing: 12px; alignment: start;
-            Text { text: root.english ? (root.format == 1 ? "Screen recording · GIF" : "Screen recording · MP4") : (root.format == 1 ? "屏幕录制 · GIF" : "屏幕录制 · MP4"); color: Theme.ink; font-size: 19px; vertical-stretch: 0; }
+            Text { text: root.english ? (root.format == 1 ? "Screen recording · GIF" : "Screen recording · MP4") : (root.format == 1 ? "屏幕录制 · GIF" : "屏幕录制 · MP4"); color: Theme.ink; font-size: Theme.text-title; vertical-stretch: 0; }
             if !root.active && !root.busy: VerticalBox {
                 padding: 0px; spacing: 10px;
                 Text { text: root.region ? (root.english ? "Selected region (one display)" : "已框选区域（限单屏）") : (root.english ? "Display / window" : "屏幕 / 窗口"); color: Theme.muted; }

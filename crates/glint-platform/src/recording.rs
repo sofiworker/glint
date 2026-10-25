@@ -468,7 +468,7 @@ fn record(options: Options, shared: Shared) -> Result<PathBuf, String> {
         .map_err(|e| format!("{e}; {}", temporary.display()))?;
     // Same-directory rename with no replacement, including FAT/exFAT destinations.
     use std::os::windows::ffi::OsStrExt;
-    let from: Vec<u16> = temporary.as_os_str().encode_wide().chain(Some(0)).collect();
+    let from: Vec<u16> = crate::interop::wide(&temporary);
     let to: Vec<u16> = destination
         .as_os_str()
         .encode_wide()

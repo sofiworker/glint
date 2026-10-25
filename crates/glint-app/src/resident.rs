@@ -15,13 +15,16 @@ use std::{
     hash::{Hash, Hasher},
     path::PathBuf,
     rc::Rc,
+    time::Duration,
 };
 use tray_icon::{
-    TrayIconBuilder, TrayIconEvent,
+    MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent,
     menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
 };
 
 pub struct AppState {
+    pub settings_pending: Option<String>,
+    pub settings_commit_timer: slint::Timer,
     pub log: Rc<RefCell<glint_platform::diagnostic_log::DiagnosticLog>>,
     pub output_settings: crate::output_settings::State,
     pub diagnostics: crate::runtime_diagnostics::State,
@@ -150,8 +153,8 @@ impl AppState {
             workbench.set_text(messages::text(Message::Workbench, english));
             scroll_capture.set_text(settings::fields::label(
                 english,
-                "滚动长截图（待验收）…",
-                "Scrolling capture (pending acceptance)…",
+                "滚动长截图…",
+                "Scrolling capture…",
             ));
             screen_recording.set_text(settings::fields::label(english, "录屏…", "Record screen…"));
             clipboard.set_text(settings::fields::label(
@@ -540,6 +543,8 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         output_settings: Default::default(),
         diagnostics: Default::default(),
         lifecycle: Default::default(),
+        settings_pending: None,
+        settings_commit_timer: slint::Timer::default(),
         pin_session: Default::default(),
         workbench_pending: false,
         local_path: None,
@@ -656,7 +661,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             return;
         }
         if let Some(ui) = weak.upgrade() {
-            ui.set_category(category.clamp(0, 12));
+            ui.set_category(category.clamp(0, 7));
             shared.borrow().sync(&ui);
         }
     });
@@ -691,6 +696,57 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             && state.session.preferences.draft.appearance.scale != previous_scale
         {
             crate::scale_preview::begin(&mut state, &shared, &ui, previous_scale);
+        }
+        // Auto-apply per the platform settings guidance: switches and choice
+        // controls persist at once; sliders persist on release (commit);
+        // free-text fields debounce so typing does not write on every key.
+        let immediate = matches!(
+            settings::fields::row_kind(&key),
+            Some(0) | Some(1) | Some(4) | Some(6)
+        );
+        if immediate {
+            state.settings_pending = None;
+            state.settings_commit_timer.stop();
+            // "save" re-enters the action dispatcher, which borrows AppState
+            // again; release this borrow before dispatching.
+            drop(state);
+            ui.invoke_action("save".into());
+        } else if !matches!(settings::fields::row_kind(&key), Some(3) | Some(7)) {
+            state.settings_pending = Some(key.to_string());
+            let owner = ui.as_weak();
+            state.settings_commit_timer.start(
+                slint::TimerMode::SingleShot,
+                Duration::from_millis(800),
+                move || {
+                    if let Some(ui) = owner.upgrade() {
+                        ui.invoke_commit("".into());
+                    }
+                },
+            );
+        }
+    });
+    let shared = state.clone();
+    let weak = ui.as_weak();
+    ui.on_commit(move |key| {
+        let Some(ui) = weak.upgrade() else {
+            return;
+        };
+        let mut state = shared.borrow_mut();
+        // An empty key flushes whichever text field is still pending.
+        let pending = if key.is_empty() {
+            state.settings_pending.take()
+        } else {
+            state.settings_pending = None;
+            Some(key.to_string())
+        };
+        if pending.is_some() && !state.session.preferences.is_dirty() {
+            return;
+        }
+        if pending.is_some() {
+            // Same dispatcher re-entry hazard as on_change: dispatch after
+            // the borrow ends.
+            drop(state);
+            ui.invoke_action("save".into());
         }
     });
     let shared = state.clone();
@@ -1919,18 +1975,35 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 state.quit_pending = false;
             }
             "cancel" => {
-                state.session.preferences.cancel();
-                state.feedback.clear();
+                // Page-scoped: revert only the keys shown on the current page.
+                let keys = settings::fields::page_keys(ui.get_category().clamp(0, 7) as usize);
+                match state.session.preferences.cancel_keys(&keys) {
+                    Ok(()) => {
+                        state.feedback.clear();
+                        if state.session.preferences.is_dirty() {
+                            ui.invoke_action("save".into());
+                        }
+                    }
+                    Err(error) => state.feedback = format!("{error}"),
+                }
             }
             "reset" => settings::modal(&ui, 2, state.en(), ""),
             "confirm-reset" => {
                 let previous_scale = state.session.preferences.draft.appearance.scale;
-                state.session.preferences.restore_defaults();
-                state.feedback.clear();
-                ui.invoke_show_modal(0);
-                state.sync(&ui);
-                if state.session.preferences.draft.appearance.scale != previous_scale {
-                    crate::scale_preview::begin(&mut state, &shared, &ui, previous_scale);
+                let keys = settings::fields::page_keys(ui.get_category().clamp(0, 7) as usize);
+                match state.session.preferences.restore_key_defaults(&keys) {
+                    Ok(()) => {
+                        state.feedback.clear();
+                        ui.invoke_show_modal(0);
+                        state.sync(&ui);
+                        if state.session.preferences.draft.appearance.scale != previous_scale {
+                            crate::scale_preview::begin(&mut state, &shared, &ui, previous_scale);
+                        }
+                        if state.session.preferences.is_dirty() {
+                            ui.invoke_action("save".into());
+                        }
+                    }
+                    Err(error) => state.feedback = format!("{error}"),
                 }
             }
             "clear-key" => {
@@ -2118,11 +2191,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     );
     let scroll_capture = MenuItem::with_id(
         "scroll-open",
-        settings::fields::label(
-            english,
-            "滚动长截图（待验收）…",
-            "Scrolling capture (pending acceptance)…",
-        ),
+        settings::fields::label(english, "滚动长截图…", "Scrolling capture…"),
         true,
         None,
     );
@@ -2221,7 +2290,17 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }));
     let weak = ui.as_weak();
     TrayIconEvent::set_event_handler(Some(move |event| {
-        if matches!(event, TrayIconEvent::DoubleClick { .. }) {
+        // A single left click opens the settings window; the context menu is
+        // reserved for the right button.
+        let open = matches!(
+            event,
+            TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            }
+        );
+        if open {
             let _ = weak.upgrade_in_event_loop(|ui| ui.invoke_action("open".into()));
         }
     }));
@@ -2229,6 +2308,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         .with_tooltip("拾光 Glint")
         .with_icon(crate::brand::tray_icon()?)
         .with_menu(Box::new(menu))
+        .with_menu_on_left_click(false)
         .build()?;
     state.borrow().pins.borrow_mut().set_tray_ready(true);
     crate::pin_session::start(&mut state.borrow_mut(), &ui, &directory);

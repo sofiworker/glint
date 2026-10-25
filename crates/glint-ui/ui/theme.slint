@@ -25,6 +25,14 @@ export global Theme {
     in-out property <length> control-radius: 6px;
     in-out property <length> focus-radius: 8px;
     in-out property <length> card-radius: 7px;
+    // Type scale: every window pulls sizes from here so hierarchy stays
+    // consistent (display > title > heading > body > caption > micro).
+    out property <length> text-display: 22px;
+    out property <length> text-title: 18px;
+    out property <length> text-heading: 14px;
+    out property <length> text-body: 12px;
+    out property <length> text-caption: 11px;
+    out property <length> text-micro: 10px;
     out property <color> background: dark ? dark-background : light-background;
     out property <color> surface: dark ? dark-surface : light-surface;
     out property <color> sidebar: dark ? dark-sidebar : light-sidebar;

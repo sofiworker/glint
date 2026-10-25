@@ -41,7 +41,9 @@ pub fn preview(base: &Config, text: &str) -> Result<Preview, ConfigError> {
         .get("config_version")
         .and_then(toml::Value::as_integer)
         .ok_or(ConfigError::Syntax)?;
-    if version != i64::from(CONFIG_VERSION) {
+    // v1 export files stay importable: the merge applies their literal values
+    // onto the current baseline, so no value-level migration happens here.
+    if version != 1 && version != i64::from(CONFIG_VERSION) {
         return Err(ConfigError::UnsupportedVersion(version));
     }
     let original = toml::Value::try_from(base).map_err(|_| ConfigError::Syntax)?;

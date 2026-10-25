@@ -166,7 +166,7 @@ impl Run {
             0 => {
                 self.old = Some(app.borrow().session.preferences.saved().clone());
                 ui.invoke_action("open".into());
-                ui.invoke_choose_page(9);
+                ui.invoke_choose_page(6);
                 if !ui
                     .get_rows()
                     .iter()

@@ -1,6 +1,6 @@
 use std::{
     ffi::{OsString, c_void},
-    os::windows::ffi::{OsStrExt, OsStringExt},
+    os::windows::ffi::OsStringExt,
     path::{Path, PathBuf},
 };
 use windows::{
@@ -24,7 +24,7 @@ pub unsafe fn choose_image_path(
         return Err("Invalid save filename".into());
     }
     buffer[..initial.len()].copy_from_slice(&initial);
-    let directory: Vec<_> = directory.as_os_str().encode_wide().chain(Some(0)).collect();
+    let directory: Vec<_> = crate::interop::wide(directory);
     let mut dialog = OPENFILENAMEW {
         lStructSize: std::mem::size_of::<OPENFILENAMEW>() as u32,
         hwndOwner: HWND(owner),

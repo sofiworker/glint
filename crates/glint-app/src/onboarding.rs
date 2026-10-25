@@ -67,7 +67,6 @@ pub fn sync(state: &AppState, ui: &SettingsWindow) -> Result<(), String> {
         )
         .into(),
     );
-    ui.set_close_label(tr("稍后设置", "Set up later").into());
     let (zh, english) = titles[step as usize];
     ui.set_guide_title(format!("{}. {}", step + 1, tr(zh, english)).into());
     let (zh, english) = bodies[step as usize];
@@ -113,7 +112,9 @@ pub fn sync(state: &AppState, ui: &SettingsWindow) -> Result<(), String> {
         _ => &[],
     };
     let mut rows = Vec::new();
-    for category in [0, 1, 5, 7, 8] {
+    // Consolidated page indices: general+appearance(0), hotkeys(1),
+    // output(3), privacy(5).
+    for category in [0, 1, 3, 5] {
         rows.extend(
             settings::fields::build(config, category, en, state.session.writable)?
                 .into_iter()

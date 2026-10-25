@@ -314,9 +314,14 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
             if region.is_some() {
                 state.screen_recording.take();
                 state.capture_settings_visible = false;
-                if let Some(capture) = &state.capture {
+                // The overlay's cancel re-enters the action dispatcher, which
+                // borrows AppState again; defer it until this borrow ends.
+                let capture = state.capture.as_ref().map(ComponentHandle::clone_strong);
+                if let Some(capture) = capture {
                     let _ = capture.hide();
-                    capture.invoke_action("cancel".into());
+                    slint::Timer::single_shot(Duration::ZERO, move || {
+                        capture.invoke_action("cancel".into());
+                    });
                 }
             } else if state.capture.is_some() {
                 return Err("Finish the current screenshot first".into());

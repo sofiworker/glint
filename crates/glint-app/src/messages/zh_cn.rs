@@ -5,7 +5,7 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::RecordingPlainRegion => {
             Some("请先框选至少 32 × 64 像素的实时桌面区域，且不要添加批注；本地图片不能用于录屏。")
         }
-        Message::ScrollTitle => Some("滚动长截图（待真实环境验收）"),
+        Message::ScrollTitle => Some("滚动长截图"),
         Message::ScrollHint => {
             Some("缓慢滚动选区即自动拼接，右侧实时预览长图；下方可随时复制、保存或编辑。")
         }
@@ -353,7 +353,6 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::PinRotating => Some("正在旋转，就绪前保留当前贴图…"),
         Message::PinRotated => Some("已旋转，复制/保存采用此方向和原始分辨率。"),
         Message::SystemThemeUnavailable => Some("无法读取系统主题，暂用浅色；可手动选择主题。"),
-        Message::UnsavedChanges => Some("有未保存的修改"),
         Message::RecoveredBackup => {
             Some("配置已损坏：原件已保留，当前载入上次有效备份；保存后才修复文件。")
         }
@@ -366,7 +365,6 @@ pub fn text(id: Message) -> Option<&'static str> {
         }
         Message::Settings => Some("设置"),
         Message::SettingsSubtitle => Some("只在需要时打开；截图与标注不经过这里。"),
-        Message::CloseToTray => Some("关闭 · 回到托盘"),
         Message::SaveSettings => Some("保存设置"),
         Message::CancelChanges => Some("取消修改"),
         Message::RestoreDefaults => Some("恢复默认"),
@@ -376,14 +374,13 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::SaveAndLeave => Some("保存并离开"),
         Message::ClearBinding => Some("清除绑定"),
         Message::AcceptShortcut => Some("使用此组合"),
-        Message::DevelopmentStatus => Some("截图 · 标注 · 贴图"),
-        Message::DraftExplanation => Some("修改后点击“保存设置”应用。"),
+        Message::DraftExplanation => Some("更改立即生效并自动保存。"),
         Message::SystemPreference => Some("系统首选："),
         Message::ManualLanguage => Some("手动选择优先"),
         Message::LanguageFallback => Some("无对应语言包，回退 English"),
         Message::AutomaticLanguage => Some("自动匹配"),
         Message::UnsavedTitle => Some("设置尚未保存"),
-        Message::ResetTitle => Some("恢复默认设置？"),
+        Message::ResetTitle => Some("恢复本页默认设置？"),
         Message::RecordShortcutTitle => Some("按下新的组合键"),
         Message::UnsavedBody => {
             Some("保存后离开、放弃本次修改，或继续编辑。保存失败时将保留当前草稿。")
@@ -399,7 +396,7 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::ShortcutInvalid => Some("组合键无效或与其他动作重复，请重新录入。"),
         Message::ShortcutCandidate => Some("Enter 确认，Esc 取消。保存设置后生效。"),
         Message::ShortcutServiceStopped => Some("全局热键服务已停止。请从托盘操作并重启应用。"),
-        Message::SettingsSaved => Some("设置已保存。"),
+        Message::SettingsSaved => Some("已应用。"),
         Message::SaveRollbackFailed => {
             Some("保存失败且系统设置回滚失败。草稿已保留；请检查登录启动项和热键后重试。")
         }

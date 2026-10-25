@@ -1,26 +1,12 @@
-import { Button, ScrollView, Theme, Motion, HorizontalBox, VerticalBox } from "@glint_ui/glint-ui.slint";
-import { ToolbarAssets } from "@glint_ui/components/toolbar_editor.slint";
+import { Button, ScrollView, Theme, Motion, HorizontalBox, VerticalBox, StatusLine, StatusTone, IconTool } from "@glint_ui/glint-ui.slint";
 import { SpinBox } from "std-widgets.slint";
 export struct ScrollLabels { title: string, hint: string, capture: string, undo: string, stop: string, edit: string, cancel: string, overlap: string, accept: string, discard: string, preview: string, resume: string }
-component OutputTool inherits Rectangle {
-    in property <image> icon;
-    in property <string> label;
-    in property <bool> enabled: true;
-    callback clicked();
-    height: 42px; min-width: 42px;
-    accessible-role: button; accessible-label: root.label; accessible-enabled: root.enabled;
-    accessible-action-default => { if root.enabled { root.clicked(); } }
-    border-radius: 5px; background: touch.has-hover ? Theme.accent.with-alpha(0.15) : transparent;
-    Image { x: (parent.width - 19px) / 2; y: 4px; width: 19px; height: 19px; source: root.icon; colorize: Theme.ink; opacity: root.enabled ? 1 : 0.4; }
-    Text { y: 25px; width: parent.width; height: 15px; text: root.label; color: Theme.muted; font-size: 10px; horizontal-alignment: center; overflow: elide; }
-    touch := TouchArea { enabled: root.enabled; clicked => { root.clicked(); } }
-}
 export component ScrollCaptureWindow inherits Window {
     title: root.labels.title;
     no-frame: true; always-on-top: true;
     preferred-width: 300px; preferred-height: 620px;
     min-width: 260px; min-height: 300px;
-    default-font-family: Motion.ui-font-family; default-font-size: 12px;
+    default-font-family: Motion.ui-font-family; default-font-size: Theme.text-body;
     background: Theme.background;
     in property <ScrollLabels> labels;
     in property <bool> dark;
@@ -57,10 +43,10 @@ export component ScrollCaptureWindow inherits Window {
         key-pressed(event) => { if event.text == Key.Escape { root.action("cancel"); return accept; } return reject; }
         VerticalBox {
             padding: 5px; spacing: 5px;
-            Text { text: root.english ? "Stitched preview" : "拼接预览"; color: Theme.ink; font-size: 14px; height: 24px; vertical-stretch: 0; }
-            Text { text: root.labels.hint; color: Theme.muted; wrap: word-wrap; min-height: 18px; max-height: 54px; vertical-stretch: 0; }
-            if root.region-info != "": Text { text: root.region-info; color: Theme.muted; overflow: elide; height: 18px; vertical-stretch: 0; }
-            Text { text: root.status; color: Theme.muted; wrap: word-wrap; min-height: 18px; max-height: 54px; vertical-stretch: 0; }
+            Text { text: root.english ? "Stitched preview" : "拼接预览"; color: Theme.ink; font-size: Theme.text-heading; height: 24px; vertical-stretch: 0; }
+            StatusLine { text: root.labels.hint; }
+            if root.region-info != "": Text { text: root.region-info; color: Theme.muted; overflow: elide; height: 18px; font-size: Theme.text-caption; vertical-stretch: 0; }
+            StatusLine { text: root.status; tone: StatusTone.muted; max-height: 54px; }
             detail := ScrollView {
                 vertical-stretch: 1; content-width: self.visible-width;
                 content-height: root.picture-height * (self.visible-width / 1px) / max(1, root.picture-width) * 1px;
@@ -70,12 +56,12 @@ export component ScrollCaptureWindow inherits Window {
                         for seam in root.seams: Rectangle { y: seam * (parent.width / 1px) / max(1, root.picture-width) * 1px; width: parent.width; height: 2px; background: #d99c30; }
                     }
                 }
-                if !root.has-picture: Text { width: parent.width; height: max(80px, detail.visible-height); text: root.busy ? (root.english ? "Capturing the first frame…" : "正在采集第一帧…") : (root.english ? "No frame captured. Retry or cancel." : "尚未采集到画面，请重试或取消。"); color: Theme.muted; horizontal-alignment: center; vertical-alignment: center; }
+                if !root.has-picture: StatusLine { width: parent.width; height: max(80px, detail.visible-height); text: root.busy ? (root.english ? "Capturing the first frame…" : "正在采集第一帧…") : (root.english ? "No frame captured. Retry or cancel." : "尚未采集到画面，请重试或取消。"); horizontal-alignment: center; vertical-alignment: center; }
             }
             if !root.has-picture && !root.busy: Button { text: root.english ? "Retry capture" : "重试采集"; clicked => { root.action("capture"); } }
             if root.review && root.pending && root.repair-mode: VerticalBox {
                 padding: 5px; spacing: 5px; vertical-stretch: 0;
-                Text { text: (root.english ? "Adjust joins · " : "统一调整拼接 · ") + root.join-position; color: Theme.ink; }
+                Text { text: (root.english ? "Adjust joins · " : "统一调整拼接 · ") + root.join-position; color: Theme.ink; font-size: Theme.text-caption; }
                 SpinBox { minimum: 0; maximum: root.maximum-overlap; value <=> root.overlap; enabled: !root.busy; }
                 if root.unresolved > 1: Button { text: (root.english ? "Next pending fragment · " : "下一待处理片段 · ") + root.unresolved; enabled: !root.busy; clicked => { root.action("review-next"); } }
                 HorizontalBox { padding: 0px; spacing: 5px;
@@ -85,15 +71,15 @@ export component ScrollCaptureWindow inherits Window {
             }
             if root.review && root.pending && !root.repair-mode: VerticalBox {
                 padding: 4px; spacing: 4px; vertical-stretch: 0;
-                Text { text: root.english ? "Some content could not be joined. The preview and partial output contain only the verified range. Sources are retained." : "部分内容未能拼接，预览和部分输出仅包含已对齐范围。原片段已保留。"; wrap: word-wrap; color: Theme.ink; }
+                StatusLine { tone: StatusTone.ink; text: root.english ? "Some content could not be joined. The preview and partial output contain only the verified range. Sources are retained." : "部分内容未能拼接，预览和部分输出仅包含已对齐范围。原片段已保留。"; }
                 Button { text: root.english ? "Adjust joins (optional)" : "调整拼接（可选）"; enabled: !root.busy; clicked => { root.action("repair"); } }
             }
             HorizontalBox { padding: 0px; spacing: 2px; height: 44px; vertical-stretch: 0;
-                OutputTool { icon: ToolbarAssets.images[9]; label: root.english ? "Undo" : "撤销"; enabled: root.can-undo && !root.busy; clicked => { root.action("undo"); } }
-                OutputTool { icon: ToolbarAssets.images[3]; label: root.review && root.pending ? (root.english ? "Edit part" : "编辑部分") : (root.english ? "Edit" : "编辑"); enabled: root.can-finish && !root.busy; clicked => { root.action("edit"); } }
-                OutputTool { icon: ToolbarAssets.images[11]; label: root.review && root.pending ? (root.english ? "Save part" : "保存部分") : (root.english ? "Save" : "保存"); enabled: root.can-finish && !root.busy; clicked => { root.action("save"); } }
-                OutputTool { icon: ToolbarAssets.images[13]; label: root.english ? "Cancel" : "取消"; clicked => { root.action("cancel"); } }
-                OutputTool { icon: ToolbarAssets.images[12]; label: root.review && root.pending ? (root.english ? "Copy part" : "复制部分") : (root.english ? "Copy" : "复制"); enabled: root.can-finish && !root.busy; clicked => { root.action("copy"); } }
+                IconTool { image: 9; label: root.english ? "Undo" : "撤销"; enabled: root.can-undo && !root.busy; clicked => { root.action("undo"); } }
+                IconTool { image: 3; label: root.review && root.pending ? (root.english ? "Edit part" : "编辑部分") : (root.english ? "Edit" : "编辑"); enabled: root.can-finish && !root.busy; clicked => { root.action("edit"); } }
+                IconTool { image: 11; label: root.review && root.pending ? (root.english ? "Save part" : "保存部分") : (root.english ? "Save" : "保存"); enabled: root.can-finish && !root.busy; clicked => { root.action("save"); } }
+                IconTool { image: 13; label: root.english ? "Cancel" : "取消"; clicked => { root.action("cancel"); } }
+                IconTool { image: 12; label: root.review && root.pending ? (root.english ? "Copy part" : "复制部分") : (root.english ? "Copy" : "复制"); enabled: root.can-finish && !root.busy; clicked => { root.action("copy"); } }
             }
         }
     }
@@ -117,6 +103,6 @@ export component ScrollControlWindow inherits Window {
             Button { text: root.english ? "Cancel" : "取消"; clicked => { root.action("cancel"); } }
             Button { text: root.english ? "Copy" : "复制"; enabled: root.ready; clicked => { root.action("copy"); } }
         }
-        Text { text: root.status; color: Theme.muted; font-size: 11px; wrap: word-wrap; overflow: elide; height: 32px; vertical-stretch: 0; horizontal-alignment: center; }
+        StatusLine { text: root.status; height: 32px; horizontal-alignment: center; }
     }
 }

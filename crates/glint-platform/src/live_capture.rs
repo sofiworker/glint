@@ -27,8 +27,7 @@ unsafe extern "system" fn paint_window(
     if message == WM_PAINT {
         let mut ps = PAINTSTRUCT::default();
         let dc = unsafe { BeginPaint(hwnd, &mut ps) };
-        let state = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const Paint };
-        if !state.is_null() {
+        if crate::interop::WindowSlot::<Paint>::get(hwnd).is_some() {
             let mut bounds = RECT::default();
             let _ = unsafe { GetClientRect(hwnd, &mut bounds) };
             let dark = unsafe { CreateSolidBrush(COLORREF(0x00100c08)) };
@@ -47,7 +46,7 @@ unsafe extern "system" fn paint_window(
 /// region hole, so scrolling/clicking reaches the actual source application.
 pub struct LiveCaptureFrame {
     hwnd: HWND,
-    _paint: Box<Paint>,
+    _paint: crate::interop::WindowSlot<Paint>,
 }
 impl LiveCaptureFrame {
     pub fn new(region: Region) -> Result<Self, String> {
@@ -84,7 +83,7 @@ impl LiveCaptureFrame {
         let vy = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
         let vw = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
         let vh = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
-        let paint = Box::new(Paint {
+        let paint = Paint {
             region: RECT {
                 left: x - vx,
                 top: y - vy,
@@ -95,7 +94,7 @@ impl LiveCaptureFrame {
                     .try_into()
                     .map_err(|_| "Region overflow")?,
             },
-        });
+        };
         let hwnd = unsafe {
             CreateWindowExW(
                 WS_EX_LAYERED
@@ -119,18 +118,14 @@ impl LiveCaptureFrame {
         .map_err(|e| e.to_string())?;
         let frame = Self {
             hwnd,
-            _paint: paint,
+            _paint: crate::interop::WindowSlot::new(paint),
         };
         unsafe {
-            SetWindowLongPtrW(
-                hwnd,
-                GWLP_USERDATA,
-                (&*frame._paint as *const Paint) as isize,
-            );
+            frame._paint.attach(hwnd);
             SetLayeredWindowAttributes(hwnd, COLORREF(0), 95, LWA_ALPHA)
                 .map_err(|e| e.to_string())?;
             let outer = CreateRectRgn(0, 0, vw, vh);
-            let r = &frame._paint.region;
+            let r = &frame._paint.value().region;
             let hole = CreateRectRgn(r.left, r.top, r.right, r.bottom);
             CombineRgn(outer, outer, hole, RGN_DIFF);
             let _ = DeleteObject(hole);
@@ -182,7 +177,7 @@ impl Drop for LiveCaptureFrame {
 /// click-through, so the source page keeps receiving wheel and pointer input.
 pub struct LiveBorder {
     hwnd: HWND,
-    _paint: Box<BorderPaint>,
+    _paint: crate::interop::WindowSlot<BorderPaint>,
 }
 const BORDER: i32 = 3;
 const BORDER_KEY: COLORREF = COLORREF(0x00040302);
@@ -203,15 +198,15 @@ unsafe extern "system" fn border_window(
     if message == WM_PAINT {
         let mut ps = PAINTSTRUCT::default();
         let dc = unsafe { BeginPaint(hwnd, &mut ps) };
-        let state = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const BorderPaint };
-        if !state.is_null() {
+        let state = crate::interop::WindowSlot::<BorderPaint>::get(hwnd);
+        if let Some(paint) = state {
             let mut bounds = RECT::default();
             let _ = unsafe { GetClientRect(hwnd, &mut bounds) };
             let key = unsafe { CreateSolidBrush(BORDER_KEY) };
-            let accent = unsafe { CreateSolidBrush((*state).accent) };
+            let accent = unsafe { CreateSolidBrush(paint.accent) };
             unsafe {
                 FillRect(dc, &bounds, key);
-                let r = &(*state).inner;
+                let r = &paint.inner;
                 for rect in [
                     RECT {
                         left: 0,
@@ -286,7 +281,7 @@ impl LiveBorder {
             (i64::from(y) + i64::from(h) + i64::from(BORDER)).min(i64::from(vy) + i64::from(vh));
         let width = (right - i64::from(left)).max(1) as i32;
         let height = (bottom - i64::from(top)).max(1) as i32;
-        let paint = Box::new(BorderPaint {
+        let paint = BorderPaint {
             inner: RECT {
                 left: x - left,
                 top: y - top,
@@ -298,7 +293,7 @@ impl LiveBorder {
                 let value = if accent == 0 { DEFAULT_ACCENT } else { accent };
                 COLORREF(((value & 0xff) << 16) | (value & 0xff00) | ((value >> 16) & 0xff))
             },
-        });
+        };
         let hwnd = unsafe {
             CreateWindowExW(
                 WS_EX_LAYERED
@@ -320,19 +315,13 @@ impl LiveBorder {
             )
         }
         .map_err(|e| e.to_string())?;
+        let slot = crate::interop::WindowSlot::new(paint);
+        slot.attach(hwnd);
         unsafe {
-            SetWindowLongPtrW(
-                hwnd,
-                GWLP_USERDATA,
-                (&*paint as *const BorderPaint) as isize,
-            );
             SetLayeredWindowAttributes(hwnd, BORDER_KEY, 0, LWA_COLORKEY)
                 .map_err(|e| format!("Colour-key the live capture border: {e}"))?;
         }
-        Ok(Self {
-            hwnd,
-            _paint: paint,
-        })
+        Ok(Self { hwnd, _paint: slot })
     }
     pub fn hide(&self) {
         let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };

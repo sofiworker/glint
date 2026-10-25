@@ -193,15 +193,14 @@ impl Drop for PendingFile {
 
 #[cfg(all(windows, feature = "windows-bindings"))]
 fn replace(from: &Path, to: &Path, exists: bool) -> io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
     use windows::{
         Win32::Storage::FileSystem::{
             MOVEFILE_WRITE_THROUGH, MoveFileExW, REPLACE_FILE_FLAGS, ReplaceFileW,
         },
         core::PCWSTR,
     };
-    let source: Vec<_> = from.as_os_str().encode_wide().chain(Some(0)).collect();
-    let target: Vec<_> = to.as_os_str().encode_wide().chain(Some(0)).collect();
+    let source: Vec<_> = crate::interop::wide(from);
+    let target: Vec<_> = crate::interop::wide(to);
     unsafe {
         if exists {
             ReplaceFileW(

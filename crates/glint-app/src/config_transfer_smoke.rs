@@ -167,7 +167,7 @@ impl Run {
                 };
                 ui.invoke_change("output.quality".into(), quality.into());
                 self.draft = Some(app.borrow().session.preferences.draft.clone());
-                ui.invoke_choose_page(12);
+                ui.invoke_choose_page(7);
                 app.borrow_mut().session.writable = false;
                 app.borrow().sync(ui);
                 ui.invoke_action("config-export".into());

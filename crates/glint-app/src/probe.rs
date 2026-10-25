@@ -1322,7 +1322,8 @@ fn prepare_capture(
                         Message::ScrollPlainRegion
                     },
                 );
-                ui.set_status(notice.into());
+                // info-text already concatenates the notice and status
+                // surfaces; feeding both would print the sentence twice.
                 ui.set_service_notice(notice.into());
                 return;
             }

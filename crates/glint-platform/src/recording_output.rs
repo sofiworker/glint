@@ -12,7 +12,7 @@ use windows::{
 
 pub fn play_file(path: &Path) -> Result<(), String> {
     let path = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
-    let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    let wide: Vec<u16> = crate::interop::wide(path);
     let result = unsafe {
         ShellExecuteW(
             None,
@@ -91,6 +91,92 @@ impl Drop for Media {
         }
     }
 }
+
+/// A locked RGB32 sample surface with display-ordered, bounds-checked rows.
+///
+/// All raw-pointer handling for Media Foundation sample scanning is confined
+/// here; every accessor is safe and validates against the locked length.
+struct SampleSurface {
+    buffer: IMFMediaBuffer,
+    pointer: *const u8,
+    length: usize,
+    pitch: usize,
+    width: u32,
+    height: u32,
+    bottom_up: bool,
+}
+impl SampleSurface {
+    /// Convert one sample to contiguous RGB32 and lock it for reading.
+    /// `fallback_stride` applies when the media type does not declare one.
+    fn lock(sample: &IMFSample, fallback_stride: u32) -> windows::core::Result<Self> {
+        let buffer = unsafe { sample.ConvertToContiguousBuffer() }?;
+        let mut data = std::ptr::null_mut();
+        let mut length = 0;
+        // The lock stays valid until `buffer.Unlock`, which `Drop` performs.
+        unsafe { buffer.Lock(&mut data, None, Some(&mut length)) }?;
+        Ok(Self {
+            buffer,
+            pointer: data.cast(),
+            length: length as usize,
+            pitch: fallback_stride as usize,
+            width: 0,
+            height: 0,
+            bottom_up: false,
+        })
+    }
+    /// Set the expected geometry after reading it from the media type; every
+    /// accessor validates against the locked length before returning rows.
+    fn with_geometry(mut self, width: u32, height: u32, stride: i32) -> Self {
+        self.width = width;
+        self.height = height;
+        self.pitch = stride.unsigned_abs() as usize;
+        self.bottom_up = stride < 0;
+        self
+    }
+    fn valid(&self) -> bool {
+        self.pitch >= self.width as usize * 4
+            && self.pitch.saturating_mul(self.height as usize) <= self.length
+    }
+    /// Display-order row bytes (BGRA, `width * 4` long).
+    fn row(&self, y: u32) -> Option<&[u8]> {
+        if !self.valid() || y >= self.height {
+            return None;
+        }
+        let y = if self.bottom_up {
+            self.height - 1 - y
+        } else {
+            y
+        } as usize;
+        let start = y.checked_mul(self.pitch)?;
+        let end = start.checked_add(self.width as usize * 4)?;
+        if end > self.length {
+            return None;
+        }
+        // The whole locked region was validated above; `start..end` stays
+        // inside `self.length`, and the borrow ends with `&self`.
+        let bytes = unsafe { std::slice::from_raw_parts(self.pointer, self.length) };
+        bytes.get(start..end)
+    }
+    /// Iterate every display pixel as `(x, y, [b, g, r, a])`.
+    fn pixels(&self) -> impl Iterator<Item = (u32, u32, [u8; 4])> + '_ {
+        (0..self.height).flat_map(move |y| {
+            let row = self.row(y).unwrap_or(&[]);
+            row.as_chunks::<4>()
+                .0
+                .iter()
+                .enumerate()
+                .map(move |(x, pixel)| (x as u32, y, *pixel))
+        })
+    }
+}
+impl Drop for SampleSurface {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = self.buffer.Unlock();
+        }
+    }
+}
+
 pub fn poster(path: &Path) -> Result<crate::DesktopFrame, String> {
     if path
         .extension()
@@ -126,7 +212,7 @@ pub fn poster(path: &Path) -> Result<crate::DesktopFrame, String> {
 }
 unsafe fn decode_poster(path: &Path) -> windows::core::Result<crate::DesktopFrame> {
     unsafe {
-        let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        let path: Vec<u16> = crate::interop::wide(path);
         let mut attributes = None;
         MFCreateAttributes(&mut attributes, 1)?;
         let attributes = attributes.unwrap();
@@ -153,41 +239,23 @@ unsafe fn decode_poster(path: &Path) -> windows::core::Result<crate::DesktopFram
                 {
                     return Err(windows::core::Error::from(E_INVALIDARG));
                 }
-                let stride = kind.GetUINT32(&MF_MT_DEFAULT_STRIDE).unwrap_or(width * 4) as i32;
-                let buffer = sample.ConvertToContiguousBuffer()?;
-                let mut data = std::ptr::null_mut();
-                let mut length = 0;
-                buffer.Lock(&mut data, None, Some(&mut length))?;
-                let output = (|| {
-                    let pitch = stride.unsigned_abs() as usize;
-                    if pitch < width as usize * 4 || pitch * height as usize > length as usize {
-                        return Err(windows::core::Error::from(E_INVALIDARG));
-                    }
-                    let bytes = std::slice::from_raw_parts(data, length as usize);
-                    let mut rgba = Vec::with_capacity(width as usize * height as usize * 4);
-                    for y in 0..height as usize {
-                        let row = if stride < 0 {
-                            height as usize - y - 1
-                        } else {
-                            y
-                        };
-                        for pixel in bytes[row * pitch..row * pitch + width as usize * 4]
-                            .as_chunks::<4>()
-                            .0
-                        {
-                            rgba.extend_from_slice(&[pixel[2], pixel[1], pixel[0], 255]);
-                        }
-                    }
-                    Ok(crate::DesktopFrame {
-                        x: 0,
-                        y: 0,
-                        width,
-                        height,
-                        rgba,
-                    })
-                })();
-                let _ = buffer.Unlock();
-                return output;
+                let stride = kind.GetUINT32(&MF_MT_DEFAULT_STRIDE).unwrap_or(width * 4);
+                let surface = SampleSurface::lock(&sample, stride)?.with_geometry(
+                    width,
+                    height,
+                    stride as i32,
+                );
+                let mut rgba = Vec::with_capacity(width as usize * height as usize * 4);
+                for (_, _, pixel) in surface.pixels() {
+                    rgba.extend_from_slice(&[pixel[2], pixel[1], pixel[0], 255]);
+                }
+                return Ok(crate::DesktopFrame {
+                    x: 0,
+                    y: 0,
+                    width,
+                    height,
+                    rgba,
+                });
             }
             if flags & MF_SOURCE_READERF_ENDOFSTREAM.0 as u32 != 0 {
                 break;
@@ -260,7 +328,7 @@ mod green_scan {
         let mut frames = 0usize;
         let mut coded = (0u32, 0u32);
         unsafe {
-            let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+            let path: Vec<u16> = crate::interop::wide(path);
             let mut attributes = None;
             MFCreateAttributes(&mut attributes, 1).unwrap();
             let attributes = attributes.unwrap();
@@ -277,7 +345,7 @@ mod green_scan {
             kind.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video).unwrap();
             kind.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_RGB32).unwrap();
             reader.SetCurrentMediaType(stream, None, &kind).unwrap();
-            for frame_index in 0..3000u32 {
+            for _frame_index in 0..3000u32 {
                 let mut sample = None;
                 let mut flags = 0;
                 reader
@@ -293,51 +361,37 @@ mod green_scan {
                 let kind = reader.GetCurrentMediaType(stream).unwrap();
                 let size = kind.GetUINT64(&MF_MT_FRAME_SIZE).unwrap();
                 let (width, height) = ((size >> 32) as u32, size as u32);
-                let stride = kind.GetUINT32(&MF_MT_DEFAULT_STRIDE).unwrap_or(width * 4) as i32;
-                let buffer = sample.ConvertToContiguousBuffer().unwrap();
-                let mut data = std::ptr::null_mut();
-                let mut length = 0;
-                buffer.Lock(&mut data, None, Some(&mut length)).unwrap();
-                let bytes = std::slice::from_raw_parts(data, length as usize);
-                let pitch = stride.unsigned_abs() as usize;
+                let stride = kind.GetUINT32(&MF_MT_DEFAULT_STRIDE).unwrap_or(width * 4);
+                let surface = SampleSurface::lock(&sample, stride).unwrap().with_geometry(
+                    width,
+                    height,
+                    stride as i32,
+                );
                 coded = (width, height);
                 let mut padding_hit = false;
-                for y in 0..height as usize {
-                    let row = if stride < 0 {
-                        height as usize - y - 1
-                    } else {
-                        y
-                    };
-                    for (x, pixel) in bytes[row * pitch..row * pitch + width as usize * 4]
-                        .as_chunks::<4>()
-                        .0
-                        .iter()
-                        .enumerate()
-                    {
-                        let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
-                        // Columns and rows past the display aperture are
-                        // encoder padding from macroblock alignment.
-                        if x as u32 >= 696 || y as u32 >= 318 {
-                            if !(r < 8 && g < 8 && b < 8) {
-                                padding_hit = true;
-                                if padding.len() < 20 {
-                                    padding.push((x as u32, y as u32, [r, g, b]));
-                                }
+                for (x, y, pixel) in surface.pixels() {
+                    let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
+                    // Columns and rows past the display aperture are
+                    // encoder padding from macroblock alignment.
+                    if x >= 696 || y >= 318 {
+                        if !(r < 8 && g < 8 && b < 8) {
+                            padding_hit = true;
+                            if padding.len() < 20 {
+                                padding.push((x, y, [r, g, b]));
                             }
-                            continue;
                         }
-                        if g > 140 && r < 110 && b < 110 && g - r > 50 && g - b > 50 {
-                            let entry = report.entry((x as u32, y as u32)).or_insert((0, [0; 3]));
-                            entry.0 += 1;
-                            entry.1 = [r, g, b];
-                            hits += 1;
-                        }
+                        continue;
+                    }
+                    if g > 140 && r < 110 && b < 110 && g - r > 50 && g - b > 50 {
+                        let entry = report.entry((x, y)).or_insert((0, [0; 3]));
+                        entry.0 += 1;
+                        entry.1 = [r, g, b];
+                        hits += 1;
                     }
                 }
                 if padding_hit {
                     padding_frames += 1;
                 }
-                buffer.Unlock().unwrap();
             }
         }
         drop(media);
@@ -365,7 +419,7 @@ mod encoder_corruption {
         let hardware = std::env::var("GLINT_ENCODER_HW").as_deref() == Ok("1");
         unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok() }.unwrap();
         unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.unwrap();
-        let media = Media;
+        let _media = Media;
         let path = std::env::temp_dir().join(format!(
             "glint-encoder-{}-{}.mp4",
             std::process::id(),
@@ -397,7 +451,7 @@ mod encoder_corruption {
         encode().unwrap();
         // Scan every decoded frame for green blocks.
         unsafe {
-            let path_wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+            let path_wide: Vec<u16> = crate::interop::wide(&path);
             let mut attributes = None;
             MFCreateAttributes(&mut attributes, 1).unwrap();
             let attributes = attributes.unwrap();
@@ -431,39 +485,29 @@ mod encoder_corruption {
                 let size = kind.GetUINT64(&MF_MT_FRAME_SIZE).unwrap();
                 let (w, h) = ((size >> 32) as u32, size as u32);
                 coded = (w, h);
-                let stride = kind.GetUINT32(&MF_MT_DEFAULT_STRIDE).unwrap_or(w * 4) as i32;
-                let buffer = sample.ConvertToContiguousBuffer().unwrap();
-                let mut data = std::ptr::null_mut();
-                let mut length = 0;
-                buffer.Lock(&mut data, None, Some(&mut length)).unwrap();
-                let bytes = std::slice::from_raw_parts(data, length as usize);
-                let pitch = stride.unsigned_abs() as usize;
-                for y in 0..h as usize {
-                    let row = if stride < 0 { h as usize - y - 1 } else { y };
-                    for (x, pixel) in bytes[row * pitch..row * pitch + w as usize * 4]
-                        .as_chunks::<4>()
-                        .0
-                        .iter()
-                        .enumerate()
-                    {
-                        let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
-                        if g > 140 && r < 110 && b < 110 && g - r > 50 && g - b > 50 {
-                            hits += 1;
-                        }
-                        // The padding must replicate the frame's right edge.
-                        if x as u32 >= width && (y as u32) < height {
-                            let source = &pixels
-                                [(y as usize * width as usize + (width as usize - 1)) * 4..][..3];
-                            if pixel[0].abs_diff(source[0]) > 15
-                                || pixel[1].abs_diff(source[1]) > 15
-                                || pixel[2].abs_diff(source[2]) > 15
-                            {
-                                padded_edge_mismatches += 1;
-                            }
+                let stride = kind.GetUINT32(&MF_MT_DEFAULT_STRIDE).unwrap_or(w * 4);
+                let surface = SampleSurface::lock(&sample, stride).unwrap().with_geometry(
+                    w,
+                    h,
+                    stride as i32,
+                );
+                for (x, y, pixel) in surface.pixels() {
+                    let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
+                    if g > 140 && r < 110 && b < 110 && g - r > 50 && g - b > 50 {
+                        hits += 1;
+                    }
+                    // The padding must replicate the frame's right edge.
+                    if x >= width && y < height {
+                        let source = &pixels
+                            [(y as usize * width as usize + (width as usize - 1)) * 4..][..3];
+                        if pixel[0].abs_diff(source[0]) > 15
+                            || pixel[1].abs_diff(source[1]) > 15
+                            || pixel[2].abs_diff(source[2]) > 15
+                        {
+                            padded_edge_mismatches += 1;
                         }
                     }
                 }
-                buffer.Unlock().unwrap();
             }
             println!(
                 "hardware={hardware} frames={frames} coded={coded:?} green-hits={hits} padding-mismatches={padded_edge_mismatches} file={}",
@@ -527,7 +571,7 @@ mod real_recording_probe {
         println!("recorded {}", path.display());
         unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok() }.unwrap();
         unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.unwrap();
-        let media = Media;
+        let _media = Media;
         let mut artifact = 0usize;
         let mut frames = 0usize;
         let mut coded = (0u32, 0u32);
@@ -535,7 +579,7 @@ mod real_recording_probe {
         let mut padding_total = 0usize;
         let mut display_green = 0usize;
         unsafe {
-            let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+            let path: Vec<u16> = crate::interop::wide(path);
             let mut attributes = None;
             MFCreateAttributes(&mut attributes, 1).unwrap();
             let attributes = attributes.unwrap();
@@ -588,14 +632,13 @@ mod real_recording_probe {
                                 artifact += 1;
                             }
                             // Padding must continue the row's last real pixel.
-                            let edge = (y as usize * pitch) + (696 - 1) * 4;
-                            if edge + 3 < bytes.len() {
-                                if pixel[0].abs_diff(bytes[edge]) > 20
+                            let edge = y * pitch + 695 * 4;
+                            if edge + 3 < bytes.len()
+                                && (pixel[0].abs_diff(bytes[edge]) > 20
                                     || pixel[1].abs_diff(bytes[edge + 1]) > 20
-                                    || pixel[2].abs_diff(bytes[edge + 2]) > 20
-                                {
-                                    padding_mismatch += 1;
-                                }
+                                    || pixel[2].abs_diff(bytes[edge + 2]) > 20)
+                            {
+                                padding_mismatch += 1;
                             }
                             continue;
                         }
@@ -607,7 +650,7 @@ mod real_recording_probe {
                 buffer.Unlock().unwrap();
             }
         }
-        drop(media);
+        drop(_media);
         println!(
             "frames={frames} coded={coded:?} artifact={artifact} padding-mismatch={padding_mismatch}/{padding_total} display-green={display_green}"
         );

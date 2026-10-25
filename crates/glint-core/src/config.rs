@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub const CONFIG_VERSION: u32 = 1;
+pub const CONFIG_VERSION: u32 = 2;
 pub const MAX_CONFIG_BYTES: usize = 256 * 1024;
 
 macro_rules! choice {
@@ -160,8 +160,8 @@ impl Default for Shortcuts {
             rescue: "Ctrl+Alt+Escape".into(),
             color_picker: String::new(),
             settings: String::new(),
-            scroll_capture: String::new(),
-            recording: String::new(),
+            scroll_capture: "Ctrl+Shift+L".into(),
+            recording: "Ctrl+Shift+D".into(),
             recording_pause: String::new(),
             recording_stop: String::new(),
         }
@@ -464,11 +464,23 @@ impl Config {
             None => i64::from(CONFIG_VERSION),
             Some(value) => value.as_integer().ok_or(ConfigError::Syntax)?,
         };
-        // No deployed schema precedes v1. Refuse older/future schemas instead of inventing a migration.
-        if version != i64::from(CONFIG_VERSION) {
+        // No deployed schema precedes v1. Refuse future schemas outright.
+        if version != 1 && version != i64::from(CONFIG_VERSION) {
             return Err(ConfigError::UnsupportedVersion(version));
         }
-        let config: Self = value.try_into().map_err(|_| ConfigError::Syntax)?;
+        let mut config: Self = value.try_into().map_err(|_| ConfigError::Syntax)?;
+        if version == 1 {
+            // v1 shipped scroll capture and recording hotkeys unbound, so an
+            // empty binding there means "never had a default", not a deliberate
+            // clear: adopt the v2 defaults. Explicit bindings survive as-is.
+            if config.shortcuts.scroll_capture.is_empty() {
+                config.shortcuts.scroll_capture = "Ctrl+Shift+L".into();
+            }
+            if config.shortcuts.recording.is_empty() {
+                config.shortcuts.recording = "Ctrl+Shift+D".into();
+            }
+            config.config_version = CONFIG_VERSION;
+        }
         config.validate()?;
         Ok(config)
     }
@@ -808,6 +820,40 @@ impl Preferences {
         let onboarding_complete = self.draft.general.onboarding_complete;
         self.draft = Config::default();
         self.draft.general.onboarding_complete = onboarding_complete;
+    }
+    /// Revert only the dotted keys ("section.field") of one consolidated
+    /// settings page back to the saved snapshot. Other pages keep their edits.
+    pub fn cancel_keys(&mut self, keys: &[&str]) -> Result<(), ConfigError> {
+        let source = toml::Value::try_from(&self.saved).map_err(|_| ConfigError::Syntax)?;
+        Self::copy_keys_into_draft(&mut self.draft, &source, keys)
+    }
+    /// Restore only the given keys to their defaults; the rest of the draft
+    /// (and the onboarding flag) is untouched.
+    pub fn restore_key_defaults(&mut self, keys: &[&str]) -> Result<(), ConfigError> {
+        let source = toml::Value::try_from(Config::default()).map_err(|_| ConfigError::Syntax)?;
+        Self::copy_keys_into_draft(&mut self.draft, &source, keys)
+    }
+    fn copy_keys_into_draft(
+        draft: &mut Config,
+        source: &toml::Value,
+        keys: &[&str],
+    ) -> Result<(), ConfigError> {
+        let mut value = toml::Value::try_from(&*draft).map_err(|_| ConfigError::Syntax)?;
+        let table = value.as_table_mut().ok_or(ConfigError::Syntax)?;
+        for key in keys {
+            let Some((section, name)) = key.split_once('.') else {
+                return Err(ConfigError::Syntax);
+            };
+            let Some(section_table) = table.get_mut(section).and_then(|v| v.as_table_mut()) else {
+                return Err(ConfigError::Syntax);
+            };
+            let Some(saved) = source.get(section).and_then(|v| v.get(name)) else {
+                return Err(ConfigError::Syntax);
+            };
+            section_table.insert(name.to_string(), saved.clone());
+        }
+        *draft = value.try_into().map_err(|_| ConfigError::Syntax)?;
+        Ok(())
     }
     /// Call only after registration and persistence succeed. Validation alone is not a save.
     pub fn accept_saved(&mut self) -> Result<(), ConfigError> {

@@ -91,6 +91,8 @@ pub fn copy_rgba(width: u32, height: u32, pixels: Vec<u8>) -> Result<(), String>
 #[cfg(all(windows, feature = "windows-bindings"))]
 mod capture_cursor;
 #[cfg(all(windows, feature = "windows-bindings"))]
+pub(crate) mod interop;
+#[cfg(all(windows, feature = "windows-bindings"))]
 mod win;
 #[cfg(all(windows, feature = "windows-bindings"))]
 pub use win::{capture_after_composition, capture_desktop, capture_region_guarded};

@@ -26,7 +26,7 @@ impl Run {
             0 => {
                 self.config = std::fs::read(dir.join("config.toml")).unwrap_or_default();
                 ui.invoke_action("open".into());
-                ui.invoke_choose_page(10);
+                ui.invoke_choose_page(6);
                 ui.window().set_size(slint::PhysicalSize::new(900, 650));
                 if app.borrow().diagnostics.last.is_some()
                     || app.borrow().diagnostics.receive.is_some()
@@ -115,7 +115,7 @@ impl Run {
                 super::snapshot(ui, &dir.join("diagnostics-en-scrolled.png"))?;
                 ui.invoke_action("cancel".into());
                 ui.invoke_change("general.language".into(), "zh_cn".into());
-                ui.invoke_choose_page(10);
+                ui.invoke_choose_page(6);
                 ui.window()
                     .dispatch_event_with_result(slint::platform::WindowEvent::PointerScrolled {
                         position: slint::LogicalPosition::new(650., 400.),
