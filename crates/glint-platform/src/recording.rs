@@ -21,11 +21,20 @@ use windows_capture::{
 };
 #[path = "recording_audio.rs"]
 mod audio;
+#[path = "recording_codecs.rs"]
+mod codecs;
+#[path = "recording_containers.rs"]
+mod containers;
 #[path = "recording_encoder.rs"]
 mod encoder;
 #[path = "recording_output.rs"]
 mod output;
+#[path = "recording_preview.rs"]
+mod preview;
+pub use codecs::{ExportCodecs, export_codecs};
+pub use output::{VideoInfo, VideoReader, export_edit, export_edit_with_options};
 pub use output::{copy_file, play_file, poster};
+pub use preview::AudioPreview;
 
 static BUSY: AtomicBool = AtomicBool::new(false);
 struct Slot;

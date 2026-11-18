@@ -2,9 +2,10 @@ import { Theme } from "../theme.slint";
 import { SpinBox } from "std-widgets.slint";
 import { Button, CheckBox, ComboBox, ScrollView } from "../widgets/widgets.slint";
 import { LabeledCheck } from "controls.slint";
+import { GlintIcons } from "icons.slint";
 export struct ToolbarRow { label: string, tool: int, shown: bool }
 export global ToolbarAssets {
-    out property <[image]> images: [@image-url("../icons/select.svg"), @image-url("../icons/rect.svg"), @image-url("../icons/arrow.svg"), @image-url("../icons/pen.svg"), @image-url("../icons/text.svg"), @image-url("../icons/highlight.svg"), @image-url("../icons/redact.svg"), @image-url("../icons/mosaic.svg"), @image-url("../icons/picker.svg"), @image-url("../icons/undo.svg"), @image-url("../icons/redo.svg"), @image-url("../icons/save.svg"), @image-url("../icons/check.svg"), @image-url("../icons/close.svg"), @image-url("../icons/more.svg"), @image-url("../icons/settings.svg"), @image-url("../icons/pin.svg")];
+    out property <[image]> images: [GlintIcons.select, GlintIcons.rect, GlintIcons.arrow, GlintIcons.pen, GlintIcons.text, GlintIcons.highlight, GlintIcons.redact, GlintIcons.mosaic, GlintIcons.picker, GlintIcons.undo, GlintIcons.redo, GlintIcons.save, GlintIcons.copy, GlintIcons.close, GlintIcons.more, GlintIcons.settings, GlintIcons.pin];
 }
 // labels: both, icons, follow, top, bottom, groups, order hint, preview, reset, preview hint, mode, position.
 export component ToolbarEditor inherits Rectangle {
@@ -60,7 +61,7 @@ export component ToolbarEditor inherits Rectangle {
     Text { x: 4px; y: 222px + root.width-hint-height; width: parent.width - 8px; height: 36px; text: root.labels[6]; color: root.muted; wrap: word-wrap; }
     for row[index] in root.rows: Rectangle {
         x: 4px; y: 264px + root.width-hint-height + index * 38px; width: parent.width - 8px; height: 36px;
-        Text { x: 0px; width: 24px; height: parent.height; text: "≡"; color: root.muted; horizontal-alignment: center; vertical-alignment: center; }
+        Image { x: 3px; y: (parent.height - 18px) / 2; width: 18px; height: 18px; source: GlintIcons.grip; colorize: root.muted; }
         TouchArea { x: 0px; width: 24px; mouse-cursor: move; enabled: root.writable;
             property <bool> armed;
             pointer-event(event) => {
@@ -80,7 +81,7 @@ export component ToolbarEditor inherits Rectangle {
     reset := Button { x: parent.width - 104px; y: 616px + root.width-hint-height; width: 100px; height: 30px; text: root.labels[8]; enabled: root.writable; clicked => { root.command("reset", 0, 0); } }
     Rectangle {
         x: 4px; y: 656px + root.width-hint-height; width: root.preview-width; height: root.preview-height;
-        border-width: 1px; border-color: root.line; border-radius: 5px;
+        background: Theme.surface; border-width: 1px; border-color: root.line; border-radius: 10px;
         ScrollView {
             x: root.single-row ? 6px : 0px;
             width: parent.width - (root.single-row ? 12px : 0px); height: parent.height;
@@ -97,8 +98,9 @@ export component ToolbarEditor inherits Rectangle {
                 x: (root.single-row ? 0px : 6px) + mod(index, root.preview-columns) * root.preview-cell;
                 y: 5px + floor(index / root.preview-columns) * 34px;
                 width: root.preview-cell - 2px; height: 30px;
+                background: item == 12 ? Theme.accent : transparent; border-radius: 6px;
                 accessible-role: button; accessible-label: root.names[item];
-                Image { x: root.icons || item == 12 ? (parent.width - 17px) / 2 : 5px; y: (parent.height - 17px) / 2; width: 17px; height: 17px; source: ToolbarAssets.images[item]; colorize: item == 13 ? #e54b58 : item == 12 ? #209d55 : root.ink; }
+                Image { x: root.icons || item == 12 ? (parent.width - 18px) / 2 : 5px; y: (parent.height - 18px) / 2; width: 18px; height: 18px; source: ToolbarAssets.images[item]; colorize: item == 12 ? Theme.on-accent : item == 13 ? root.muted : root.ink; }
                 if !root.icons && item != 12: Text { x: 25px; width: max(0px, parent.width - 28px); height: parent.height; text: root.names[item]; color: root.ink; vertical-alignment: center; font-size: 12px; overflow: elide; }
             }
         }

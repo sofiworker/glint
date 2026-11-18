@@ -1,5 +1,6 @@
 import { Button, ComboBox, LineEdit, ScrollView, Theme, Motion, HorizontalBox, VerticalBox } from "@glint_ui/glint-ui.slint";
 import { CheckBox } from "std-widgets.slint";
+import { GlintIcons } from "@glint_ui/components/icons.slint";
 export component RecordingWindow inherits Window {
     in property <bool> compact;
     no-frame: root.compact;
@@ -46,13 +47,13 @@ export component RecordingWindow inherits Window {
         Text { text: root.statistics == "" ? root.status : root.statistics; color: Theme.ink; overflow: elide; vertical-alignment: center; }
         if root.active: Button { text: root.paused ? (root.english ? "Resume" : "继续") : (root.english ? "Pause" : "暂停"); clicked => { root.action("pause"); } }
         if root.active: Button { text: root.english ? "End recording" : "结束录屏"; primary: true; clicked => { root.action("stop"); } }
-        Button { text: "×"; clicked => { root.action("cancel"); } }
+        Button { icon: GlintIcons.close; icon-size: 18px; colorize-icon: true; accessible-label: root.english ? "Cancel recording" : "取消录制"; clicked => { root.action("cancel"); } }
     }
     if !root.compact && root.can-open: VerticalBox {
         padding: 12px; spacing: 10px;
         HorizontalBox { padding: 0px;
             Text { text: root.english ? "Recording preview" : "录屏预览"; color: Theme.ink; font-size: Theme.text-title; }
-            Button { text: "×"; clicked => { root.action("close"); } }
+            Button { icon: GlintIcons.close; icon-size: 18px; colorize-icon: true; accessible-label: root.english ? "Close preview" : "关闭预览"; clicked => { root.action("close"); } }
         }
         Image { source: root.picture; image-fit: contain; vertical-stretch: 1; }
         Text { text: root.status; color: Theme.muted; wrap: word-wrap; vertical-stretch: 0; }

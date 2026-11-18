@@ -17,7 +17,7 @@ glint_ui::slint! {
     export { Motion } from "@glint_ui/widgets/motion.slint";
     export { RecordingWindow } from "src/recording.slint";
 }
-type PosterResult = (PathBuf, Result<glint_platform::DesktopFrame, String>);
+type PosterResult = (PathBuf, Result<crate::result_float::Pending, String>);
 thread_local! { static POSTER: RefCell<Option<PosterResult>> = const { RefCell::new(None) }; }
 pub struct Run {
     ui: RecordingWindow,
@@ -409,7 +409,13 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
     let exclusions =
         glint_core::exclusions::parse(&state.session.preferences.saved().privacy.excluded_apps);
     let blocked = state.lifecycle.blocked();
+    let presentation = crate::workbench::Presentation::from_resident(&state);
     let Some(run) = &mut state.screen_recording else {
+        if action == "record:poster" {
+            POSTER.with(|slot| {
+                slot.borrow_mut().take();
+            });
+        }
         return action.starts_with("record:");
     };
     let en = run.ui.get_english();
@@ -580,10 +586,11 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                         run.file = Some(path.clone());
                         let preview_owner = owner.as_weak();
                         let poster_path = path.clone();
-                        let _ = std::thread::Builder::new()
+                        let poster_worker = std::thread::Builder::new()
                             .name("glint-recording-poster".into())
                             .spawn(move || {
-                                let result = platform::poster(&poster_path);
+                                let result = crate::workbench::decode(&poster_path)
+                                    .and_then(crate::result_float::prepare_document);
                                 let _ = preview_owner.upgrade_in_event_loop(move |owner| {
                                     // A path-specific action prevents a late poster from updating a newer run.
                                     POSTER.with(|slot| {
@@ -601,6 +608,25 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                             .into(),
                         );
                         run.ui.set_can_open(true);
+                        if let Err(error) = poster_worker {
+                            run.ui.set_status(
+                                format!(
+                                    "{}\n{error}\n{}",
+                                    tr(
+                                        en,
+                                        "无法读取预览，视频已保留。",
+                                        "Could not prepare preview; the recording is saved."
+                                    ),
+                                    path.display()
+                                )
+                                .into(),
+                            );
+                            if !blocked {
+                                let _ = run.ui.show();
+                            }
+                        } else {
+                            let _ = run.ui.hide();
+                        }
                     }
                     Err(error) => {
                         run.ui.set_status(
@@ -617,7 +643,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                         run.ui.set_can_open(false);
                     }
                 }
-                if !blocked {
+                if !blocked && !run.ui.get_can_open() {
                     let _ = run.ui.show();
                 }
                 if run.quit && !failed {
@@ -636,8 +662,18 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, owner: &SettingsWind
                     && run.file.as_ref() == Some(&path)
                 {
                     match frame {
-                        Ok(frame) => run.ui.set_picture(slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&frame.rgba, frame.width, frame.height))),
-                        Err(error) => run.ui.set_status(format!("{}\n{error}", tr(en, "预览读取失败，视频文件已保留，可使用系统播放器打开。", "Preview failed; the saved file can still be opened in the system player.")).into()),
+                        Ok(result) => {
+                            if !blocked {
+                                crate::result_float::show(result, presentation.clone(), true)?;
+                                let _ = run.ui.hide();
+                            }
+                        }
+                        Err(error) => {
+                            run.ui.set_status(format!("{}\n{error}", tr(en, "预览读取失败，视频文件已保留，可使用系统播放器打开。", "Preview failed; the saved file can still be opened in the system player.")).into());
+                            if !blocked {
+                                let _ = run.ui.show();
+                            }
+                        }
                     }
                 }
             }

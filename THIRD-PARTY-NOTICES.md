@@ -15,7 +15,7 @@ Glint 自有代码与 HTML 原型采用 `GPL-3.0-only`，全文见 [LICENSE](LIC
 
 ## 项目图标与字体
 
-- `crates/glint-ui/ui/icons/*.svg` 的路径来自本项目 `prototype/toolbar.js` 中同名的 `iconPaths`，按项目自有代码的 `GPL-3.0-only` 分发；不属于上述 Microsoft Fluent 图标集合。原型路径与原生资源的对应关系见该目录 README。
+- `crates/glint-ui/ui/icons/*.svg` 是本项目原创操作图标，由 `prototype/icons.js` 中的共享路径生成，按项目自有代码的 `GPL-3.0-only` 分发；不属于上述 Microsoft Fluent 图标集合，不依赖 Lucide 或字体字符。原型路径与原生资源的对应关系及生成命令见该目录 README。
 - `assets/brand/*.svg` 是项目原创标志，采用 GPL-3.0-only。构建时从 SVG 生成托盘、窗口及 Windows 可执行文件的图标，不含第三方图标素材。HTML 示例桌面由原型代码绘制，不能作为原生截图资源。
 - 应用界面优先使用用户的系统界面字体；系统字体仅调用，不复制分发。批注字体与界面字体策略独立。
 - 内置回退字体：Noto Sans SC Variable，Copyright 2014–2021 Adobe，Reserved Font Name “Source”；采用 SIL Open Font License 1.1（OFL-1.1），允许随 GPL 应用嵌入与再分发，字体本身继续遵守 OFL。未修改上游字体。原始许可与版权：`assets/fonts/OFL-NotoSansSC.txt`；来源、固定提交及 SHA-256：`assets/fonts/provenance.json`。
@@ -52,3 +52,7 @@ tray-icon 在 M0 贴图探针中提供实际系统托盘菜单，raw-window-hand
 这些材料不等于 M5 发布许可审查或环境验收已完成。发布前仍须复核实际所分发素材、编译器/系统运行库、上游附加说明与依赖变更；本机构建包不包含从系统目录复制的 Windows / Visual C++ DLL。后续引入字体、图标、OCR 模型和编解码器时同样检查与保留对应条款。
 
 Windows 录屏使用 windows-capture 的 Windows Graphics Capture 事件后端；未使用该库的编码器（内部无界通道）。Glint 的有界消费者直接调用系统 Media Foundation H.264/AAC 编码，音频调用 WASAPI。windows-capture 的 rayon/crossbeam 传递依赖采用 MIT OR Apache-2.0；Win32/WinRT 分别使用 windows 0.58/0.62 绑定，系统媒体组件不随包复制。
+
+工作台通过同一系统 Media Foundation 路径按实际可用性调用 H.264/AVC 或 H.265/HEVC 与 AAC；不捆绑系统编码器或扩展包；基础开发包不自动包含 FFmpeg。`image` 固定为 0.25.10，额外启用 BMP/ICO/WebP/TIFF。锁文件中的 image-webp 0.2.4（MIT OR Apache-2.0）、tiff 0.11.3（MIT）、fax 0.2.7（MIT）、half 2.7.1（MIT OR Apache-2.0）和 quick-error 2.0.1（MIT OR Apache-2.0）为纯 Rust 传递依赖，采用与 GPLv3 兼容的许可路径；原许可文件随对应源码和实际分发依赖清单保留。此处记录依赖许可，不代表完整发布审查或特定设备编码可用性承诺。
+
+MOV/MKV/WebM 的可选视频格式组件通过独立 FFmpeg 进程调用。`tools/setup_media.py` 固定 Gyan FFmpeg 9.0.2 essentials 构建及 SHA-256，只为本机安装组件、LICENSE、README 与来源摘要，不执行系统安装。该构建声明 GPL v3（FFmpeg 配置为 `--enable-gpl --enable-version3`，采用 GPL-3.0-or-later 路径与项目 GPL-3.0-only 组合），包含 libvpx/libopus 等；来源为 https://www.gyan.dev/ffmpeg/builds/ ，FFmpeg 源码提交 https://github.com/FFmpeg/FFmpeg/commit/946fcce07b 。本次未新增 Rust crate。此安装脚本不是第三方二进制再分发包：`tools/package_windows.py` 默认不纳入该下载组件；若分发者另行打包该构建，须提供该构建及所含库的完整对应源码、构建材料与许可证，不能只附下载链接或摘要代替。

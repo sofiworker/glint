@@ -488,7 +488,7 @@ export component CaptureProbe inherits Window {
         if root.selected && root.capture-mode == 0: Rectangle {
             x: root.toolbar-x; y: root.toolbar-y;
             width: root.toolbar-width; height: root.toolbar-height;
-            background: root.surface; border-radius: 7px; border-width: root.contrast ? 2px : 1px; border-color: root.line;
+            background: root.surface; border-radius: 10px; border-width: root.contrast ? 2px : 1px; border-color: root.line;
             TouchArea { enabled: root.background-active && (!root.color-only); pointer-event(event) => { if event.button == PointerEventButton.right && event.kind == PointerEventKind.up { root.toolbar-command("open", 0, 0); } } }
             if root.color-only: Text { x: 12px; y: 6px; width: max(0px,parent.width - 124px); height: 30px; text: root.labels.color-picker; color: root.ink; vertical-alignment: center; overflow: elide; }
             if root.color-only: Button { enabled: root.background-active; x: parent.width - 100px; y: 6px; width: 88px; height: 30px; text: root.labels.cancel; clicked => { root.action("cancel-toolbar"); } }
@@ -513,8 +513,9 @@ export component CaptureProbe inherits Window {
                 x: (root.single-row ? 0px : 6px) + mod(index, root.columns) * root.cell-width;
                 y: 5px + floor(index / root.columns) * root.row-height;
                 width: root.cell-width - 2px; height: root.row-height - 4px;
-                border-radius: 4px; border-width: item-focus.has-focus ? 1px : 0px;
-                border-color: root.accent; background: self.item.tool >= 0 && root.tool == self.item.tool ? root.accent.with-alpha(0.12) : tool-touch.has-hover ? root.ink.with-alpha(0.06) : transparent;
+                border-radius: 6px; border-width: item-focus.has-focus ? 1px : 0px;
+                border-color: catalog-index == 12 ? root.ink : root.accent;
+                background: catalog-index == 12 ? root.accent : self.item.tool >= 0 && root.tool == self.item.tool ? root.accent.with-alpha(0.12) : tool-touch.has-hover ? root.ink.with-alpha(0.06) : transparent;
                 item-focus := FocusScope {
                     enabled: root.background-active && (parent.item.enabled && root.toolbar-modal == 0);
                     changed has-focus => { if self.has-focus {
@@ -524,7 +525,7 @@ export component CaptureProbe inherits Window {
                     } else if root.toolbar-focus-index == index { root.toolbar-focus-index = -1; } }
                     key-pressed(event) => { if event.text == Key.Return || event.text == " " { root.activate-toolbar(catalog-index); return accept; } return reject; }
                 }
-                Image { x: root.toolbar-icons || catalog-index == 12 ? (parent.width - 17px) / 2 : 5px; y: (parent.height - 17px) / 2; width: 17px; height: 17px; source: root.toolbar-images[catalog-index]; colorize: catalog-index == 13 ? #e54b58 : catalog-index == 12 ? #209d55 : root.ink; opacity: parent.item.enabled ? 1 : 0.4; }
+                Image { x: root.toolbar-icons || catalog-index == 12 ? (parent.width - 18px) / 2 : 5px; y: (parent.height - 18px) / 2; width: 18px; height: 18px; source: root.toolbar-images[catalog-index]; colorize: catalog-index == 12 ? Theme.on-accent : parent.item.tool >= 0 && root.tool == parent.item.tool ? root.accent : catalog-index == 13 ? root.muted : root.ink; opacity: parent.item.enabled ? 1 : 0.4; }
                 if !root.toolbar-icons && catalog-index != 12: Text { x: 25px; width: max(0px, parent.width - 28px); height: parent.height; text: parent.item.label; color: root.ink; opacity: parent.item.enabled ? 1 : 0.4; vertical-alignment: center; overflow: elide; font-size: root.toolbar-width < 380px ? 10px : 12px; }
                 tool-touch := TouchArea {
                     enabled: root.background-active && (parent.item.enabled && root.toolbar-modal == 0);

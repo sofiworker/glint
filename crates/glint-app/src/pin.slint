@@ -1,6 +1,7 @@
 import { Theme } from "@glint_ui/theme.slint";
 import { Motion } from "@glint_ui/widgets/motion.slint";
 import { Button, Slider, ScrollView } from "@glint_ui/widgets/widgets.slint";
+import { GlintIcons } from "@glint_ui/components/icons.slint";
 export struct PinLabels { pin: string, locked: string, close: string, top: string, unlock: string, lock: string, hide: string, planned: string, copy: string, save: string, retry: string, dismiss: string, pass: string, pass_off: string, pass_title: string, pass_body: string, pass_enable: string, cancel: string, rotate: string, edit: string }
 export component DesktopPin inherits Window {
     default-font-family: Motion.ui-font-family;
@@ -65,8 +66,8 @@ export component DesktopPin inherits Window {
                 text: root.labels.pin + " " + root.identity + (root.locked ? " · " + root.labels.locked : "");
                 color: root.ink; vertical-alignment: center; overflow: elide;
             }
-            Button { x: parent.width - 80px; width: 36px; height: 30px; text: "···"; enabled: root.ready; clicked => { root.action("menu"); } }
-            Button { x: parent.width - 40px; width: 36px; height: 30px; text: "×"; accessible-label: root.labels.close; enabled: root.ready; clicked => { root.action("close"); } }
+            Button { x: parent.width - 80px; width: 36px; height: 30px; icon: GlintIcons.more; icon-size: 18px; colorize-icon: true; accessible-label: root.english ? "Pin actions" : "贴图操作"; enabled: root.ready; clicked => { root.action("menu"); } }
+            Button { x: parent.width - 40px; width: 36px; height: 30px; icon: GlintIcons.close; icon-size: 18px; colorize-icon: true; accessible-label: root.labels.close; enabled: root.ready; clicked => { root.action("close"); } }
         }
         Image { x: (parent.width - self.width)/2; y: 34px + (parent.height - 108px - self.height)/2; width: root.picture-wide * 1px; height: root.picture-high * 1px; source: root.picture; image-fit: contain; }
         TouchArea {
@@ -85,9 +86,9 @@ export component DesktopPin inherits Window {
             TouchArea { x: 10px; y: 4px; width: parent.width - 20px; height: 28px; enabled: root.details != ""; clicked => { root.message-open = true; } }
             Text { x: 10px; y: 38px; width: 42px; height: 28px; text: round(root.alpha*100) + "%"; color: root.ink; vertical-alignment: center; }
             Slider { x: 55px; y: 38px; width: max(40px, parent.width - 230px); height: 28px; minimum: 20; maximum: 100; value: root.alpha*100; enabled: root.ready; changed(value) => { root.change-opacity(value); } }
-            Button { x: parent.width - 168px; y: 38px; width: 40px; height: 28px; text: "−"; enabled: root.ready; clicked => { root.action("smaller"); } }
+            Button { x: parent.width - 168px; y: 38px; width: 40px; height: 28px; icon: GlintIcons.minus; icon-size: 18px; colorize-icon: true; accessible-label: root.english ? "Zoom out" : "缩小"; enabled: root.ready; clicked => { root.action("smaller"); } }
             Text { x: parent.width - 126px; y: 38px; width: 65px; height: 28px; text: root.zoom + "%"; color: root.ink; horizontal-alignment: center; vertical-alignment: center; }
-            Button { x: parent.width - 55px; y: 38px; width: 40px; height: 28px; text: "+"; enabled: root.ready; clicked => { root.action("larger"); } }
+            Button { x: parent.width - 55px; y: 38px; width: 40px; height: 28px; icon: GlintIcons.plus; icon-size: 18px; colorize-icon: true; accessible-label: root.english ? "Zoom in" : "放大"; enabled: root.ready; clicked => { root.action("larger"); } }
         }
     }
         if root.menu-open: Rectangle {

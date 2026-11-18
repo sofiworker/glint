@@ -64,6 +64,8 @@ mod resident_smoke;
 #[cfg(all(feature = "native-shell", windows))]
 mod resource_smoke;
 #[cfg(all(feature = "native-shell", windows))]
+mod result_float;
+#[cfg(all(feature = "native-shell", windows))]
 mod runtime_diagnostics;
 #[cfg(all(feature = "native-shell", windows))]
 mod scale_preview;
@@ -77,6 +79,12 @@ mod settings_policy_smoke;
 mod toolbar;
 #[cfg(all(feature = "native-shell", windows))]
 mod ui_font;
+#[cfg(all(feature = "native-shell", windows))]
+mod workbench;
+#[cfg(all(feature = "native-shell", windows))]
+mod workbench_formats;
+#[cfg(all(feature = "native-shell", windows))]
+mod workbench_pixels;
 
 fn main() {
     #[cfg(feature = "native-shell")]
@@ -113,6 +121,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(windows)]
     ui_font::initialize()?;
     let args: Vec<_> = std::env::args().skip(1).collect();
+    #[cfg(windows)]
+    if args
+        .first()
+        .is_some_and(|arg| arg == "--m0-workbench-smoke")
+    {
+        return workbench::smoke::run(std::path::Path::new(
+            args.get(1).ok_or("Expected output directory")?,
+        ));
+    }
     #[cfg(windows)]
     if args
         .first()

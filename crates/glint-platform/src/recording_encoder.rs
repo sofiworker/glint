@@ -38,6 +38,17 @@ impl Encoder {
         audio: bool,
         hardware: bool,
     ) -> Result<Self> {
+        Self::new_selected(path, width, height, fps, audio, hardware, None)
+    }
+    pub fn new_selected(
+        path: &Path,
+        width: u32,
+        height: u32,
+        fps: u32,
+        audio: bool,
+        hardware: bool,
+        options: Option<glint_core::media_export::VideoExport>,
+    ) -> Result<Self> {
         let coded_width = aligned(width);
         let coded_height = aligned(height);
         unsafe {
@@ -52,11 +63,23 @@ impl Encoder {
             let writer = MFCreateSinkWriterFromURL(PCWSTR(path.as_ptr()), None, &attributes)?;
             let output = MFCreateMediaType()?;
             output.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)?;
-            output.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_H264)?;
+            output.SetGUID(
+                &MF_MT_SUBTYPE,
+                &if options.is_some_and(|o| o.codec == glint_core::media_export::VideoCodec::Hevc) {
+                    MFVideoFormat_HEVC
+                } else {
+                    MFVideoFormat_H264
+                },
+            )?;
             output.SetUINT32(
                 &MF_MT_AVG_BITRATE,
-                (u64::from(coded_width) * u64::from(coded_height) * u64::from(fps) / 6)
-                    .clamp(2_000_000, 40_000_000) as u32,
+                options.map_or_else(
+                    || {
+                        (u64::from(coded_width) * u64::from(coded_height) * u64::from(fps) / 6)
+                            .clamp(2_000_000, 40_000_000) as u32
+                    },
+                    |o| o.video_bitrate(coded_width, coded_height, fps),
+                ),
             )?;
             output.SetUINT32(&MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive.0 as u32)?;
             output.SetUINT64(&MF_MT_FRAME_SIZE, pair(coded_width, coded_height))?;
@@ -75,7 +98,10 @@ impl Encoder {
                 output.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, 2)?;
                 output.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, 48000)?;
                 output.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)?;
-                output.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 24000)?;
+                output.SetUINT32(
+                    &MF_MT_AUDIO_AVG_BYTES_PER_SECOND,
+                    options.and_then(|o| o.audio_bitrate).unwrap_or(192_000) / 8,
+                )?;
                 let index = writer.AddStream(&output)?;
                 let input = MFCreateMediaType()?;
                 input.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)?;

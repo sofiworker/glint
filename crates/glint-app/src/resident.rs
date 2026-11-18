@@ -888,10 +888,16 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         ) || action.starts_with("edit-pin:")
         {
             crate::completion::dismiss();
+            crate::result_float::dismiss();
         }
         let Some(ui) = weak.upgrade() else {
             return;
         };
+        if matches!(action.as_str(), "quit" | "resident-exit")
+            && crate::workbench::request_quit(&ui)
+        {
+            return;
+        }
         if matches!(
             action.as_str(),
             "capture"
@@ -1144,15 +1150,30 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                         | "current-screen-capture"
                         | "color-picker"
                         | "local-image"
+                        | "local-image-overlay-probe"
                 ) || edit_id.is_some() =>
             {
                 if state.capture.is_some() || state.capturing || state.clipboard_pin_pending {
                     return;
                 }
-                if action == "local-image" && state.local_path.is_none() {
+                if matches!(action, "local-image" | "local-image-overlay-probe")
+                    && state.local_path.is_none()
+                {
                     return;
                 }
-                state.local_edit = action == "local-image";
+                if action == "local-image" {
+                    let presentation = crate::workbench::Presentation::from_resident(&state);
+                    if let Some(path) = state.local_path.take() {
+                        crate::workbench::open_file(path, presentation);
+                    }
+                    return;
+                }
+                // The resource validator still measures the screenshot renderer
+                // with a 4K source; normal local opens use the standalone editor.
+                if action == "local-image-overlay-probe" && state.capture_output.is_none() {
+                    return;
+                }
+                state.local_edit = action == "local-image-overlay-probe";
                 if !state.local_edit {
                     state.local_path = None;
                 }
@@ -1875,15 +1896,30 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(capture) = state.capture.take() {
                     let _ = capture.hide();
                     if !blocked {
-                        crate::completion::show(
-                            crate::completion::mode(capture.get_feedback_mode()),
-                            capture.get_completion_kind(),
-                            capture.get_english(),
-                            capture.get_dark(),
-                            capture.get_accent(),
-                            capture.get_interface_scale(),
-                            capture.get_reduce_motion(),
-                        );
+                        let thumbnail = crate::result_float::take_pending();
+                        let has_thumbnail = thumbnail.is_some();
+                        if let Some(thumbnail) = thumbnail {
+                            let presentation =
+                                crate::workbench::Presentation::from_resident(&state);
+                            if let Err(error) = crate::result_float::show(
+                                thumbnail,
+                                presentation,
+                                capture.get_completion_kind() == 2,
+                            ) {
+                                state.feedback = error;
+                            }
+                        }
+                        if !has_thumbnail || capture.get_feedback_mode() == 2 {
+                            crate::completion::show(
+                                crate::completion::mode(capture.get_feedback_mode()),
+                                capture.get_completion_kind(),
+                                capture.get_english(),
+                                capture.get_dark(),
+                                capture.get_accent(),
+                                capture.get_interface_scale(),
+                                capture.get_reduce_motion(),
+                            );
+                        }
                     }
                 }
                 let restored = if blocked {
@@ -2116,7 +2152,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         if state.capture_pending && ui.get_modal() == 0 && !state.session.preferences.is_dirty() {
             state.capture_pending = false;
             let action = if state.local_edit {
-                "local-image".to_owned()
+                "local-image-overlay-probe".to_owned()
             } else if let Some(id) = state.edit_pin {
                 format!("edit-pin:{id}")
             } else if state.color_picker {
@@ -2452,6 +2488,7 @@ fn finish_guide(
 }
 fn leave(ui: &SettingsWindow, quit: bool) {
     if quit {
+        crate::workbench::shutdown();
         let _ = ui
             .as_weak()
             .upgrade_in_event_loop(|ui| ui.invoke_action("resident-exit".into()));

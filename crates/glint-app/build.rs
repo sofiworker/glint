@@ -10,8 +10,8 @@ fn main() {
     let app = fs::read("../../assets/brand/glint-app.svg").expect("Application SVG");
     let small = fs::read("../../assets/brand/glint-small.svg").expect("Small SVG");
     let mut entries = Vec::new();
-    for size in [16u32, 20, 24, 32, 48, 64, 128, 256] {
-        let svg = if size <= 20 { &small } else { &app };
+    for size in [16u32, 20, 24, 32, 40, 48, 64, 96, 128, 256] {
+        let svg = if size <= 24 { &small } else { &app };
         let tree = resvg::usvg::Tree::from_data(svg, &resvg::usvg::Options::default())
             .expect("Valid brand SVG");
         let mut pixels = resvg::tiny_skia::Pixmap::new(size, size).expect("Icon pixel buffer");

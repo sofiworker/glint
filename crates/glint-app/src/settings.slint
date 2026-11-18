@@ -170,8 +170,9 @@ export component SettingsWindow inherits Window {
     }
 
     Rectangle { x: 0px; y: 0px; width: parent.width; height: 92px; background: root.surface;
-        Text { x: 28px; y: 18px; width: parent.width - 480px; text: root.heading; color: root.ink; font-size: Theme.text-display; font-weight: 500; overflow: elide; }
-        Text { x: 28px; y: 55px; width: parent.width - 480px; text: root.status == "" ? root.subtitle : root.status; color: root.muted; font-size: Theme.text-caption; overflow: elide; }
+        Image { x: 24px; y: 24px; width: 44px; height: 44px; source: @image-url("../../../assets/brand/glint-app.svg"); }
+        Text { x: 82px; y: 18px; width: parent.width - 534px; text: root.heading; color: root.ink; font-size: Theme.text-display; font-weight: 500; overflow: elide; }
+        Text { x: 82px; y: 55px; width: parent.width - 534px; text: root.status == "" ? root.subtitle : root.status; color: root.muted; font-size: Theme.text-caption; overflow: elide; }
         HorizontalLayout { visible: root.guide-step >= 0; x: parent.width - 300px; y: 27px; width: 276px; height: 38px; spacing: 8px;
             Button { text: root.guide-back-label; enabled: root.background-active && (root.guide-step > 0 && root.modal == 0); clicked => { root.action("guide-back"); } }
             Button { visible: root.guide-step == 4; text: root.guide-skip-label; enabled: root.background-active; clicked => { root.action("guide-next"); } }

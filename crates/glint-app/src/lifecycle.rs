@@ -84,6 +84,7 @@ pub fn handle(action: &str, state: &mut AppState, ui: &SettingsWindow) -> bool {
         let had_capture = state.capture.is_some() || state.capturing || state.capture_pending;
         let had_countdown = state.countdown.is_some() || state.delay_elapsed;
         crate::completion::dismiss();
+        crate::workbench::hide_for_desktop();
         state.countdown.take();
         state.delay_ticket = state.delay_ticket.wrapping_add(1);
         state.delay_elapsed = false;
@@ -129,6 +130,7 @@ pub fn handle(action: &str, state: &mut AppState, ui: &SettingsWindow) -> bool {
             state.feedback = error;
         }
     } else if was_blocked && !state.lifecycle.blocked() {
+        crate::workbench::resume_for_desktop();
         // Every new capture enumerates current displays and DPI through the capture
         // backend; no automatic old capture/countdown replay on resume.
         if let Some(capture) = &state.capture {

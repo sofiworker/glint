@@ -38,7 +38,9 @@ impl Run {
         app: &Rc<RefCell<AppState>>,
         dir: &Path,
     ) -> Result<bool, String> {
-        if app.borrow().capturing {
+        if app.borrow().capturing
+            || (stage == 4 && crate::workbench::smoke::active_window().is_none())
+        {
             if self
                 .started
                 .is_some_and(|t| t.elapsed() > Duration::from_secs(20))
@@ -116,23 +118,18 @@ impl Run {
                 self.started = Some(Instant::now());
             }
             4 => {
-                let capture = app
-                    .borrow()
-                    .capture
-                    .as_ref()
-                    .ok_or("Deferred selection did not open PNG")?
-                    .clone_strong();
-                if app.borrow().local_dialog
-                    || capture.get_wide() != 80.
-                    || capture.get_high() != 60.
-                {
+                let editor = crate::workbench::smoke::active_window()
+                    .ok_or("Deferred selection did not open PNG")?;
+                if app.borrow().local_dialog || editor.get_iw() != 80. || editor.get_ih() != 60. {
                     return Err("Deferred selection opened wrong image geometry".into());
                 }
-                capture.invoke_action("cancel".into());
+                editor.invoke_action("close".into());
             }
             5 => {
-                if app.borrow().capture.is_some() {
-                    return Err("Deferred local editor cancel did not release capture".into());
+                if crate::workbench::smoke::active_window().is_some()
+                    || app.borrow().capture.is_some()
+                {
+                    return Err("Deferred local editor close did not release the document".into());
                 }
                 ui.invoke_action("workbench".into());
                 let path = dir.join("deferred-local.png");

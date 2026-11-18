@@ -2,6 +2,8 @@
 mod annotations;
 mod document;
 mod edits;
+pub mod media_export;
+pub mod workbench;
 pub use document::ImageDocument;
 mod objects;
 pub mod pin_session;

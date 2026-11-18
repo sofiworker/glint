@@ -47,7 +47,7 @@ pub fn install(
     if local_4k {
         // Explicit QA asset creation precedes the measurement baseline. No
         // desktop pixels are read by this mode. The production decoder still
-        // reads the actual PNG through the normal local-image action below.
+        // Reads the actual PNG through the screenshot-renderer fixture below.
         let source = image::RgbaImage::from_fn(3840, 2160, |x, y| image::Rgba(fixture_pixel(x, y)));
         source
             .save(directory.join("source-4k.png"))
@@ -161,7 +161,7 @@ impl Run {
                 &mut self.app.borrow_mut(),
                 self.directory.join("source-4k.png"),
             );
-            ui.invoke_action("local-image".into());
+            ui.invoke_action("local-image-overlay-probe".into());
         } else {
             ui.invoke_action("capture".into());
         }

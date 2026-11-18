@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64" fill="none">
   <title>拾光 · Glint application icon</title>
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="#4B5CFA"/>
-  <path d="M25 15h-5a5 5 0 0 0-5 5v5m24-10h5a5 5 0 0 1 5 5v5M15 39v5a5 5 0 0 0 5 5h5m14 0h5a5 5 0 0 0 5-5v-5" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
-  <path d="M33 21c1.3 6.2 3.8 8.7 10 10-6.2 1.3-8.7 3.8-10 10-1.3-6.2-3.8-8.7-10-10 6.2-1.3 8.7-3.8 10-10Z" fill="#FFD493"/>
+  <desc>A white capture frame and warm glint on a solid indigo tile, readable on light and dark system surfaces.</desc>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="13.25" fill="#4654D6" stroke="#3542B5" stroke-width="1.5"/>
+  <path d="M25 17h-4a4 4 0 0 0-4 4v4m22-8h4a4 4 0 0 1 4 4v4M17 39v4a4 4 0 0 0 4 4h4m14 0h4a4 4 0 0 0 4-4v-4" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 22c1.5 5.8 4.2 8.5 10 10-5.8 1.5-8.5 4.2-10 10-1.5-5.8-4.2-8.5-10-10 5.8-1.5 8.5-4.2 10-10Z" fill="#FFDB9C"/>
 </svg>

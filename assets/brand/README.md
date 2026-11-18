@@ -5,15 +5,17 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| glint.svg | 透明底彩色主标志，建议 24px 及以上 |
-| glint-app.svg | 带靛蓝圆角底的应用图标 |
-| glint-small.svg | 为 16px / 20px 简化的图标，采用 16 单位坐标 |
-| glint-mono.svg | 单色图形，默认黑色；内联 SVG 时可通过 CSS color 设置颜色 |
+| glint.svg | 与 glint-app.svg 相同的彩色主标志，建议 32px 及以上 |
+| glint-app.svg | 应用、任务栏、窗口与界面品牌标志，共用靛蓝圆角底与深色描边 |
+| glint-small.svg | 16–24px 光学调整版本，保留相同底色，采用 16 单位坐标；用于托盘和小图标 |
+| glint-mono.svg | 印刷等单色场景；默认黑色，内联 SVG 时可通过 CSS color 设置颜色；不用于 Windows 应用或托盘 |
 | preview.html | 浅色、深色及多个实际尺寸的静态预览 |
 
 所有 SVG 都有 viewBox，可指定任意显示宽高。使用时保持正方形比例。
-主色 #4B5CFA，光点 #F4AD55；应用图标内的光点使用 #FFD493。
+主色 #4654D6，轮廓 #3542B5，白色取景框，暖色光点 #FFDB9C。
+小图标保留不透明底色，避免在 Windows 白色任务栏上变成细碎的透明线条。
 SVG 是源素材。启用 native-shell 构建时，glint-app/build.rs 使用 resvg
-生成 16/20/24/32/48/64/128/256px PNG 和多尺寸 ICO；Windows 构建通过
+生成 16/20/24/32/40/48/64/96/128/256px PNG 和多尺寸 ICO；Windows 构建通过
 winresource 将 ICO 嵌入可执行文件。托盘使用 20px 小尺寸图形，窗口
-使用应用图标。生成文件位于 Cargo OUT_DIR，无需运行时读取外部素材。
+和任务栏使用同一应用标志。生成文件位于 Cargo OUT_DIR，无需运行时读取外部素材。
+调整标志后，应检查白色、浅灰和深色背景及 16/20/24/32px 的实际显示效果。

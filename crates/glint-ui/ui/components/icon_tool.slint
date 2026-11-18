@@ -14,7 +14,7 @@ export component IconTool inherits Rectangle {
     accessible-role: button; accessible-label: root.label; accessible-enabled: root.enabled;
     accessible-action-default => { if root.enabled { root.clicked(); } }
     border-radius: 5px; background: touch.has-hover ? Theme.accent.with-alpha(0.15) : transparent;
-    Image { x: (parent.width - 19px) / 2; y: 4px; width: 19px; height: 19px; source: ToolbarAssets.images[root.image]; colorize: Theme.ink; opacity: root.enabled ? 1 : 0.4; }
+    Image { x: (parent.width - 18px) / 2; y: 4px; width: 18px; height: 18px; source: ToolbarAssets.images[root.image]; colorize: Theme.ink; opacity: root.enabled ? 1 : 0.4; }
     Text { y: 25px; width: parent.width; height: 15px; text: root.label; color: Theme.muted; font-size: Theme.text-micro; horizontal-alignment: center; overflow: elide; }
     touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
 }

@@ -6,6 +6,21 @@
 
 默认区域截图 `Ctrl+Shift+S`，窗口截图 `Ctrl+Shift+W`，重复区域 `Ctrl+Shift+R`，剪贴板贴图 `Ctrl+Shift+P`，隐藏/恢复贴图 `Ctrl+Shift+H`，救援 `Ctrl+Alt+Escape`。绑定可在设置中修改，冲突时以实际成功保存的绑定为准。默认 `Enter` 复制并退出，`Esc` 取消；关闭设置收起到托盘，从托盘菜单正常退出。
 
+截图复制/保存成功后，右下角显示 10 秒缩略浮窗，不激活窗口；单击缩略图直接编辑该结果。录屏保存后使用相同入口。Windows 原生工作台遵照 `prototype/postprocess.html` 的 v7 单文档布局：图片裁剪/旋转/翻转、标注对象与文字二次编辑、遮盖/像素化、色彩调整、尺寸、撤销重做、复制和 PNG/JPEG/WebP/BMP/TIFF 副本；视频提供真实逐帧解码、播放/声音预览、片段裁剪/分割/删除、标注出现时间，以及重新编码的 MP4/GIF/MOV/MKV/WebM 副本。导出面板提供 H.264/AVC、H.265/HEVC（通过本机短片编码检测后可选）、质量、帧率、尺寸和 AAC 128/192/256 kbps 或无声音；MOV/MKV 使用 H.264/H.265 + AAC，WebM 使用 VP9 + Opus，GIF 无声音且最高 30 FPS。工作台不会自动打开，正常截图仍默认复制；打开其他文件替换当前文档，读取失败或取消时保留原编辑。
+
+工作台输入图片：PNG、JPEG、WebP、BMP、TIFF、ICO；输入视频：MP4、MOV、M4V、WMV（编码由系统 Media Foundation 支持情况决定）以及 GIF。TIFF 仅编辑首页，ICO 读取为单张图片，动态 WebP 作为静态首帧；GIF 保持动画流程。WebP 输出为无损编码，JPEG 输出在白底合成透明区域；导出重新生成像素并移除源元数据。图片 EXIF 方向在打开时应用。
+
+工作台当前限制：源图/输出最多 16,777,216 像素，图片输入文件最多 64 MiB，文字单行最多 80 字符；GIF 解码最多 30,000 帧/30 分钟，GIF 导出最高 30 FPS，MP4 最高 144 FPS。视频解码依赖系统 Media Foundation；MP4 编码沿用现有 16 像素对齐/边缘填充策略。物理输入、混合 DPI、多屏、长视频音画同步与性能仍需现场验收，不能用受控回归代替 M3/M4/M8 完整阶段验收。
+
+MOV、MKV、WebM 使用可选的本地 FFmpeg 视频格式组件。开发版可执行以下命令，将固定版本及许可材料放到可执行文件旁的 `media/`，随后重启 Glint：
+
+```powershell
+python tools/setup_media.py --directory target/debug/media
+# release 构建将目录改为 target/release/media
+```
+
+也可设置 `GLINT_FFMPEG` 为已有 `ffmpeg.exe` 的绝对路径，或使用 PATH 中的 FFmpeg。组件按真实短片编码结果开放格式/编码选项；缺失或不支持时禁用导出并提示，MP4/GIF 继续使用原有路径。应用不会自动联网安装。MOV/MKV 在系统编码完成后只重新封装；WebM 直接编码合成后的像素，无 H.264 中间转码。WebM 编码帧队列有界，音频使用导出目录内的临时 PCM 文件，完成/取消/失败后清理；异常终止可能留下临时目录。MOV/MKV 沿用 MP4 的 16 像素对齐，WebM 保留所选尺寸。新增的是导出格式，MKV/WebM 的本地打开尚未接入独立解码路径。
+
 打开 [prototype/index.html](prototype/index.html) 浏览全流程原型。HTML 使用示意桌面，不会截取真实屏幕或修改系统设置，最终产品不使用 WebView。
 
 ```powershell
@@ -22,6 +37,8 @@ cargo test --workspace --features glint-app/native-shell
 ```powershell
 cargo run -p glint-app --features native-shell
 cargo run -p glint-app --features native-shell -- --settings
+# v7 工作台：原生控件/软件渲染回归，输出目录必须全新或为空
+cargo run -p glint-app --features native-shell -- --m0-workbench-smoke .local/validation/workbench-new
 # 隔离配置目录的原生设置冒烟，目录必须为空
 cargo run -p glint-app --features native-shell -- --m1-smoke .local/validation/settings-new
 # 仅运行界面缩放验证（同样要求全新空目录，不替代上面的全流程回归）
@@ -54,7 +71,7 @@ cargo run -p glint-app --features input-probe -- --m5-dialog-conflict-input-smok
 cargo run -p glint-app --features native-shell -- --m4-scale-smoke .local/validation/scale-theme-new
 # 真实常驻 / 冻结浮层 / 标注 / PNG 导出的阶段资源记录（全新空目录）
 cargo run --release -p glint-app --features native-shell -- --m5-resources .local/validation/resources-new
-# 生成真实 3840×2160 PNG，通过本地图片入口测量原生预览 / 编辑 / 导出（全新空目录）
+# 生成真实 3840×2160 PNG，测量原生截图浮层的预览 / 编辑 / 导出（全新空目录）
 cargo run --release -p glint-app --features native-shell -- --m5-resources-4k .local/validation/resources-4k-new
 # 30 轮真实采集/标注/PNG/贴图旋转关闭，约十分钟（全新空目录，保存真实桌面 QA 图像）
 cargo run --release -p glint-app --features native-shell -- --m5-endurance .local/validation/endurance-new
@@ -62,7 +79,7 @@ cargo run --release -p glint-app --features native-shell -- --m5-endurance .loca
 
 `--m5-resources` 会采集真实桌面，连续三轮保存合成 PNG 到指定验证目录，并写入 `resources.toml`。记录进程 CPU、内存与句柄的阶段边界值和耗时；静止阶段每次等待 5 秒，无验证器轮询，采集/导出等待期间每 20 毫秒检查完成。绘图事件为程序批量触发，渲染通过软件快照确认，保存路径预先指定；不测物理输入、系统保存对话框、合成器显示延迟或内存峰值，也不代替长期常驻与 4K / 多屏验收。正常启动不会执行此验证或保存这些图像。
 
-`--m5-resources-4k` 使用生成的 4K PNG，三轮经过实际本地文件解码、完整源像素画布、软件预览、600 次画笔移动、实心遮盖、撤销重做和 PNG 导出。保留源图、预览、三张导出图及资源报告，并核对源图未改动、遮盖和未编辑边缘像素。生成源图不计入基线，导出像素校验不计入导出耗时；这验证合成 4K 图片编辑，不能代替物理 4K 显示器采集或连续交互帧率验收。
+`--m5-resources-4k` 使用生成的 4K PNG，通过专用验证入口测量截图浮层，三轮经过实际本地文件解码、完整源像素画布、软件预览、600 次画笔移动、实心遮盖、撤销重做和 PNG 导出。保留源图、预览、三张导出图及资源报告，并核对源图未改动、遮盖和未编辑边缘像素。生成源图不计入基线，导出像素校验不计入导出耗时；这验证合成 4K 图片编辑，不能代替物理 4K 显示器采集或连续交互帧率验收。
 
 `--m5-endurance` 扩展为 30 轮真实桌面工作流，每轮另外核对冻结源图边缘与实心遮盖像素，将实际导出图创建为贴图、旋转 90°、逐像素核对、软件渲染并关闭，要求贴图数量和预留预算归零。每轮等待渲染、反馈释放与五秒静止区间，保留 30 张 PNG 和阶段资源报告；额外校验与贴图分配开销单独标明。它用于观察重复工作流后的资源趋势，不代表多日常驻、物理输入、内存峰值或所有环境的无泄漏证明。正常启动不运行该验证，也不会额外保存这些图像。
 
@@ -179,7 +196,7 @@ Windows 排除程序列表已接入桌面采集：填写完整 `.exe` 文件名�
 
 截图浮层、贴图与倒计时采用创建时已保存的主题。选择“跟随系统”时，已有窗口按系统深浅色事件更新；手动主题不跟随，设置草稿不会改变已有窗口。主题与 DPI 共用窗口事件过滤器，不轮询系统主题，不重采集桌面或改动源图、标注、文字草稿和贴图位置。真实操作系统主题切换仍需现场验收，自动验证向同一事件适配器注入主题事件。
 
-托盘“辅助工作台”可打开真实本地 PNG/JPEG，在独立浮层中标注、撤销重做、复制、另存或生成新贴图。取消或输出成功后回到桌面；读取失败留在工作台可重新选择，输出失败保留当前编辑。文件读取/解码在后台执行，文件与解码后 RGBA 各限 64 MiB、画布限 128 MiB；打开不覆盖原文件，不采集桌面，不应用截图延迟，也不改写上次截图区域。该入口不提供尚未实现的历史浏览。
+托盘“辅助工作台”的本地文件入口可打开 PNG/JPEG/WebP/BMP/TIFF/ICO，在独立原生工作台编辑；工作台中的“打开其他文件”也可选择 MP4/MOV/M4V/WMV/GIF。关闭编辑回到桌面；读取失败保留当前文档，输出失败保留编辑。图片文件与解码后像素各限 64 MiB；不采集桌面、不应用截图延迟、不改写上次截图区域。此入口不提供尚未实现的历史浏览。
 
 **滚动长截图与屏幕录制已实现基本功能**（用户确认转正）。对照飞书《录屏和滚动截图》官方布局：框选后从"滚动长截图"入口或默认快捷键 Ctrl+Shift+L 启动，滚动采集期间选区保留不透明强调色边框，右侧为白色实时拼接预览卡片（强制浅色、随拼接滚动到最新、首帧前显示加载态），选区正下方为操作条（自动滚动 / 结束采集 / 编辑 / 保存 / 取消 / 复制 + 状态文字），其中编辑、保存、复制在滚动中点击即结束采集并执行对应输出；选区外桌面轻度暗化，面板与操作条位于蒙层之上。滚轮触发立即首帧后按 110ms 突发连续采样，连续两帧无变化自动收尾，550ms 静止防抖兜底；拼接采用游标 + 位置模型：向上、向下、往返滚动均以"最近视口所在帧"为对齐锚点，回看已采集内容自动跳过，新内容按位置插入长条（含中部插入与撤销恢复）。匹配不确定的片段保留，预览面板提供接缝调整与撤销；"继续采集"回到实时预览。录屏支持区域/屏幕/窗口、MP4/GIF、指针与音频选项，编码面 16 对齐（边缘像素延续）避免绿色填充边。仍在待验收清单：4K 长图编辑、混合 DPI 与多屏、长时常驻资源占用、物理滚轮/触控板与第三方页面的拼接质量。M6 保持未完成。
 

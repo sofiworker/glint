@@ -158,6 +158,16 @@ pub unsafe fn choose_image_destination(
     authorize(path, confirm, |path| unsafe { ask(owner, path, &prompt) })
 }
 
+/// # Safety
+/// `owner` must be a live HWND on the calling UI thread.
+pub unsafe fn confirm_image_destination(
+    owner: *mut std::ffi::c_void,
+    path: PathBuf,
+    prompt: ReplacementPrompt<'_>,
+) -> Result<Option<ImageDestination>, String> {
+    authorize(path, true, |path| unsafe { ask(owner, path, &prompt) })
+}
+
 unsafe fn ask(
     owner: *mut std::ffi::c_void,
     path: &Path,

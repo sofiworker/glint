@@ -63,7 +63,9 @@ pub fn window_attributes(
     attributes: winit::window::WindowAttributes,
 ) -> winit::window::WindowAttributes {
     use winit::platform::windows::WindowAttributesExtWindows;
-    let attributes = attributes.with_window_icon(Some(crate::brand::window_icon()));
+    let attributes = attributes
+        .with_window_icon(Some(crate::brand::window_icon()))
+        .with_taskbar_icon(Some(crate::brand::taskbar_icon()));
     if CREATING_CAPTURE.with(|capture| capture.get()) {
         // The frozen desktop already fills the window. Desktop-pin transparency
         // enables DWM blur-behind at HWND creation and is unnecessary here.

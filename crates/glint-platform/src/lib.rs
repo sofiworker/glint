@@ -150,12 +150,14 @@ mod image_destination;
 #[cfg(all(windows, feature = "windows-bindings"))]
 pub use image_destination::{
     ImageDestination, ImageReplacement, ReplacementPrompt, choose_image_destination,
-    publish_new_image,
+    confirm_image_destination, publish_new_image,
 };
 #[cfg(all(windows, feature = "windows-bindings"))]
 mod config_dialog;
 #[cfg(all(windows, feature = "windows-bindings"))]
 pub use config_dialog::{choose_config_path, choose_local_image_path};
+#[cfg(all(windows, feature = "windows-bindings"))]
+pub use config_dialog::{choose_editor_export, choose_editor_file};
 
 #[cfg(all(windows, feature = "windows-bindings"))]
 mod hotkeys;

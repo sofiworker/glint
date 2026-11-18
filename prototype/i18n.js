@@ -26,7 +26,7 @@ document.addEventListener('change',e=>{if(!e.target.matches('[data-locale-choice
 window.addEventListener('languagechange',()=>{if(normalizeLanguage(draft.language)==='system')render();});
 const english={
 "Tab 切换到按钮，Shift+Tab 返回录入区；仅在录入区聚焦时记录组合键。":"Tab moves to buttons; Shift+Tab returns to recording. Chords are recorded only while the recording area has focus.",
-  '拾光':'Glint','拾光 Glint':'Glint','HTML 交互原型 · 示意桌面 · 不截取真实屏幕':'Interactive HTML prototype · Sample desktop · No real screen capture',
+  '截图后编辑':'After-capture editing','拾光':'Glint','拾光 Glint':'Glint','HTML 交互原型 · 示意桌面 · 不截取真实屏幕':'Interactive HTML prototype · Sample desktop · No real screen capture',
   '首次引导':'First-run setup','常驻':'Background','截图浮层':'Capture overlay','贴图':'Pin','托盘':'Tray','设置':'Settings','辅助工作台':'Workspace (optional)','异常反馈':'Recovery flows','明 / 暗':'Light / Dark','切换原型主题':'Toggle prototype theme','原型场景':'Prototype scenarios',
   '界面语言':'Interface language','自动 / 跟随系统':'Automatic / Follow system','检测到的首选语言：':'Detected preferred languages:','当前界面：':'Current interface:','自动匹配':'Automatic match','手动选择优先':'Manual choice takes priority','日期与时间示例：':'Date and time example:',
   '首选语言暂无翻译，已回退到 English。你可以随时切换。':'Your preferred languages are not available yet. Using English as a fallback. You can switch at any time.',

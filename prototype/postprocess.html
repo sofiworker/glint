@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>拾光 Glint · 后处理工作台</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/brand/glint-app.svg"><link rel="stylesheet" href="postprocess.css">
+</head>
+<body style="margin:0;padding:clamp(8px,2vw,24px);background:light-dark(#f5f6f8,#16181c);color-scheme:light dark">
+  <!-- BEGIN POSTPROCESS MOCKUP -->
+  <div id="glint-postprocess" aria-label="拾光图片与视频工作台">
+    <div class="gp-preview-bar"><div class="gp-scenarios" role="group" aria-label="预览场景"><button type="button" data-preview="image" aria-pressed="true">图片工作台</button><button type="button" data-preview="video" aria-pressed="false">视频工作台</button><button type="button" data-preview="result" aria-pressed="false">截图完成</button></div><span>交互原型</span></div>
+    <section class="gp-desktop-view" aria-label="截图后返回桌面">
+      <div class="gp-desktop-document"><div class="gp-desktop-content"></div></div>
+      <aside class="gp-result-float" aria-label="截图结果浮窗"><button type="button" class="gp-result-close gp-icon" data-action="dismiss-result" aria-label="关闭浮窗"><i data-glint-icon="x" aria-hidden="true"></i></button><button type="button" class="gp-result-open" data-action="edit-result" aria-label="点击缩略图打开工作台"><span class="gp-result-status"><i data-glint-icon="check" aria-hidden="true"></i><span data-result-status>已复制到剪贴板</span></span><span class="gp-result-thumbnail"></span><span class="gp-result-footer"><span data-result-kind>截图</span><span>点击编辑 ↗</span></span></button></aside>
+      <div class="gp-desktop-taskbar" aria-hidden="true"><span>▣　工作笔记</span><span><img src="../assets/brand/glint-small.svg" width="20" height="20" alt="">Glint　14:32</span></div>
+    </section>
+    <section class="gp-window" aria-label="图片与视频编辑窗口" hidden>
+      <header class="gp-titlebar"><span class="gp-brand" aria-label="拾光"><img src="../assets/brand/glint-app.svg" width="28" height="28" alt=""></span><div class="gp-file-title"><b data-filename>截图 11-16.png</b><span data-dirty>未修改</span></div><div class="gp-editor-output"><button type="button" class="gp-icon" data-action="copy" aria-label="复制图片" data-tooltip="复制图片 · Ctrl C"><i data-glint-icon="copy" aria-hidden="true"></i></button><button type="button" class="gp-primary" data-action="export"><i data-glint-icon="save" aria-hidden="true"></i><span data-export-label>保存副本</span></button></div><button type="button" class="gp-icon gp-window-close" data-action="close" aria-label="关闭编辑窗口"><i data-glint-icon="x" aria-hidden="true"></i></button></header>
+      <div class="gp-commandbar"><div class="gp-history"><button type="button" class="gp-icon" data-action="undo" aria-label="撤销" data-tooltip="撤销 · Ctrl Z"><i data-glint-icon="undo-2" aria-hidden="true"></i></button><button type="button" class="gp-icon" data-action="redo" aria-label="重做" data-tooltip="重做 · Ctrl Shift Z"><i data-glint-icon="redo-2" aria-hidden="true"></i></button></div><nav class="gp-toolrail" aria-label="编辑工具"></nav><div class="gp-command-end"><button type="button" class="gp-icon" data-action="compare" aria-label="按住查看原图" data-tooltip="按住查看原图"><i data-glint-icon="columns-2" aria-hidden="true"></i></button><button type="button" class="gp-icon" data-action="more" aria-label="更多操作" aria-expanded="false" data-tooltip="更多操作"><i data-glint-icon="ellipsis" aria-hidden="true"></i></button></div></div>
+      <div class="gp-context" aria-label="当前工具选项"></div>
+      <div class="gp-editor-body">
+        <div class="gp-center">
+          <main class="gp-stage" aria-label="编辑画布"><div class="gp-image-frame"><div class="gp-image-source" data-source><div class="gp-sample"><div class="gp-sample-top"><span>工作笔记</span><span>周五 / 11.16</span></div><article class="gp-sample-note"><div class="gp-sample-eyebrow">DESIGN NOTES</div><h2>让分享，刚刚好。</h2><p class="gp-sample-intro">把需要同步的重点，留在一张图里。</p><div class="gp-sample-list"><p><span>✓</span> 整理本周的设计更新</p><p><span>✓</span> 核对交互与文案细节</p><p><span>□</span> 发给团队，准备下一次迭代</p></div><div class="gp-sample-contact"><span>项目联系人</span><b>林一 · 138 0013 8000</b></div></article></div><img class="gp-local-image" alt="当前编辑图片" hidden><video class="gp-local-video" playsinline preload="metadata" hidden></video><svg class="gp-annotations" viewBox="0 0 1280 800" role="img" aria-label="可编辑标注"></svg></div><div class="gp-crop" hidden><div class="gp-crop-box" data-crop-handle="move"><span class="gp-crop-size"></span><span data-crop-handle="nw"></span><span data-crop-handle="ne"></span><span data-crop-handle="sw"></span><span data-crop-handle="se"></span></div></div><span class="gp-original-label" hidden>原图</span></div><span class="gp-canvas-hint" data-hint aria-live="polite"></span></main>
+          <div class="gp-viewbar"><span data-editor-info>PNG · 1280 × 800</span><div class="gp-view-note" data-view-note>滚轮缩放 · 空格拖动</div><div class="gp-zoom"><button type="button" class="gp-icon" data-action="zoom-out" aria-label="缩小"><i data-glint-icon="minus" aria-hidden="true"></i></button><button type="button" data-action="zoom-actual" data-zoom>适应</button><button type="button" class="gp-icon" data-action="zoom-in" aria-label="放大"><i data-glint-icon="plus" aria-hidden="true"></i></button><span class="gp-divider"></span><button type="button" data-action="fit" aria-label="适应窗口" data-tooltip="适应窗口"><i data-glint-icon="maximize" aria-hidden="true"></i></button></div></div>
+        </div>
+      </div>
+      <section class="gp-video" aria-label="视频片段时间线" hidden>
+        <div class="gp-timeline-toolbar"><div class="gp-clip-actions"><button type="button" data-action="split"><i data-glint-icon="scissors" aria-hidden="true"></i><span>分割</span></button><button type="button" class="gp-icon" data-action="delete-clip" aria-label="删除所选片段" data-tooltip="删除所选片段"><i data-glint-icon="trash-2" aria-hidden="true"></i></button></div><div class="gp-playback"><button type="button" class="gp-icon" data-action="frame-back" aria-label="上一帧"><i data-glint-icon="skip-back" aria-hidden="true"></i></button><button type="button" class="gp-icon" data-action="play" aria-label="播放"><i data-glint-icon="play" aria-hidden="true"></i></button><button type="button" class="gp-icon" data-action="frame-next" aria-label="下一帧"><i data-glint-icon="skip-forward" aria-hidden="true"></i></button><span class="gp-time"><b data-time>00:08.0</b><span data-duration> / 00:32.0</span></span></div><button type="button" data-action="audio" aria-pressed="false" data-audio-button><i data-glint-icon="volume-2" aria-hidden="true"></i><span>声音</span></button></div>
+        <div class="gp-timeline"><div class="gp-track-labels"><span>时间</span><span>画面</span><span>标注</span></div><div class="gp-track-content"><div class="gp-ruler"></div><div class="gp-clip-track"></div><div class="gp-mark-track"></div><div class="gp-playhead" aria-hidden="true"></div><input type="range" class="gp-seek" data-field="seek" min="0" max="32" step="0.01" value="8" aria-label="时间线播放位置"></div></div>
+        <div class="gp-timeline-footer"><span data-timeline-summary>1 个片段 · 标注可设置出现时间</span></div>
+      </section>
+      <div class="gp-more-menu" role="group" aria-label="更多操作" hidden></div>
+      <div class="gp-dialog-layer" hidden><section class="gp-dialog" role="dialog" aria-modal="true" aria-label="编辑对话框"></section></div>
+    </section>
+    <input type="file" class="gp-file-input" accept=".png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,.ico,.gif,.mp4,.mov,.m4v,.wmv" hidden><div class="gp-toast" role="status" aria-live="polite" hidden></div>
+  </div>
+  <!-- END POSTPROCESS MOCKUP -->
+  <script src="icons.js"></script><script src="postprocess.js"></script>
+</body>
+</html>
