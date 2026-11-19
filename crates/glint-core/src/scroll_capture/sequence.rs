@@ -112,20 +112,27 @@ impl ScrollSequence {
             return Err(StitchError::Budget);
         }
         // Align the viewport against the frame the user last looked at, then
-        // the ends: a revisit lands next to the cursor, new territory extends
-        // the strip. `upward` only reorders the cheap candidates.
+        // the ends. Compare both directions at each anchor before committing
+        // to an overlap. The wheel direction also breaks a tie in match error.
         let last = self.frames.len() - 1;
         let mut candidates: Vec<usize> = vec![self.cursor, if upward { 0 } else { last }];
         candidates.push(if upward { last } else { 0 });
         candidates.dedup();
         let mut placement: Option<(usize, bool, u32)> = None;
         for candidate in candidates {
-            if let Some(overlap) = align(&self.frames[candidate], &frame) {
-                placement = Some((candidate, true, overlap));
-                break;
+            let anchor = &self.frames[candidate];
+            let mut directions = [(anchor, &frame, true), (&frame, anchor, false)];
+            if upward {
+                directions.swap(0, 1);
             }
-            if let Some(overlap) = align(&frame, &self.frames[candidate]) {
-                placement = Some((candidate, false, overlap));
+            if let Some((below, overlap, _)) = directions
+                .into_iter()
+                .filter_map(|(before, after, below)| {
+                    scored_alignment(before, after).map(|(overlap, score)| (below, overlap, score))
+                })
+                .min_by(|left, right| left.2.total_cmp(&right.2))
+            {
+                placement = Some((candidate, below, overlap));
                 break;
             }
         }
@@ -345,35 +352,61 @@ impl ScrollSequence {
         if self
             .operations
             .iter()
-            .any(|op| !matches!(op, Operation::End { upward: false }))
+            .any(|op| matches!(op, Operation::Insert { .. }))
         {
             return;
         }
         while self.retained + incoming > BUDGET || self.frames.len() >= MAX_FRAGMENTS {
-            let Some(index) = (1..self.frames.len().saturating_sub(1)).find(|i| {
-                let height = self.frames[*i].height;
-                let (Some(a), Some(b)) = (self.joins[*i - 1], self.joins[*i]) else {
-                    return false;
-                };
-                let shift = (height - a) + (height - b);
-                shift < height.saturating_sub(32)
-                    && align(&self.frames[*i - 1], &self.frames[*i + 1]) == Some(height - shift)
-            }) else {
+            let Some((index, overlap, cut)) =
+                (1..self.frames.len().saturating_sub(1)).find_map(|index| {
+                    self.redundant_frame(index)
+                        .map(|(overlap, cut)| (index, overlap, cut))
+                })
+            else {
                 break;
             };
-            let overlap = self.joins[index - 1].unwrap() + self.joins[index].unwrap()
-                - self.frames[index].height;
             self.retained -= self.frames.remove(index).rgba.len();
             self.joins.remove(index);
             self.cuts.remove(index);
             self.joins[index - 1] = Some(overlap);
-            self.cuts[index - 1] = overlap / 2;
+            self.cuts[index - 1] = cut;
             self.operations.clear();
             if self.cursor >= index {
                 self.cursor = self.cursor.saturating_sub(1);
             }
             self.review = 0;
         }
+    }
+
+    fn redundant_frame(&self, index: usize) -> Option<(u32, u32)> {
+        let middle = &self.frames[index];
+        let height = middle.height;
+        let left_overlap = self.joins[index - 1]?;
+        let left_shift = height - left_overlap;
+        let right_shift = height - self.joins[index]?;
+        let shift = left_shift + right_shift;
+        if shift >= height.saturating_sub(32) {
+            return None;
+        }
+        let overlap = height - shift;
+        let start = self.cuts[index - 1];
+        let end = right_shift + self.cuts[index];
+        let earliest = start.max(right_shift);
+        let latest = end.min(left_overlap);
+        if earliest > latest {
+            return None;
+        }
+        let seam = (right_shift + overlap / 2).clamp(earliest, latest);
+        let before = &self.frames[index - 1];
+        let after = &self.frames[index + 1];
+        // Compare only the rows that will change owners at the new join.
+        if rows(middle, start, seam) != rows(before, left_shift + start, left_shift + seam)
+            || rows(middle, seam, end) != rows(after, seam - right_shift, end - right_shift)
+            || align(before, after) != Some(overlap)
+        {
+            return None;
+        }
+        Some((overlap, seam - right_shift))
     }
     pub fn accept_pending(&mut self, overlap: u32) -> Result<(), StitchError> {
         let index = self.pending_index().ok_or(StitchError::NoPending)?;
@@ -624,6 +657,11 @@ impl ScrollSequence {
     }
 }
 
+fn rows(frame: &Fragment, start: u32, end: u32) -> &[u8] {
+    let stride = frame.width as usize * 4;
+    &frame.rgba[start as usize * stride..end as usize * stride]
+}
+
 /// Derived overlaps must stay inside one frame height; a contradiction keeps
 /// the join unresolved instead of inventing geometry.
 fn clamp_join(value: i64, height: i64) -> Option<u32> {
@@ -707,6 +745,10 @@ fn alignment_score(previous: &Fragment, next: &Fragment, shift: u32, dense: bool
 }
 
 fn align(previous: &Fragment, next: &Fragment) -> Option<u32> {
+    scored_alignment(previous, next).map(|(overlap, _)| overlap)
+}
+
+fn scored_alignment(previous: &Fragment, next: &Fragment) -> Option<(u32, f64)> {
     let mut candidates: Vec<_> = (1..previous.height.saturating_sub(31))
         .filter_map(|shift| {
             alignment_score(previous, next, shift, false).map(|score| (score, shift))
@@ -728,5 +770,6 @@ fn align(previous: &Fragment, next: &Fragment) -> Option<u32> {
         .map(|s| s.0)
         .min_by(f64::total_cmp)
         .unwrap_or(f64::INFINITY);
-    (best.0 <= 7.5 && alternative > best.0 * 1.25 + 0.15).then_some(previous.height - best.1)
+    (best.0 <= 7.5 && alternative > best.0 * 1.25 + 0.15)
+        .then_some((previous.height - best.1, best.0))
 }

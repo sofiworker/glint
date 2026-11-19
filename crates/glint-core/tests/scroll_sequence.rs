@@ -1,9 +1,13 @@
 use glint_core::scroll_capture::{Append, Fragment, ScrollSequence};
 
 fn document(start: usize, height: usize) -> Fragment {
-    let mut pixels = Vec::new();
+    sized_document(start, 96, height)
+}
+
+fn sized_document(start: usize, width: usize, height: usize) -> Fragment {
+    let mut pixels = Vec::with_capacity(width * height * 4);
     for y in start..start + height {
-        for x in 0..96usize {
+        for x in 0..width {
             let seed = (y as u32).wrapping_mul(1_664_525) ^ (x as u32).wrapping_mul(1_013_904_223);
             pixels.extend_from_slice(&[
                 (seed >> 3) as u8,
@@ -13,7 +17,7 @@ fn document(start: usize, height: usize) -> Fragment {
             ]);
         }
     }
-    Fragment::new(96, height as u32, pixels).unwrap()
+    Fragment::new(width as u32, height as u32, pixels).unwrap()
 }
 
 #[test]
@@ -308,11 +312,35 @@ fn repeated_pattern_requires_evidence_instead_of_guessing_a_period() {
 
 #[test]
 fn frame_limit_compacts_only_verified_redundancy_without_changing_output() {
-    let mut sequence = ScrollSequence::default();
-    for step in 0..130 {
-        sequence.append(document(step * 3, 128)).unwrap();
+    for upward in [false, true] {
+        let mut sequence = ScrollSequence::default();
+        for step in 0..130 {
+            let document_row = if upward { 129 - step } else { step } * 3;
+            sequence
+                .capture(document(document_row, 128), upward)
+                .unwrap();
+        }
+        assert!(sequence.count() <= 128);
+        assert_eq!(sequence.unresolved_count(), 0);
+        assert!(sequence.compose(None).unwrap().rgba == document(0, 515).rgba);
+        sequence.undo();
+        assert!(
+            sequence.compose(None).unwrap().rgba == document(if upward { 3 } else { 0 }, 512).rgba
+        );
     }
-    assert!(sequence.count() <= 128);
+}
+
+#[test]
+fn upward_scroll_reclaims_memory_before_the_frame_limit() {
+    let mut sequence = ScrollSequence::default();
+    let width = 1024;
+    let height = 256;
+    for step in (0..68).rev() {
+        sequence
+            .capture(sized_document(step * 8, width, height), true)
+            .unwrap();
+    }
+    assert!(sequence.count() <= 64);
     assert_eq!(sequence.unresolved_count(), 0);
-    assert_eq!(sequence.compose(None).unwrap().rgba, document(0, 515).rgba);
+    assert!(sequence.compose(None).unwrap().rgba == sized_document(0, width, height + 67 * 8).rgba);
 }

@@ -2,14 +2,14 @@ import { Theme } from "@glint_ui/theme.slint";
 import { FontPicker, FontLabels } from "@glint_ui/components/font_picker.slint";
 import { Motion } from "@glint_ui/widgets/motion.slint";
 import { ToolbarEditor, ToolbarAssets, ToolbarRow } from "@glint_ui/components/toolbar_editor.slint";
-import { Button, ComboBox, LineEdit, ScrollView } from "@glint_ui/widgets/widgets.slint";
+import { Button, CheckBox, ComboBox, LineEdit, ScrollView } from "@glint_ui/widgets/widgets.slint";
 export struct LayerTile { x: float, y: float, w: float, h: float, picture: image }
 export struct WindowRegion { left: float, top: float, wide: float, high: float }
 export struct ObjectGrip { x: float, y: float }
 export struct CaptureLabels { color-picker: string, magnifier: string, pin: string, save-elsewhere: string, toolbar-customize: string, toolbar-title: string, toolbar-more: string, toolbar-both: string, toolbar-icons: string, toolbar-follow: string, toolbar-top: string, toolbar-bottom: string, toolbar-groups: string, toolbar-order-hint: string, toolbar-preview-hint: string, toolbar-apply: string, toolbar-reset: string,  title: string, select: string, pen: string, redact: string, rectangle: string, arrow: string, highlight: string, undo: string, redo: string, save: string, copy: string, finish: string, cancel: string, stroke: string, pen-hint: string, select-hint: string, object-hint: string, object-text-hint: string, object-delete: string, arrow-filled: string, arrow-open: string, text-edit: string, redact-hint: string, rectangle-hint: string, arrow-hint: string, highlight-hint: string, pixelate: string, pixelate-hint: string, text: string, text-hint: string, text-place: string, text-cancel: string, text-size: string, text-font: string, text-limit: string, picker: string, picker-hint: string, copy-hex: string, copy-rgb: string }
 struct CaptureAction { label: string, tool: int, action: string, enabled: bool }
 // Internal lifecycle evidence, never user text or image content.
-export enum CaptureExit { open, api-cancel, escape-key, secondary-click, toolbar-cancel, window-request, copy, save, pin, color-copy, pin-update, direct }
+export enum CaptureExit { open, api-cancel, escape-key, secondary-click, toolbar-cancel, window-request, copy, save, pin, color-copy, pin-update, direct, editor }
 export component CaptureProbe inherits Window {
     in-out property <int> capture-mode;
     in-out property <int> record-format;
@@ -140,9 +140,11 @@ export component CaptureProbe inherits Window {
     in property <bool> can-undo;
     in property <bool> can-redo;
     in property <bool> output-ready: true;
+    in property <bool> editor-available;
     in property <bool> diagnostic: true;
     in property <bool> color-only;
     in-out property <string> status;
+    in-out property <string> editor-error;
     in-out property <string> service-notice;
     out property <string> info-text: (root.service-notice == "" ? "" : root.service-notice + "\n") + root.status + (root.repeat-notice == "" ? "" : "\n" + root.repeat-notice) + (root.appearance-notice == "" ? "" : "\n" + root.appearance-notice);
     in-out property <bool> auto-save-failed;
@@ -239,7 +241,7 @@ export component CaptureProbe inherits Window {
                 }
                 if root.toolbar-modal == 2: ScrollView {
                     x: 12px; y: 44px; width: parent.width - 24px; height: parent.height - 90px;
-                    content-height: (root.toolbar-hidden.length + (!root.pin-editing && !root.color-only ? 2 : 0)) * 38px;
+                    content-height: (root.toolbar-hidden.length + (!root.pin-editing && !root.color-only ? 2 : 0) + (root.editor-available ? 1 : 0)) * 38px;
                     for catalog-index[index] in root.toolbar-hidden: Button {
                         x: 0px; y: index * 38px; width: parent.width; height: 34px;
                         text: root.actions[catalog-index].label;
@@ -254,6 +256,12 @@ export component CaptureProbe inherits Window {
                         y: (root.toolbar-hidden.length + 1) * 38px; width: parent.width; height: 34px;
                         text: root.english ? "Record this region" : "录制此区域";
                         clicked => { root.toolbar-command("cancel", 0, 0); root.action("record-start"); }
+                    }
+                    if root.editor-available: Button {
+                        y: (root.toolbar-hidden.length + 2) * 38px; width: parent.width; height: 34px;
+                        text: root.english ? "Continue in Editor" : "在编辑器中继续";
+                        enabled: !root.text-editing && !root.busy;
+                        clicked => { root.toolbar-command("cancel", 0, 0); root.action("edit-capture"); }
                     }
                 }
                 if root.toolbar-modal == 1: Text { x: 12px; y: parent.height - 88px; width: parent.width - 24px; height: 42px; text: root.toolbar-feedback == "" ? (root.labels.toolbar-preview-hint) : root.toolbar-feedback; color: root.ink; wrap: word-wrap; overflow: elide; }
@@ -299,8 +307,7 @@ export component CaptureProbe inherits Window {
     property <bool> object-line: root.object-tool == 2 || root.object-tool == 3 || root.object-tool == 4;
     property <length> panel-height: root.object-panel ? (root.object-compact && (root.object-line || root.object-tool == 8) ? 96px : 76px) : root.tool == 6 ? (root.compact ? 96px : 76px) : root.color-tool && root.tool != 5 && root.compact ? 76px : 46px;
     property <bool> properties-visible: root.object-panel || root.color-tool || root.tool == 6;
-    property <bool> capture-entry-visible: !root.pin-editing && !root.color-only && !root.scroll-editor;
-    out property <length> toolbar-total-height: root.toolbar-height + (root.capture-entry-visible ? 44px : 0px) + (root.properties-visible ? 8px + root.panel-height : 0px);
+    out property <length> toolbar-total-height: root.toolbar-height + (root.properties-visible ? 8px + root.panel-height : 0px);
     out property <length> toolbar-x: !root.color-only && root.toolbar-position == 0 ? max(12px, min((root.left + root.wide) * root.sx * 1px - root.toolbar-width, root.width - root.toolbar-width - 12px)) : (root.width - root.toolbar-width) / 2;
     property <length> below: (root.top + root.high) * root.sy * 1px + 12px;
     property <length> above: root.top * root.sy * 1px - root.toolbar-total-height - 12px;
@@ -319,7 +326,7 @@ export component CaptureProbe inherits Window {
         { label: root.labels.undo, tool: -1, action: "undo", enabled: !root.busy && root.can-undo },
         { label: root.labels.redo, tool: -1, action: "redo", enabled: !root.busy && root.can-redo },
         { label: root.labels.save, tool: -1, action: "save", enabled: !root.busy && root.output-ready },
-        { label: root.labels.finish, tool: -1, action: "finish", enabled: !root.busy && root.output-ready },
+        { label: root.labels.copy, tool: -1, action: "copy", enabled: !root.busy && root.output-ready },
         { label: root.labels.cancel, tool: -1, action: "cancel-toolbar", enabled: true },
         { label: root.labels.toolbar-more, tool: -1, action: "toolbar-more", enabled: !root.busy },
         { label: root.labels.toolbar-customize, tool: -1, action: "toolbar-customize", enabled: !root.busy && !root.text-editing },
@@ -432,10 +439,10 @@ export component CaptureProbe inherits Window {
             double-clicked => { if root.selected && root.tool == 0 { root.action("finish"); } }
         }
         capture-info := Rectangle {
-            visible: root.service-notice != "" || root.auto-save-failed || !root.output-ready;
+            visible: root.editor-error != "" || root.service-notice != "" || root.auto-save-failed || !root.output-ready;
             x: (parent.width - self.width) / 2; y: root.height < 300px ? 4px : 18px; width: min(parent.width - 40px, 1000px); height: min(root.height < 300px ? (root.auto-save-failed ? 78px : 38px) : parent.height / 3, info.preferred-height + 24px + (root.auto-save-failed ? 40px : 0px));
             background: root.surface; border-radius: 6px; border-width: root.contrast ? 2px : 1px; border-color: root.line;
-            info := Text { x: 12px; y: 12px; width: parent.width - 24px; height: parent.height - 24px - (root.auto-save-failed ? 40px : 0px); text: root.service-notice + ((root.auto-save-failed || !root.output-ready) ? (root.service-notice == "" ? "" : "\n") + root.status : ""); color: root.ink; wrap: word-wrap; overflow: elide; }
+            info := Text { x: 12px; y: 12px; width: parent.width - 24px; height: parent.height - 24px - (root.auto-save-failed ? 40px : 0px); text: root.editor-error != "" ? root.editor-error : root.service-notice + ((root.auto-save-failed || !root.output-ready) ? (root.service-notice == "" ? "" : "\n") + root.status : ""); color: root.ink; wrap: word-wrap; overflow: elide; }
             if root.auto-save-failed: Button { x: 12px; y: parent.height - 44px; height: 32px; width: min(parent.width - 24px, 420px); text: root.labels.save-elsewhere; enabled: root.background-active && (!root.busy); clicked => { root.action("save-without-auto"); } }
         }
         selection-metrics := Rectangle {
@@ -452,37 +459,30 @@ export component CaptureProbe inherits Window {
         }
         if !root.pin-editing && !root.color-only && !root.scroll-editor: Rectangle {
             x: (root.width - self.width) / 2; y: 12px;
-            width: min(520px, root.width - 24px); height: 44px;
-            background: root.surface; border-radius: 8px;
-            HorizontalLayout { padding: 5px; spacing: 4px;
-                Button { text: root.english ? "Screenshot" : "截图"; primary: root.capture-mode == 0; clicked => { root.action("mode-capture"); } }
-                Button { text: root.english ? "Scrolling capture" : "滚动长截图"; primary: root.capture-mode == 1; clicked => { root.action("mode-scroll"); } }
-                Button { text: root.english ? "Recording" : "录屏"; primary: root.capture-mode == 2; clicked => { root.action("mode-record"); } }
+            width: min(390px, root.width - 24px); height: 40px;
+            background: root.surface; border-radius: 8px; border-width: 1px; border-color: root.line;
+            HorizontalLayout { padding: 4px; spacing: 4px;
+                Button { text: root.english ? "Capture" : "截图"; primary: root.capture-mode == 0; clicked => { root.action("mode-capture"); } }
+                Button { text: root.english ? "Scroll" : "长截图"; primary: root.capture-mode == 1; clicked => { root.action("mode-scroll"); } }
+                Button { text: root.english ? "Record" : "录屏"; primary: root.capture-mode == 2; clicked => { root.action("mode-record"); } }
             }
         }
         if root.selected && root.capture-mode > 0: Rectangle {
-            x: max(12px, min(root.left * root.sx * 1px, root.width - self.width - 12px));
-            y: max(12px, min(root.below, root.height - self.height - 78px));
-            width: min(480px, root.width - 24px); height: root.capture-mode == 2 ? 146px : 104px;
+            property <length> anchor-x: (root.left + root.wide / 2) * root.sx * 1px - self.width / 2;
+            x: max(12px, min(self.anchor-x, root.width - self.width - 12px));
+            y: root.below + self.height + 12px <= root.height ? root.below : max(root.safe-top, root.top * root.sy * 1px - self.height - 12px);
+            width: min(root.capture-mode == 1 ? 232px : 418px, root.width - 24px); height: root.capture-mode == 2 ? 90px : 46px;
             background: root.surface; border-radius: 8px; border-width: 1px; border-color: root.line;
-            if root.capture-mode == 1: Text {
-                x: 12px; y: 8px; width: parent.width - 24px; height: 40px;
-                text: root.english ? "Scroll slowly inside the selection; frames stitch with a live preview. Copy, save or edit at any time." : "缓慢滚动选区即自动拼接，右侧实时预览长图；可随时复制、保存或编辑。";
-                wrap: word-wrap; color: Theme.danger; font-size: 11px;
-            }
             if root.capture-mode == 2: HorizontalLayout {
-                x: 12px; y: 10px; width: parent.width - 24px; height: 32px; spacing: 8px;
-                ComboBox { model: ["MP4", "GIF"]; current-index <=> root.record-format; }
-                Button { text: root.english ? "Cursor" : "鼠标指针"; primary: root.record-cursor; clicked => { root.record-cursor = !root.record-cursor; } }
+                x: 8px; y: 8px; width: parent.width - 16px; height: 30px; spacing: 8px;
+                ComboBox { width: 76px; model: ["MP4", "GIF"]; current-index <=> root.record-format; enabled: root.background-active && !root.busy; }
+                CheckBox { text: root.english ? "Cursor" : "鼠标指针"; checked: root.record-cursor; enabled: root.background-active && !root.busy; toggled => { root.record-cursor = self.checked; } }
+                CheckBox { text: root.english ? "System audio" : "系统声音"; checked: root.record-format == 0 && root.record-system-audio; enabled: root.background-active && !root.busy && root.record-format == 0; toggled => { root.record-system-audio = self.checked; } }
+                CheckBox { text: root.english ? "Microphone" : "麦克风"; checked: root.record-format == 0 && root.record-microphone; enabled: root.background-active && !root.busy && root.record-format == 0; toggled => { root.record-microphone = self.checked; } }
             }
-            if root.capture-mode == 2 && root.record-format == 0: HorizontalLayout {
-                x: 12px; y: 50px; width: parent.width - 24px; height: 32px; spacing: 8px;
-                Button { text: root.english ? "System audio" : "系统声音"; primary: root.record-system-audio; clicked => { root.record-system-audio = !root.record-system-audio; } }
-                Button { text: root.english ? "Microphone" : "麦克风"; primary: root.record-microphone; clicked => { root.record-microphone = !root.record-microphone; } }
-            }
-            HorizontalLayout { x: 12px; y: parent.height - 48px; width: parent.width - 24px; height: 34px; spacing: 8px;
-                Button { text: root.capture-mode == 1 ? (root.english ? "Start scrolling capture" : "开始滚动截图") : (root.english ? "Start recording" : "开始录制"); primary: true; enabled: !root.busy; clicked => { root.action(root.capture-mode == 1 ? "scroll-start" : "record-start"); } }
-                Button { text: root.labels.cancel; clicked => { root.action("cancel"); } }
+            HorizontalLayout { x: 8px; y: parent.height - 38px; width: parent.width - 16px; height: 30px; spacing: 8px; alignment: space-between;
+                Button { text: root.labels.cancel; enabled: root.background-active; clicked => { root.action("cancel"); } }
+                Button { text: root.capture-mode == 1 ? (root.english ? "Start scrolling" : "开始滚动截图") : (root.english ? "Start recording" : "开始录制"); primary: true; enabled: root.background-active && !root.busy; clicked => { root.action(root.capture-mode == 1 ? "scroll-start" : "record-start"); } }
             }
         }
         if root.selected && root.capture-mode == 0: Rectangle {
@@ -542,18 +542,9 @@ export component CaptureProbe inherits Window {
                 }
             }
             }
-            if root.capture-entry-visible: Rectangle {
-                y: parent.height + 6px; width: parent.width; height: 38px;
-                background: root.surface; border-radius: 6px; border-width: 1px; border-color: root.line;
-                HorizontalLayout {
-                    padding: 4px; spacing: 6px;
-                    Button { text: root.scroll-label; enabled: root.background-active && !root.busy; clicked => { root.action("scroll-start"); } }
-                    Button { text: root.english ? "Record this region" : "录制此区域"; enabled: root.background-active && !root.busy; clicked => { root.action("record-start"); } }
-                }
-            }
             Rectangle {
                 visible: root.properties-visible;
-                y: parent.height + 8px + (root.capture-entry-visible ? 44px : 0px); width: parent.width; height: root.panel-height;
+                y: parent.height + 8px; width: parent.width; height: root.panel-height;
                 background: root.surface; border-width: root.contrast ? 2px : 1px; border-color: root.line; border-radius: 6px;
                 if root.object-panel: Rectangle {
                     property <bool> editable: !root.busy && !root.text-editing && !root.text-busy;

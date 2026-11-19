@@ -98,17 +98,20 @@ pub fn select(capture: &CaptureProbe, x: f32, y: f32, w: i32, h: i32) -> Result<
                 }
                 let logical_width = size.width as f32 / scale;
                 let logical_height = size.height as f32 / scale;
-                let panel_width = 480f32.min(logical_width - 24.);
-                let panel_x = (x * sx / scale)
+                let panel_width = 232f32.min(logical_width - 24.);
+                let panel_x = ((x + w as f32 / 2.) * sx / scale - panel_width / 2.)
                     .min(logical_width - panel_width - 12.)
                     .max(12.);
-                let panel_y = ((y + h as f32) * sy / scale + 12.)
-                    .min(logical_height - 104. - 78.)
-                    .max(12.);
+                let below = (y + h as f32) * sy / scale + 12.;
+                let panel_y = if below + 58. <= logical_height {
+                    below
+                } else {
+                    (y * sy / scale - 58.).max(70.)
+                };
                 input.pointer(
                     peer,
-                    ((panel_x + panel_width / 4.) * scale) as i32,
-                    ((panel_y + 73.) * scale) as i32,
+                    ((panel_x + panel_width - 56.) * scale) as i32,
+                    ((panel_y + 23.) * scale) as i32,
                     Pointer::Click,
                     false,
                 )?;

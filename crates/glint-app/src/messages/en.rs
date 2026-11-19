@@ -96,17 +96,13 @@ pub fn text(id: Message) -> &'static str {
         Message::SessionExitHint => {
             "Exit without saving the current pins. The last successful session is preserved; new pins and unsaved changes will be lost."
         }
-        Message::Workbench => "Auxiliary workbench",
+        Message::Workbench => "Image & video editor",
         Message::WorkbenchCapture => "Capture region",
-        Message::WorkbenchPrivacy => "History & privacy",
+        Message::WorkbenchPrivacy => "Settings…",
         Message::WorkbenchOutput => "Output settings",
-        Message::WorkbenchHint => {
-            "Open a local image in the annotation overlay. Screenshots work directly from the tray or shortcuts."
-        }
-        Message::WorkbenchNote => {
-            "PNG/JPEG only. Files up to 64 MiB; decoded RGBA up to 64 MiB; canvas up to 128 MiB. The source file is never overwritten by opening it. Copy, save as or pin from the overlay. History browsing is planned and unavailable in this build."
-        }
-        Message::LocalOpen => "Open local image…",
+        Message::WorkbenchHint => "",
+        Message::WorkbenchNote => "PNG · JPEG · WebP · BMP · TIFF · ICO · GIF · Video",
+        Message::LocalOpen => "Open image or video…",
         Message::LocalTitle => "Local image · Enter uses saved completion action · Esc cancels",
         Message::LocalHint => {
             "Local image · Copy, save as or create a new pin. The original file is preserved. Esc returns to the desktop."

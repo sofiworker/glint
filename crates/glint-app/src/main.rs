@@ -30,6 +30,8 @@ mod interface_scale;
 #[cfg(all(feature = "native-shell", windows))]
 mod lifecycle;
 #[cfg(all(feature = "native-shell", windows))]
+mod live_toolbar;
+#[cfg(all(feature = "native-shell", windows))]
 mod local_image;
 #[cfg(all(feature = "native-shell", windows))]
 mod messages;
@@ -126,9 +128,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .first()
         .is_some_and(|arg| arg == "--m0-workbench-smoke")
     {
-        return workbench::smoke::run(std::path::Path::new(
-            args.get(1).ok_or("Expected output directory")?,
-        ));
+        return workbench::smoke::run(
+            std::path::Path::new(args.get(1).ok_or("Expected output directory")?),
+            args.iter().any(|arg| arg == "--interactive"),
+        );
     }
     #[cfg(windows)]
     if args

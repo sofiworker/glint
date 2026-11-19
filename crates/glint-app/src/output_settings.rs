@@ -42,7 +42,7 @@ pub(crate) fn begin(state: &mut AppState, ui: &SettingsWindow) -> bool {
         || !state.session.writable
         || ui.get_modal() != 0
         || ui.get_font_open()
-        || ui.get_category() != 5
+        || ui.get_category() != crate::settings::fields::OUTPUT
         || ui.get_guide_step() >= 0
         || !ui.window().is_visible()
         || state.pin_session.busy()
@@ -71,7 +71,7 @@ pub(crate) fn complete(
         return;
     };
     if !state.session.writable
-        || ui.get_category() != 5
+        || ui.get_category() != crate::settings::fields::OUTPUT
         || !ui.window().is_visible()
         || state.session.preferences.draft.output.directory != original
     {

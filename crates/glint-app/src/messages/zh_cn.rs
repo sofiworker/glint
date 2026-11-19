@@ -84,17 +84,13 @@ pub fn text(id: Message) -> Option<&'static str> {
         Message::SessionExitHint => {
             Some("退出而不保存当前贴图，保留上次成功保存的会话。尚未保存的新贴图和修改将丢失。")
         }
-        Message::Workbench => Some("辅助工作台"),
+        Message::Workbench => Some("图片与视频编辑"),
         Message::WorkbenchCapture => Some("区域截图"),
-        Message::WorkbenchPrivacy => Some("历史与隐私"),
+        Message::WorkbenchPrivacy => Some("设置…"),
         Message::WorkbenchOutput => Some("输出设置"),
-        Message::WorkbenchHint => {
-            Some("打开本地图片，在独立浮层中标注。正常截图直接使用托盘或快捷键。")
-        }
-        Message::WorkbenchNote => Some(
-            "支持 PNG/JPEG。文件上限 64 MiB，解码后 RGBA 上限 64 MiB，画布上限 128 MiB。打开图片不会覆盖原文件，可在浮层中复制、另存或贴图。历史浏览尚未实现。",
-        ),
-        Message::LocalOpen => Some("打开本地图片…"),
+        Message::WorkbenchHint => Some(""),
+        Message::WorkbenchNote => Some("PNG · JPEG · WebP · BMP · TIFF · ICO · GIF · 视频"),
+        Message::LocalOpen => Some("打开图片或视频…"),
         Message::LocalTitle => Some("本地图片 · Enter 使用已保存完成动作 · Esc 取消"),
         Message::LocalHint => {
             Some("本地图片 · 可复制、另存或生成新贴图，保留原文件。Esc 回到桌面。")

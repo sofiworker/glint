@@ -12,9 +12,9 @@ use std::{
     time::Duration,
 };
 use windows_capture::{
-    capture::{Context, GraphicsCaptureApiHandler},
+    capture::{CaptureControl, Context, GraphicsCaptureApiHandler},
     frame::Frame,
-    graphics_capture_api::InternalCaptureControl,
+    graphics_capture_api::{GraphicsCaptureApi, InternalCaptureControl},
     monitor::Monitor,
     settings::*,
     window::Window,
@@ -273,6 +273,7 @@ impl Drop for Recorder {
         self.shared.stop.store(true, Ordering::Release);
     }
 }
+#[derive(Clone, Copy)]
 enum Target {
     Window(usize),
     Monitor(usize),
@@ -297,6 +298,7 @@ impl TryInto<GraphicsCaptureItemType> for Target {
 struct Video {
     pixels: Vec<u8>,
 }
+#[derive(Clone)]
 struct Flags {
     shared: Shared,
     sender: SyncSender<Video>,
@@ -309,6 +311,57 @@ struct Flags {
 struct Capture {
     flags: Flags,
     last: Option<Duration>,
+}
+
+fn capture_settings(
+    options: &Options,
+    target: Target,
+    flags: Flags,
+    border: DrawBorderSettings,
+) -> Settings<Flags, Target> {
+    Settings::new(
+        target,
+        if options.cursor {
+            CursorCaptureSettings::WithCursor
+        } else {
+            CursorCaptureSettings::WithoutCursor
+        },
+        border,
+        SecondaryWindowSettings::Exclude,
+        MinimumUpdateIntervalSettings::Default,
+        DirtyRegionSettings::Default,
+        ColorFormat::Bgra8,
+        flags,
+    )
+}
+
+fn start_capture(
+    options: &Options,
+    flags: Flags,
+) -> Result<CaptureControl<Capture, String>, String> {
+    let target = if options.source.window {
+        Target::Window(options.source.handle)
+    } else {
+        Target::Monitor(options.source.handle)
+    };
+    if options.crop.is_some()
+        && GraphicsCaptureApi::is_border_settings_supported().unwrap_or(false)
+        && let Ok(control) = Capture::start_free_threaded(capture_settings(
+            options,
+            target,
+            flags.clone(),
+            DrawBorderSettings::WithoutBorder,
+        ))
+    {
+        return Ok(control);
+    }
+    Capture::start_free_threaded(capture_settings(
+        options,
+        target,
+        flags,
+        DrawBorderSettings::Default,
+    ))
+    .map_err(|error| error.to_string())
 }
 impl GraphicsCaptureApiHandler for Capture {
     type Flags = Flags;
@@ -566,29 +619,7 @@ fn record_to(options: &Options, shared: Shared, path: &std::path::Path) -> Resul
         fps: options.fps,
         exclusions: options.exclusions.clone(),
     };
-    let start = |flags, item| {
-        Capture::start_free_threaded(Settings::new(
-            item,
-            if options.cursor {
-                CursorCaptureSettings::WithCursor
-            } else {
-                CursorCaptureSettings::WithoutCursor
-            },
-            DrawBorderSettings::WithBorder,
-            SecondaryWindowSettings::Exclude,
-            MinimumUpdateIntervalSettings::Default,
-            DirtyRegionSettings::Default,
-            ColorFormat::Bgra8,
-            flags,
-        ))
-        .map_err(|e| e.to_string())
-    };
-    let item = if options.source.window {
-        Target::Window(options.source.handle)
-    } else {
-        Target::Monitor(options.source.handle)
-    };
-    let control = match start(flags, item) {
+    let control = match start_capture(&options, flags) {
         Ok(control) => control,
         Err(error) => {
             shared.fail(error.clone());
@@ -731,26 +762,7 @@ fn record_gif(options: &Options, shared: Shared, path: &std::path::Path) -> Resu
         fps: options.fps,
         exclusions: options.exclusions.clone(),
     };
-    let item = if options.source.window {
-        Target::Window(options.source.handle)
-    } else {
-        Target::Monitor(options.source.handle)
-    };
-    let control = Capture::start_free_threaded(Settings::new(
-        item,
-        if options.cursor {
-            CursorCaptureSettings::WithCursor
-        } else {
-            CursorCaptureSettings::WithoutCursor
-        },
-        DrawBorderSettings::WithBorder,
-        SecondaryWindowSettings::Exclude,
-        MinimumUpdateIntervalSettings::Default,
-        DirtyRegionSettings::Default,
-        ColorFormat::Bgra8,
-        flags,
-    ))
-    .map_err(|e| e.to_string())?;
+    let control = start_capture(&options, flags)?;
     let result: Result<(), String> = (|| {
         let file = std::fs::File::create(path).map_err(|e| e.to_string())?;
         let mut encoder = GifEncoder::new(file);

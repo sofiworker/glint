@@ -11,9 +11,15 @@ include!(concat!(env!("OUT_DIR"), "/slint_macro.rs"));
 /// Library map accepted by `slint_build::CompilerConfiguration`.
 /// Inline callers use `glint_ui::slint!` with their own Slint dependency.
 pub fn slint_library_paths() -> std::collections::HashMap<String, std::path::PathBuf> {
-    [(
-        "glint_ui".into(),
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui"),
-    )]
+    [
+        (
+            "glint_ui".into(),
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui"),
+        ),
+        (
+            "glint_platform_theme".into(),
+            std::path::PathBuf::from(env!("OUT_DIR")).join("platform_theme.slint"),
+        ),
+    ]
     .into()
 }

@@ -39,6 +39,7 @@ choice!(FinishAction {
     SaveAs
 });
 choice!(ImageFormat { Png, Jpeg });
+choice!(VideoFormat { Mp4, Gif });
 choice!(FileConflict {
     Reject,
     Number,
@@ -81,6 +82,7 @@ pub struct Config {
     pub general: General,
     pub shortcuts: Shortcuts,
     pub capture: Capture,
+    pub recording: RecordingDefaults,
     pub toolbar: Toolbar,
     pub annotation: AnnotationDefaults,
     pub output: Output,
@@ -96,6 +98,7 @@ impl Default for Config {
             general: General::default(),
             shortcuts: Shortcuts::default(),
             capture: Capture::default(),
+            recording: RecordingDefaults::default(),
             toolbar: Toolbar::default(),
             annotation: AnnotationDefaults::default(),
             output: Output::default(),
@@ -103,6 +106,27 @@ impl Default for Config {
             privacy: Privacy::default(),
             appearance: Appearance::default(),
             resources: Resources::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct RecordingDefaults {
+    pub format: VideoFormat,
+    pub countdown_seconds: u8,
+    pub cursor: bool,
+    pub system_audio: bool,
+    pub microphone: bool,
+}
+impl Default for RecordingDefaults {
+    fn default() -> Self {
+        Self {
+            format: VideoFormat::Mp4,
+            countdown_seconds: 3,
+            cursor: true,
+            system_audio: false,
+            microphone: false,
         }
     }
 }
@@ -396,9 +420,9 @@ pub struct Appearance {
 impl Default for Appearance {
     fn default() -> Self {
         Self {
-            theme: Theme::Light,
+            theme: Theme::System,
             ui_font: UiFont::System,
-            accent: "#4b5cfa".into(),
+            accent: "system".into(),
             scale: Scale::System,
             reduce_motion: true,
             high_contrast: false,
@@ -510,6 +534,11 @@ impl Config {
             "config.out_of_range",
         );
         check(
+            self.recording.countdown_seconds <= 10,
+            "recording.countdown_seconds",
+            "config.out_of_range",
+        );
+        check(
             (20..=80).contains(&self.capture.dim_percent),
             "capture.dim_percent",
             "config.out_of_range",
@@ -588,7 +617,7 @@ impl Config {
             "config.out_of_range",
         );
         check(
-            valid_hex(&self.appearance.accent),
+            self.appearance.accent == "system" || valid_hex(&self.appearance.accent),
             "appearance.accent",
             "config.invalid_color",
         );

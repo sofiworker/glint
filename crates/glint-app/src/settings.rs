@@ -44,15 +44,7 @@ pub fn sync(
     ui.set_dark(dark);
     ui.invoke_apply_theme(dark);
     ui.set_contrast(config.appearance.high_contrast);
-    if glint_core::config::valid_hex(&config.appearance.accent)
-        && let Ok(rgb) = u32::from_str_radix(&config.appearance.accent[1..], 16)
-    {
-        ui.set_accent(slint::Color::from_rgb_u8(
-            (rgb >> 16) as u8,
-            (rgb >> 8) as u8,
-            rgb as u8,
-        ));
-    }
+    ui.set_accent(crate::appearance::accent(&config.appearance.accent, dark));
     // Preserve category delegates and keyboard focus when a page refreshes.
     ui.set_categories(crate::toolbar::update_model(
         ui.get_categories(),
@@ -118,14 +110,14 @@ pub fn sync(
     if ui.get_guide_step() >= 0 || ui.get_workbench() {
         return Ok(());
     }
-    let mut next = fields::build(config, ui.get_category().clamp(0, 7) as usize, en, writable)?;
+    let mut next = fields::build(config, ui.get_category() as usize, en, writable)?;
     if config.appearance.theme == Theme::System
         && system_dark.is_none()
         && let Some(row) = next.iter_mut().find(|row| row.key == "appearance.theme")
     {
         row.description = tr(Message::SystemThemeUnavailable).into();
     }
-    if ui.get_category() == 0
+    if ui.get_category() == fields::GENERAL
         && let Some(row) = next.iter_mut().find(|row| row.key == "general.language")
     {
         row.description = format!(
@@ -208,7 +200,7 @@ mod tests {
     #[test]
     fn all_forms_have_schema_fields_and_disabled_capabilities_cannot_be_changed() {
         let config = Config::default();
-        for category in 0..8 {
+        for category in 0..fields::CATEGORIES.len() {
             for language in [false, true] {
                 assert!(
                     !fields::build(&config, category, language, true)
@@ -241,9 +233,9 @@ mod tests {
         ).unwrap().candidate;
         let before = config.clone();
         for (category, key) in [
-            (0, "general.close_to_tray"),
-            (0, "general.single_instance"),
-            (2, "annotation.keep_objects"),
+            (6, "general.close_to_tray"),
+            (6, "general.single_instance"),
+            (0, "annotation.keep_objects"),
             (3, "output.strip_metadata"),
             (6, "resources.idle_pause"),
         ] {
@@ -269,7 +261,7 @@ mod tests {
                 .candidate,
             config
         );
-        let planned = fields::build(&config, 0, true, true).unwrap();
+        let planned = fields::build(&config, fields::GENERAL as usize, true, true).unwrap();
         let updates = planned
             .iter()
             .find(|row| row.key == "general.check_updates")

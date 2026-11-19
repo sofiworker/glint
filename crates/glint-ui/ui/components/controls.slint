@@ -13,7 +13,7 @@ export component AccentButton inherits Rectangle {
     forward-focus: focus;
     accessible-role: button; accessible-label: root.text; accessible-enabled: root.enabled;
     accessible-action-default => { if root.enabled { root.clicked(); } }
-    Text { x: 6px; y: 0px; width: parent.width - 12px; height: parent.height; text: root.text; color: Theme.on-accent; horizontal-alignment: center; vertical-alignment: center; }
+    Text { x: 6px; y: 0px; width: parent.width - 12px; height: parent.height; text: root.text; color: Theme.foreground(root.accent); horizontal-alignment: center; vertical-alignment: center; }
     focus := FocusScope { enabled: root.enabled; key-pressed(event) => { if event.text == " " || event.text == Key.Return { root.clicked(); return accept; } return reject; } }
     // Keep the pointer hit target above the keyboard focus scope.
     TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { focus.focus(); root.clicked(); } }

@@ -167,7 +167,7 @@ view!(
     |ui: &crate::settings::SettingsWindow| ui.get_font_english(),
     |ui: &crate::settings::SettingsWindow| ui.get_writable()
         && ui.get_modal() == 0
-        && ui.get_category() == 4,
+        && ui.get_category() == crate::settings::fields::CAPTURE,
     |ui: &crate::settings::SettingsWindow, name: &str| ui
         .invoke_change("annotation.text_font".into(), name.into()),
     |ui: &crate::settings::SettingsWindow| ui.invoke_focus_recorder()

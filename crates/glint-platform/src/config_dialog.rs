@@ -27,7 +27,7 @@ pub unsafe fn choose_local_image_path(owner: *mut c_void) -> Result<Option<PathB
 
 /// Workbench input, or a new MP4/GIF output path. File I/O runs on media workers.
 /// # Safety
-/// `owner` must be a live HWND on this thread until the picker returns.
+/// `owner` must be null or a live HWND on this thread until the picker returns.
 pub unsafe fn choose_editor_file(
     owner: *mut c_void,
     save: bool,
@@ -44,7 +44,7 @@ pub unsafe fn choose_editor_file(
             w!("MP4 (*.mp4)\0*.mp4\0GIF (*.gif)\0*.gif\0\0")
         } else {
             w!(
-                "Images / Videos\0*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.tif;*.tiff;*.ico;*.mp4;*.mov;*.m4v;*.wmv;*.gif\0\0"
+                "Images / Videos\0*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.tif;*.tiff;*.ico;*.mp4;*.mov;*.mkv;*.webm;*.m4v;*.wmv;*.gif\0All files\0*.*\0\0"
             )
         },
         nFilterIndex: 1,

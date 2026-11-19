@@ -4,15 +4,21 @@ use glint_core::config::Config;
 use slint::{ModelRc, SharedString, VecModel};
 use std::rc::Rc;
 
+pub const CAPTURE: i32 = 0;
+pub const PINS: i32 = 2;
+pub const OUTPUT: i32 = 3;
+pub const GENERAL: i32 = 6;
+pub const PRIVACY: i32 = 7;
+
 pub const CATEGORIES: [(&str, &str); 8] = [
-    ("常规与外观", "General & appearance"),
-    ("快捷键", "Shortcuts"),
     ("截图", "Capture"),
-    ("输出与保存", "Output & saving"),
-    ("桌面贴图", "Desktop pins"),
-    ("历史与隐私", "History & privacy"),
-    ("平台与资源", "Platform & resources"),
-    ("关于", "About"),
+    ("录屏", "Recording"),
+    ("贴图", "Pins"),
+    ("输出", "Output"),
+    ("快捷键", "Shortcuts"),
+    ("外观与辅助", "Appearance & accessibility"),
+    ("常规", "General"),
+    ("隐私与历史", "Privacy & history"),
 ];
 type Choice = (&'static str, &'static str, &'static str);
 #[derive(Clone, Copy)]
@@ -51,16 +57,18 @@ const LOG_LEVEL: &[Choice] = &[
     ),
 ];
 const THEME: &[Choice] = &[
-    ("light", "雾白 / 浅色", "Mist / Light"),
-    ("dark", "石墨 / 深色", "Graphite / Dark"),
+    ("light", "浅色", "Light"),
+    ("dark", "深色", "Dark"),
     ("system", "跟随系统", "Follow system"),
 ];
 const ACCENT: &[Choice] = &[
-    ("#4b5cfa", "靛蓝", "Indigo"),
-    ("#168975", "松绿", "Pine"),
-    ("#2869d8", "湖蓝", "Lake"),
-    ("#9a5688", "紫灰", "Mauve"),
+    ("system", "平台默认", "Platform default"),
+    ("#46776b", "矿物绿", "Mineral green"),
+    ("#477493", "海湾蓝", "Bay blue"),
+    ("#aa604f", "陶土红", "Terracotta"),
+    ("#927344", "苔金", "Ochre"),
 ];
+const VIDEO_FORMAT: &[Choice] = &[("mp4", "MP4", "MP4"), ("gif", "GIF", "GIF")];
 const MODE: &[Choice] = &[
     ("icons_and_labels", "图标＋文字", "Icons + labels"),
     ("icons", "仅图标", "Icons only"),
@@ -137,9 +145,9 @@ const SOURCE: &[Choice] = &[
     ("auto", "自动（平台能力优先）", "Automatic"),
     ("gdi", "GDI 兼容截图", "GDI capture"),
 ];
-macro_rules! fields { ($(($key:literal, $zh:literal, $en:literal, $kind:expr)),* $(,)?) => { &[$(Field { key:$key, zh:$zh, en:$en, kind:$kind }),*] }; }
+macro_rules! fields { ($(($key:literal, $zh:literal, $en:literal, $kind:expr)),* $(,)?) => { &[$(Field { key:$key, zh:$zh, en:$en, kind:$kind }),*] as &[Field] }; }
 use Kind::*;
-pub const FIELDS: [&[Field]; 10] = [
+pub const FIELDS: &[&[Field]] = &[
     fields![
         (
             "general.start_on_login",
@@ -164,12 +172,6 @@ pub const FIELDS: [&[Field]; 10] = [
             "只允许一个实例",
             "Single instance",
             Boolean
-        ),
-        (
-            "general.language",
-            "界面语言",
-            "Interface language",
-            Choice(LANGUAGE)
         ),
         (
             "general.check_updates",
@@ -490,16 +492,16 @@ pub const FIELDS: [&[Field]; 10] = [
     fields![
         ("appearance.theme", "主题", "Theme", Choice(THEME)),
         (
-            "appearance.ui_font",
-            "应用字体",
-            "Application font",
-            Choice(UI_FONT)
-        ),
-        (
             "appearance.accent",
             "强调色",
             "Accent color",
             Choice(ACCENT)
+        ),
+        (
+            "appearance.ui_font",
+            "应用字体",
+            "Application font",
+            Choice(UI_FONT)
         ),
         (
             "appearance.scale",
@@ -552,6 +554,14 @@ pub const FIELDS: [&[Field]; 10] = [
             Number(64, 512)
         )
     ],
+    fields![
+        ("recording.countdown_seconds", "开始倒计时（秒）", "Countdown (seconds)", Number(0, 10)),
+        ("recording.cursor", "包含鼠标指针", "Show cursor", Boolean),
+        ("recording.system_audio", "系统声音", "System audio", Boolean),
+        ("recording.microphone", "麦克风", "Microphone", Boolean),
+        ("recording.format", "默认格式", "Default video format", Choice(VIDEO_FORMAT))
+    ],
+    fields![("general.language", "界面语言", "Interface language", Choice(LANGUAGE))],
 ];
 
 pub fn editable(key: &str) -> bool {
@@ -568,6 +578,15 @@ pub fn editable(key: &str) -> bool {
             | "shortcuts.toggle_pins"
             | "shortcuts.rescue"
             | "shortcuts.color_picker"
+            | "shortcuts.scroll_capture"
+            | "shortcuts.recording"
+            | "shortcuts.recording_pause"
+            | "shortcuts.recording_stop"
+            | "recording.countdown_seconds"
+            | "recording.cursor"
+            | "recording.system_audio"
+            | "recording.microphone"
+            | "recording.format"
             | "capture.detect_window"
             | "capture.remember_region"
             | "capture.delay_seconds"
@@ -659,7 +678,11 @@ pub fn label(english: bool, zh: &'static str, en: &'static str) -> &'static str 
 fn section_heading(key: &str, english: bool) -> &'static str {
     let (zh, en) = match key {
         "general.start_on_login" => ("启动与窗口", "Startup & windows"),
-        "general.language" => ("语言与维护", "Language & maintenance"),
+        "general.language" => ("界面语言", "Language"),
+        "appearance.theme" => ("主题", "Theme"),
+        "appearance.ui_font" => ("阅读与动效", "Reading & motion"),
+        "recording.countdown_seconds" => ("录制默认值", "Recording defaults"),
+        "recording.format" => ("视频输出", "Video output"),
         "capture.magnifier" => ("选区与定位", "Selection & positioning"),
         "capture.include_cursor" => ("捕获选项", "Capture options"),
         "annotation.tool" => ("工具默认值", "Tool defaults"),
@@ -678,43 +701,32 @@ fn section_heading(key: &str, english: bool) -> &'static str {
     label(english, zh, en)
 }
 
-/// Consolidated page -> legacy field arrays it renders for ROWS. The toolbar
-/// editor owns the toolbar fields on the capture page, so they are not
-/// repeated as rows; `page_keys` still includes them for reset/cancel scope.
-const PAGES: [&[usize]; 8] = [&[0, 8], &[1], &[2, 4], &[5], &[6], &[7], &[9], &[]];
+// The toolbar page renders its own editor. Its reset keys are listed separately.
+const PAGES: [&[usize]; CATEGORIES.len()] =
+    [&[2, 4, 3], &[10], &[6], &[5], &[1], &[8], &[0, 11, 9], &[7]];
 
-/// Every dotted key shown on (or edited through) one consolidated page; used
-/// to scope the page-level "restore defaults" and "cancel" operations.
 fn spinbox(key: &str) -> bool {
     matches!(key, "privacy.log_file_size_kib" | "privacy.log_backups")
 }
 
-/// The row control kind a settings key renders as; drives the auto-apply
-/// commit timing (sliders defer to release, text fields debounce).
-pub fn row_kind(key: &str) -> Option<i32> {
-    FIELDS
-        .iter()
-        .flat_map(|fields| fields.iter())
-        .find(|field| field.key == key)
-        .map(|field| match field.kind {
-            Boolean => 0,
-            Choice(_) => 1,
-            Text => 2,
-            Number(..) => {
-                if spinbox(key) {
-                    7
-                } else {
-                    3
-                }
-            }
-            Hotkey => 4,
-            Info => 5,
-        })
-}
-
 pub fn page_keys(category: usize) -> Vec<&'static str> {
+    let mut keys = if category as i32 == CAPTURE {
+        vec![
+            "toolbar.layout",
+            "toolbar.columns",
+            "toolbar.rows",
+            "toolbar.width",
+            "toolbar.mode",
+            "toolbar.position",
+            "toolbar.groups",
+            "toolbar.show_customize",
+            "toolbar.order",
+            "toolbar.hidden",
+        ]
+    } else {
+        Vec::new()
+    };
     let page: &[usize] = PAGES.get(category).copied().unwrap_or(&[]);
-    let mut keys = Vec::new();
     for legacy in page {
         if let Some(fields) = FIELDS.get(*legacy) {
             keys.extend(fields.iter().map(|field| field.key));
@@ -732,12 +744,10 @@ pub fn build(
     let serialized = toml::Value::try_from(config).map_err(|_| "config.serialize")?;
     let mut rows = Vec::new();
     let page: &[usize] = PAGES.get(category).copied().unwrap_or(&[]);
-    let mut rendered = false;
     for &legacy in page {
         let Some(fields) = FIELDS.get(legacy) else {
             continue;
         };
-        rendered = true;
         for field in fields.iter() {
             let (section, key) = field.key.split_once('.').ok_or("config.field")?;
             let value = serialized
@@ -762,6 +772,7 @@ pub fn build(
                 "shortcuts.recording" => label(english, "默认 Ctrl+Shift+D。打开录屏配置；选择目标并确认后才倒计时录制。", "Defaults to Ctrl+Shift+D. Opens recorder setup; select a source and confirm before the countdown starts."),
                 "shortcuts.recording_pause" => label(english, "默认未绑定，仅在正在录制或已暂停时生效。", "Unbound by default. Only applies to an active or paused recording."),
                 "shortcuts.recording_stop" => label(english, "默认未绑定。停止当前录制并保存；倒计时中按下则取消，未录制时不执行动作。", "Unbound by default. Stop and save the current recording, or cancel its countdown. Does nothing when idle."),
+                "recording.format" => label(english, "GIF 不包含声音。", "GIF does not include audio."),
                 "resources.capture_source" => label(english, "当前使用 GDI 截图，暂不支持切换捕获源。", "Captures with GDI. Switching capture sources is unavailable."),
                 "privacy.excluded_apps" => label(english, "Windows：完整 .exe 文件名，以英文分号、逗号或换行分隔，最多 128 项；不支持路径或通配符。保存后在桌面采集前后检查可见窗口（含被遮挡窗口），命中或检查失败则拒绝整次截图。最小化或关闭目标窗口后重试。两次检查不能覆盖间隙出现的内容，不是持续隐私保护；不影响本地图片或贴图再编辑。", "Windows: full .exe names separated by semicolons, commas or newlines; up to 128 entries, no paths or wildcards. After Save, visible windows (including covered windows) are checked before and after desktop capture. A match or failed check rejects the whole capture; minimize or close the target and retry. Two checks cannot cover content appearing between them; this is not continuous privacy protection. Local images and pin editing are unaffected."),
                 "privacy.diagnostics" => label(english, "默认关闭，保存后生效。仅记录时间及固定事件代码；容量、位置、失败提示和清理入口见下方。", "Off by default; Save applies. Records only timestamps and fixed event codes. Limits, location, failures and clearing are shown below."),
@@ -834,13 +845,10 @@ pub fn build(
                         let colors = options
                             .iter()
                             .map(|option| {
-                                let rgb = u32::from_str_radix(&option.0[1..], 16)
-                                    .expect("constant accent colors");
-                                slint::Color::from_rgb_u8(
-                                    (rgb >> 16) as u8,
-                                    (rgb >> 8) as u8,
-                                    rgb as u8,
-                                )
+                                crate::appearance::accent(option.0, crate::appearance::dark(
+                                    config.appearance.theme,
+                                    glint_platform::system_dark_theme(),
+                                ))
                             })
                             .collect::<Vec<_>>();
                         row.colors = ModelRc::from(Rc::new(VecModel::from(colors)));
@@ -889,61 +897,8 @@ pub fn build(
             rows.push(row);
         }
     }
-    let _ = rendered;
-    if category == 6 {
-        let sections = vec![(
-            "Windows",
-            "Windows",
-            "普通桌面截图无需管理员权限。受保护内容和安全桌面可能无法捕获。",
-            "Desktop capture needs no administrator access. Protected content and secure desktops may not be captured.",
-        )];
-        for (zh, en, body_zh, body_en) in sections {
-            rows.push(SettingRow {
-                title: label(english, zh, en).into(),
-                text: label(english, body_zh, body_en).into(),
-                kind: 5,
-                ..Default::default()
-            });
-        }
-    }
-    if category == 7 {
+    if category as i32 == GENERAL {
         let sections = vec![
-            (
-                "滚动长截图",
-                "Scrolling capture",
-                "已实现：选区边框、右侧实时拼接预览、滚动期间连续采集与稳定收尾、结束后进入标注输出。默认 Ctrl+Shift+L。",
-                "Implemented: a visible selection ring, a live stitched preview, continuous capture with stability-based burst ends while scrolling, and annotation output after finishing. Defaults to Ctrl+Shift+L.",
-            ),
-            (
-                "本地 OCR",
-                "Local OCR",
-                "暂不可用。从图片中识别文字。",
-                "Unavailable. Recognize text in images.",
-            ),
-            (
-                "录屏",
-                "Screen recording",
-                "Windows：从托盘或此页打开录屏，选择屏幕或窗口；区域录屏从截图选区的更多工具进入。MP4 支持最高 144 FPS 与可选音频；GIF 限制为 30 FPS、30 秒、最长边 1280 像素且无音频。",
-                "Windows: open the recorder here or from the tray and choose a display or window. For a region, use More tools in capture. MP4 supports up to 144 FPS and optional audio; GIF is limited to 30 FPS, 30 seconds, 1280 px maximum edge and no audio.",
-            ),
-            (
-                "滚动长截图",
-                "Scrolling capture",
-                "已实现：选区边框、右侧实时拼接预览、滚动期间连续采集与稳定收尾、结束后进入标注输出。默认 Ctrl+Shift+L。",
-                "Implemented: a visible selection ring, a live stitched preview, continuous capture with stability-based burst ends while scrolling, and annotation output after finishing. Defaults to Ctrl+Shift+L.",
-            ),
-            (
-                "本地 OCR",
-                "Local OCR",
-                "暂不可用。从图片中识别文字。",
-                "Unavailable. Recognize text in images.",
-            ),
-            (
-                "录屏",
-                "Screen recording",
-                "Windows：从托盘或此页打开录屏，选择屏幕或窗口；区域录屏从截图选区的更多工具进入。MP4 支持最高 144 FPS 与可选音频；GIF 限制为 30 FPS、30 秒、最长边 1280 像素且无音频。",
-                "Windows: open the recorder here or from the tray and choose a display or window. For a region, use More tools in capture. MP4 supports up to 144 FPS and optional audio; GIF is limited to 30 FPS, 30 seconds, 1280 px maximum edge and no audio.",
-            ),
             (
                 "拾光 · Glint 0.0.0",
                 "Glint 0.0.0",
@@ -956,6 +911,7 @@ pub fn build(
                 "Glint 与 Slint 采用 GPL-3.0-only 路径。tiny-skia: BSD-3-Clause；serde、toml、image、arboard、windows、tray-icon: MIT / Apache-2.0。内置界面回退字体 Noto Sans SC: SIL OFL 1.1。完整声明见随源码的 THIRD-PARTY-NOTICES.md。",
                 "Glint and Slint use GPL-3.0-only. tiny-skia: BSD-3-Clause; serde, toml, image, arboard, windows and tray-icon: MIT / Apache-2.0. Bundled UI fallback Noto Sans SC: SIL OFL 1.1. See THIRD-PARTY-NOTICES.md supplied with source.",
             ),
+            ("本地 OCR", "Local OCR", "暂不可用。", "Unavailable."),
         ];
         for (zh, en, body_zh, body_en) in sections {
             rows.push(SettingRow {
@@ -987,6 +943,11 @@ pub fn change(config: &Config, key: &str, input: &str, english: bool) -> Result<
             toml::Value::Integer(i64::from(number))
         }
         Boolean => toml::Value::Boolean(input.parse().map_err(|_| "config.field_type")?),
+        Choice(_) if key == "appearance.accent" && input.len() == 7
+            && input.starts_with('#') && input.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit) =>
+        {
+            toml::Value::String(input.to_ascii_lowercase())
+        }
         Choice(options) => toml::Value::String(
             options
                 .iter()

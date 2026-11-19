@@ -15,19 +15,19 @@ struct Run {
     snapshot: bool,
 }
 const SCENES: &[(usize, bool)] = &[
-    (0, false),
-    (2, false),
-    (3, false),
     (6, false),
-    (0, true),
-    (2, true),
-    (3, true),
+    (0, false),
+    (3, false),
+    (5, false),
     (6, true),
+    (0, true),
+    (3, true),
+    (5, true),
 ];
 const FIELDS: &[(usize, &str)] = &[
-    (0, "general.close_to_tray"),
-    (0, "general.single_instance"),
-    (2, "annotation.keep_objects"),
+    (6, "general.close_to_tray"),
+    (6, "general.single_instance"),
+    (0, "annotation.keep_objects"),
     (3, "output.strip_metadata"),
     (6, "resources.idle_pause"),
 ];
@@ -91,7 +91,17 @@ impl Run {
             }
             ui.invoke_action("open".into());
             ui.invoke_choose_page(category as i32);
-            ui.window().set_size(slint::PhysicalSize::new(900, 650));
+            if category == 5 {
+                ui.invoke_change(
+                    "appearance.theme".into(),
+                    if english { "dark" } else { "light" }.into(),
+                );
+            }
+            let scale = ui.window().scale_factor();
+            ui.window().set_size(slint::PhysicalSize::new(
+                (1080. * scale) as u32,
+                (700. * scale) as u32,
+            ));
             let before = self.app.borrow().session.preferences.draft.clone();
             for (_, key) in FIELDS.iter().filter(|(c, _)| *c == category) {
                 ui.invoke_change((*key).into(), "true".into());
@@ -118,13 +128,19 @@ impl Run {
             }
             self.snapshot = true;
         } else {
-            ui.window()
-                .dispatch_event_with_result(slint::platform::WindowEvent::PointerScrolled {
-                    position: slint::LogicalPosition::new(if english { 500. } else { 650. }, 350.),
-                    delta_x: 0.,
-                    delta_y: if category == 6 { 10000. } else { -10000. },
-                })
-                .map_err(|e| e.to_string())?;
+            if category != 5 {
+                ui.window()
+                    .dispatch_event_with_result(slint::platform::WindowEvent::PointerScrolled {
+                        position: slint::LogicalPosition::new(if english { 500. } else { 650. }, 350.),
+                        delta_x: 0.,
+                        delta_y: if category == 6 || category == 0 {
+                            10000.
+                        } else {
+                            -10000.
+                        },
+                    })
+                    .map_err(|e| e.to_string())?;
+            }
             let pixels = ui.window().take_snapshot().map_err(|e| e.to_string())?;
             image::save_buffer_with_format(
                 self.directory.join(format!(

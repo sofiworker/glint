@@ -56,6 +56,9 @@ pub fn event(
 pub fn install_factor<T: ComponentHandle + 'static>(ui: &T, explicit: f32) {
     install_inner(ui, explicit, true, None);
 }
+pub fn install_fixed_factor<T: ComponentHandle + 'static>(ui: &T, explicit: f32) {
+    install_inner(ui, explicit, false, None);
+}
 /// Install one winit event filter for both policies; installing a second filter
 /// would replace the first and break explicit DPI scaling on monitor changes.
 pub fn install_with_theme<T: ComponentHandle + 'static>(

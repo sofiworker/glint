@@ -489,6 +489,22 @@ impl NativePinWindow {
         Ok(unsafe { WindowFromPoint(POINT { x, y }) == self.0 })
     }
 
+    /// Raise an existing topmost window without changing its position, size or focus.
+    pub fn raise_topmost(&self) -> Result<(), String> {
+        unsafe {
+            SetWindowPos(
+                self.0,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            )
+        }
+        .map_err(|error| error.to_string())
+    }
+
     /// No focus activation, no taskbar button. Caller must provide a live rescue path before enabling passthrough.
     pub fn configure(&self, topmost: bool, click_through: bool) -> Result<(), String> {
         self.state()?;

@@ -16,3 +16,10 @@
 @media(pointer:coarse){#glint-postprocess button{min-height:44px}#glint-postprocess .gp-icon{width:44px;min-width:44px;height:44px}#glint-postprocess input:not([type=range]),#glint-postprocess select{font-size:16px}#glint-postprocess button.gp-swatch{width:34px;height:44px;min-height:44px}#glint-postprocess .gp-subtools{flex-wrap:wrap}#glint-postprocess .gp-zoom button{height:44px;min-height:44px}#glint-postprocess .gp-zoom .gp-icon{width:38px;min-width:38px}#glint-postprocess .gp-context>.gp-context-spacer{flex:0}#glint-postprocess .gp-timed-mark{min-height:25px!important}#glint-postprocess .gp-file-title{order:2;flex-basis:100%}#glint-postprocess .gp-editor-output{margin-left:auto}}
 
 #glint-postprocess .gp-brand img{display:block;width:28px;height:28px}#glint-postprocess .gp-desktop-taskbar>span{display:flex;align-items:center;gap:8px}
+
+/* Keep commands close to the document; avoid permanent tutorial text. */
+#glint-postprocess .gp-titlebar{min-height:48px;padding-block:8px}#glint-postprocess .gp-commandbar{min-height:44px;padding-block:6px}#glint-postprocess .gp-context{min-height:44px;padding-block:6px}#glint-postprocess .gp-context-note,#glint-postprocess .gp-view-note{display:none}#glint-postprocess .gp-stage{padding:20px}#glint-postprocess input:not([type=range]),#glint-postprocess select{background:var(--gp-paper)}
+#glint-postprocess[data-mode=video] .gp-stage{height:clamp(160px,calc(100dvh - 402px),560px);min-height:0}
+#glint-postprocess .gp-toolrail{min-width:0}
+#glint-postprocess .gp-toolrail button{flex:0 0 32px;min-width:32px;padding:0}
+#glint-postprocess .gp-file-title [data-dirty]:empty{display:none}

@@ -55,9 +55,7 @@ pub fn items(toolbar: &Toolbar) -> Vec<i32> {
             .filter(|t| **t != Tool::Select && !toolbar.hidden.contains(t))
             .map(|t| index(*t)),
     );
-    if !toolbar.hidden.is_empty() {
-        items.push(14);
-    }
+    items.push(14);
     items.extend([9, 10, 16, 11, 13, 12]);
     items
 }
@@ -75,7 +73,7 @@ pub fn names(english: bool) -> Vec<SharedString> {
         Message::CaptureUndo,
         Message::CaptureRedo,
         Message::CaptureSave,
-        Message::CaptureFinish,
+        Message::CaptureCopy,
         Message::CaptureCancel,
         Message::ToolbarMore,
         Message::ToolbarCustomize,

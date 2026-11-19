@@ -91,12 +91,7 @@ impl Presentation {
             },
             ..Self::default()
         };
-        if glint_core::config::valid_hex(&config.appearance.accent)
-            && let Ok(rgb) = u32::from_str_radix(&config.appearance.accent[1..], 16)
-        {
-            result.accent =
-                slint::Color::from_rgb_u8((rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8);
-        }
+        result.accent = crate::appearance::accent(&config.appearance.accent, dark);
         if config.appearance.theme == Theme::System && system_dark.is_none() {
             result.notice = messages::text(Message::SystemThemeUnavailable, english).into();
         }

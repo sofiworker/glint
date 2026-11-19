@@ -112,9 +112,7 @@ pub fn sync(state: &AppState, ui: &SettingsWindow) -> Result<(), String> {
         _ => &[],
     };
     let mut rows = Vec::new();
-    // Consolidated page indices: general+appearance(0), hotkeys(1),
-    // output(3), privacy(5).
-    for category in [0, 1, 3, 5] {
+    for category in [6, 4, 3, 5, 7] {
         rows.extend(
             settings::fields::build(config, category, en, state.session.writable)?
                 .into_iter()

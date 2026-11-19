@@ -116,7 +116,25 @@ pub(super) fn choose_file(shared: &Rc<RefCell<Session>>) -> Result<(), String> {
 pub fn open_file(path: PathBuf, presentation: Presentation) {
     load_file(path, presentation, None);
 }
+pub fn open_clipboard(presentation: Presentation) {
+    load_document(presentation, None, || {
+        let frame = glint_platform::read_clipboard_image()?;
+        let image = ImageDocument::from_selection(
+            &frame.rgba, frame.width, frame.height,
+            glint_core::Rect { x: 0, y: 0, width: frame.width, height: frame.height },
+            &glint_core::Edits::default(),
+        ).map_err(str::to_owned)?;
+        Ok(Document::capture(Arc::new(image)))
+    });
+}
 fn load_file(path: PathBuf, presentation: Presentation, existing: Option<Weak<RefCell<Session>>>) {
+    load_document(presentation, existing, move || decode(&path));
+}
+fn load_document(
+    presentation: Presentation,
+    existing: Option<Weak<RefCell<Session>>>,
+    read: impl FnOnce() -> Result<Document, String> + Send + 'static,
+) {
     if OPENING
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
         .is_err()
@@ -146,7 +164,7 @@ fn load_file(path: PathBuf, presentation: Presentation, existing: Option<Weak<Re
         .name("glint-editor-open".into())
         .spawn(move || {
             let _slot = slot;
-            let result = decode(&path);
+            let result = read();
             let _ = slint::invoke_from_event_loop(move || {
                 let ui = ui.and_then(|w| w.upgrade());
                 if guarded && ui.is_none() {

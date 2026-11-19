@@ -155,16 +155,16 @@ mod tests {
         let mut session = SettingsSession::open(&directory.file());
         session.preferences.draft.appearance.theme = Theme::Dark;
         let toolbar = glint_core::config::Toolbar {
-            mode: glint_core::config::ToolbarMode::Icons,
+            mode: glint_core::config::ToolbarMode::IconsAndLabels,
             ..Default::default()
         };
         session.save_toolbar(&toolbar).unwrap();
         assert_eq!(session.preferences.draft.appearance.theme, Theme::Dark);
-        assert_eq!(session.preferences.saved().appearance.theme, Theme::Light);
+        assert_eq!(session.preferences.saved().appearance.theme, Theme::System);
         assert_eq!(session.preferences.saved().toolbar, toolbar);
         let reopened = SettingsSession::open(&directory.file());
         assert_eq!(reopened.preferences.saved().toolbar, toolbar);
-        assert_eq!(reopened.preferences.saved().appearance.theme, Theme::Light);
+        assert_eq!(reopened.preferences.saved().appearance.theme, Theme::System);
         fs::write(directory.file(), b"external writer").unwrap();
         assert!(session.save_toolbar(&Default::default()).is_err());
         assert_eq!(session.preferences.saved().toolbar, toolbar);
@@ -221,7 +221,7 @@ mod tests {
         session.preferences.draft.appearance.theme = Theme::Dark;
         assert!(session.save(|_| Err("conflict".into())).is_err());
         assert!(!directory.file().exists());
-        assert_eq!(session.preferences.saved().appearance.theme, Theme::Light);
+        assert_eq!(session.preferences.saved().appearance.theme, Theme::System);
         assert!(session.preferences.is_dirty());
         fs::write(directory.file(), b"external").unwrap();
         let mut applied = Vec::new();
@@ -232,8 +232,8 @@ mod tests {
             })
             .unwrap_err();
         assert!(error.contains("runtime_rolled_back"));
-        assert_eq!(applied, vec![Theme::Dark, Theme::Light]);
-        assert_eq!(session.preferences.saved().appearance.theme, Theme::Light);
+        assert_eq!(applied, vec![Theme::Dark, Theme::System]);
+        assert_eq!(session.preferences.saved().appearance.theme, Theme::System);
         assert_eq!(fs::read(directory.file()).unwrap(), b"external");
         assert!(session.preferences.is_dirty());
     }

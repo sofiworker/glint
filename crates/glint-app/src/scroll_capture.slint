@@ -1,11 +1,12 @@
 import { Button, ScrollView, Theme, Motion, HorizontalBox, VerticalBox, StatusLine, StatusTone, IconTool } from "@glint_ui/glint-ui.slint";
 import { SpinBox } from "std-widgets.slint";
+import { GlintIcons } from "@glint_ui/components/icons.slint";
 export struct ScrollLabels { title: string, hint: string, capture: string, undo: string, stop: string, edit: string, cancel: string, overlap: string, accept: string, discard: string, preview: string, resume: string }
 export component ScrollCaptureWindow inherits Window {
     title: root.labels.title;
     no-frame: true; always-on-top: true;
     preferred-width: 300px; preferred-height: 620px;
-    min-width: 260px; min-height: 300px;
+    min-width: 120px; min-height: 40px;
     default-font-family: Motion.ui-font-family; default-font-size: Theme.text-body;
     background: Theme.background;
     in property <ScrollLabels> labels;
@@ -16,6 +17,8 @@ export component ScrollCaptureWindow inherits Window {
     in property <bool> busy;
     in property <bool> review;
     in property <bool> repair-mode;
+    in property <string> notice;
+    out property <length> recovery-height: (root.notice != "" ? 52px : 0px) + (root.review && root.pending ? 42px : 0px);
     in property <bool> pending;
     in property <int> unresolved;
     in property <string> join-position;
@@ -38,15 +41,10 @@ export component ScrollCaptureWindow inherits Window {
     reveal-seam(position) => { detail.viewport-y = min(0px, max(detail.visible-height - root.picture-height * (detail.visible-width / 1px) / max(1, root.picture-width) * 1px, detail.visible-height / 2 - position * (detail.visible-width / 1px) / max(1, root.picture-width) * 1px)); }
     reveal-first => { detail.viewport-y = 0px; }
     reveal-latest => { detail.viewport-y = min(0px, detail.visible-height - root.picture-height * (detail.visible-width / 1px) / max(1, root.picture-width) * 1px); }
-    changed overlap => { if root.review && root.pending && root.repair-mode && !root.busy { root.action("preview"); } }
     FocusScope {
         key-pressed(event) => { if event.text == Key.Escape { root.action("cancel"); return accept; } return reject; }
         VerticalBox {
             padding: 5px; spacing: 5px;
-            Text { text: root.english ? "Stitched preview" : "拼接预览"; color: Theme.ink; font-size: Theme.text-heading; height: 24px; vertical-stretch: 0; }
-            StatusLine { text: root.labels.hint; }
-            if root.region-info != "": Text { text: root.region-info; color: Theme.muted; overflow: elide; height: 18px; font-size: Theme.text-caption; vertical-stretch: 0; }
-            StatusLine { text: root.status; tone: StatusTone.muted; max-height: 54px; }
             detail := ScrollView {
                 vertical-stretch: 1; content-width: self.visible-width;
                 content-height: root.picture-height * (self.visible-width / 1px) / max(1, root.picture-width) * 1px;
@@ -58,51 +56,59 @@ export component ScrollCaptureWindow inherits Window {
                 }
                 if !root.has-picture: StatusLine { width: parent.width; height: max(80px, detail.visible-height); text: root.busy ? (root.english ? "Capturing the first frame…" : "正在采集第一帧…") : (root.english ? "No frame captured. Retry or cancel." : "尚未采集到画面，请重试或取消。"); horizontal-alignment: center; vertical-alignment: center; }
             }
-            if !root.has-picture && !root.busy: Button { text: root.english ? "Retry capture" : "重试采集"; clicked => { root.action("capture"); } }
-            if root.review && root.pending && root.repair-mode: VerticalBox {
-                padding: 5px; spacing: 5px; vertical-stretch: 0;
-                Text { text: (root.english ? "Adjust joins · " : "统一调整拼接 · ") + root.join-position; color: Theme.ink; font-size: Theme.text-caption; }
-                SpinBox { minimum: 0; maximum: root.maximum-overlap; value <=> root.overlap; enabled: !root.busy; }
-                if root.unresolved > 1: Button { text: (root.english ? "Next pending fragment · " : "下一待处理片段 · ") + root.unresolved; enabled: !root.busy; clicked => { root.action("review-next"); } }
-                HorizontalBox { padding: 0px; spacing: 5px;
-                    Button { text: root.labels.accept; enabled: !root.busy; clicked => { root.action("accept"); } }
-                    Button { text: root.labels.discard; enabled: !root.busy; clicked => { root.action("discard"); } }
-                }
-            }
-            if root.review && root.pending && !root.repair-mode: VerticalBox {
-                padding: 4px; spacing: 4px; vertical-stretch: 0;
-                StatusLine { tone: StatusTone.ink; text: root.english ? "Some content could not be joined. The preview and partial output contain only the verified range. Sources are retained." : "部分内容未能拼接，预览和部分输出仅包含已对齐范围。原片段已保留。"; }
-                Button { text: root.english ? "Adjust joins (optional)" : "调整拼接（可选）"; enabled: !root.busy; clicked => { root.action("repair"); } }
-            }
-            HorizontalBox { padding: 0px; spacing: 2px; height: 44px; vertical-stretch: 0;
-                IconTool { image: 9; label: root.english ? "Undo" : "撤销"; enabled: root.can-undo && !root.busy; clicked => { root.action("undo"); } }
-                IconTool { image: 3; label: root.review && root.pending ? (root.english ? "Edit part" : "编辑部分") : (root.english ? "Edit" : "编辑"); enabled: root.can-finish && !root.busy; clicked => { root.action("edit"); } }
-                IconTool { image: 11; label: root.review && root.pending ? (root.english ? "Save part" : "保存部分") : (root.english ? "Save" : "保存"); enabled: root.can-finish && !root.busy; clicked => { root.action("save"); } }
-                IconTool { image: 13; label: root.english ? "Cancel" : "取消"; clicked => { root.action("cancel"); } }
-                IconTool { image: 12; label: root.review && root.pending ? (root.english ? "Copy part" : "复制部分") : (root.english ? "Copy" : "复制"); enabled: root.can-finish && !root.busy; clicked => { root.action("copy"); } }
+            if root.notice != "": StatusLine { text: root.notice; tone: StatusTone.ink; max-height: 48px; }
+            if root.review && root.pending && !root.repair-mode: StatusLine {
+                text: root.english ? "Some fragments need alignment." : "部分片段待拼接。";
             }
         }
     }
 }
 export component ScrollControlWindow inherits Window {
     no-frame: true; always-on-top: true; background: Theme.background;
-    preferred-width: 430px; preferred-height: 76px;
+    out property <length> toolbar-width: 384px;
+    out property <length> toolbar-height: root.review && root.pending ? 86px : 44px;
+    preferred-width: root.toolbar-width; preferred-height: root.toolbar-height;
     in property <bool> english;
     in property <bool> automatic;
     in property <bool> stopped;
     in property <bool> ready;
+    in property <bool> can-undo;
+    in property <bool> busy;
+    in property <bool> review;
+    in property <bool> pending;
+    in property <bool> repair-mode;
+    in property <int> unresolved;
+    in property <int> maximum-overlap;
+    in property <int> overlap;
+    in property <bool> dark;
+    in property <color> accent;
+    init => { Theme.apply(root.dark, false, root.accent); }
+    changed dark => { Theme.apply(root.dark, false, root.accent); }
+    changed accent => { Theme.apply(root.dark, false, root.accent); }
     in property <string> status;
     callback action(string);
-    VerticalBox { padding: 6px; spacing: 4px;
-        HorizontalBox { padding: 0px; spacing: 4px;
-            Button { text: root.automatic ? (root.english ? "Stop" : "停止") : (root.english ? "Auto" : "自动滚动"); enabled: !root.stopped && root.ready; clicked => { root.action("auto"); } }
-            Button { text: root.stopped ? (root.english ? "Resume" : "继续采集") : (root.english ? "Finish" : "结束采集"); clicked => { root.action(root.stopped ? "resume" : "stop"); } }
-            Rectangle { vertical-stretch: 0; }
-            Button { text: root.english ? "Edit" : "编辑"; enabled: root.ready; clicked => { root.action("edit"); } }
-            Button { text: root.english ? "Save" : "保存"; enabled: root.ready; clicked => { root.action("save"); } }
-            Button { text: root.english ? "Cancel" : "取消"; clicked => { root.action("cancel"); } }
-            Button { text: root.english ? "Copy" : "复制"; enabled: root.ready; clicked => { root.action("copy"); } }
+    callback overlap-edited(int);
+    Rectangle {
+        background: Theme.surface; border-radius: 8px; border-width: 1px; border-color: Theme.line;
+        HorizontalLayout { y: 0px; height: 44px; padding: 5px; spacing: 4px; alignment: center;
+            Button { width: 84px; height: 32px; text: !root.ready && !root.busy ? (root.english ? "Retry" : "重试采集") : root.automatic ? (root.english ? "Stop auto" : "停止自动") : (root.english ? "Auto" : "自动滚动"); enabled: !root.stopped && (root.ready || !root.busy); clicked => { root.action(root.ready ? "auto" : "capture"); } }
+            Button { width: 76px; height: 32px; text: root.stopped ? (root.english ? "Resume" : "继续采集") : (root.english ? "Finish" : "结束采集"); enabled: root.ready && (!root.stopped || !root.busy); clicked => { root.action(root.stopped ? "resume" : "stop"); } }
+            IconTool { icon-only: true; source: GlintIcons.undo; label: root.english ? "Undo last stitch" : "撤销上次拼接"; enabled: root.can-undo; clicked => { root.action("undo"); } }
+            Rectangle { width: 1px; height: 20px; vertical-stretch: 0; background: Theme.line; }
+            IconTool { icon-only: true; source: GlintIcons.pen; label: root.english ? "Edit" : "编辑"; enabled: root.ready; clicked => { root.action("edit"); } }
+            IconTool { icon-only: true; source: GlintIcons.save; label: root.english ? "Save" : "保存"; enabled: root.ready; clicked => { root.action("save"); } }
+            Button { width: 56px; height: 32px; text: root.english ? "Copy" : "复制"; primary: true; enabled: root.ready; clicked => { root.action("copy"); } }
+            IconTool { icon-only: true; source: GlintIcons.close; label: root.english ? "Cancel capture" : "取消长截图"; clicked => { root.action("cancel"); } }
         }
-        StatusLine { text: root.status; height: 32px; horizontal-alignment: center; }
+        if root.review && root.pending: Rectangle { x: 5px; y: 44px; width: parent.width - 10px; height: 1px; background: Theme.line; }
+        if root.review && root.pending: HorizontalLayout {
+            y: 44px; height: 42px; padding: 4px; spacing: 4px; alignment: center;
+            if !root.repair-mode: Button { text: root.english ? "Align fragments" : "调整拼接"; enabled: !root.busy; clicked => { root.action("repair"); } }
+            if root.repair-mode: Text { text: root.english ? "Overlap" : "重叠"; color: Theme.ink; vertical-alignment: center; }
+            if root.repair-mode: SpinBox { width: 72px; minimum: 0; maximum: root.maximum-overlap; value: root.overlap; enabled: !root.busy; edited(value) => { root.overlap-edited(value); } }
+            if root.repair-mode && root.unresolved > 1: Button { text: root.english ? "Next" : "下一段"; enabled: !root.busy; clicked => { root.action("review-next"); } }
+            if root.repair-mode: Button { text: root.english ? "Discard" : "丢弃"; enabled: !root.busy; clicked => { root.action("discard"); } }
+            if root.repair-mode: Button { text: root.english ? "Apply" : "应用"; enabled: !root.busy; primary: true; clicked => { root.action("accept"); } }
+        }
     }
 }

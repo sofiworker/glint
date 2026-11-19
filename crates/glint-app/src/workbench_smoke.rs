@@ -13,7 +13,7 @@ pub(crate) fn active_window() -> Option<WorkbenchWindow> {
     CURRENT.with_borrow(|s| s.as_ref().map(|s| s.borrow().ui.clone_strong()))
 }
 
-pub fn run(directory: &Path) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(directory: &Path, interactive: bool) -> Result<(), Box<dyn std::error::Error>> {
     if directory.exists() && std::fs::read_dir(directory)?.next().is_some() {
         return Err("Use a new, empty workbench QA directory".into());
     }
@@ -56,6 +56,9 @@ pub fn run(directory: &Path) -> Result<(), Box<dyn std::error::Error>> {
         output: glint_core::config::Output::default(),
     };
     open(Document::capture(Arc::new(doc)), presentation.clone())?;
+    if interactive {
+        return slint::run_event_loop().map_err(Into::into);
+    }
     let output = directory.to_owned();
     let done: Rc<RefCell<Result<(), String>>> = Rc::new(RefCell::new(Ok(())));
     let result = done.clone();
@@ -73,9 +76,19 @@ pub fn run(directory: &Path) -> Result<(), Box<dyn std::error::Error>> {
             match phase {
                 0=>{
                     snapshot(&ui,&output.join("image-light.png"))?;
-                    ui.invoke_action("tool:1".into());ui.invoke_pointer(0,100.,180.,1.);ui.invoke_pointer(1,720.,280.,1.);ui.invoke_pointer(2,720.,280.,1.);
+                    let size=ui.window().size().to_logical(ui.window().scale_factor());
+                    ui.invoke_action("tool:1".into());
+                    pointer(&ui,0,size.width/2.-100.,size.height/2.);
+                    pointer(&ui,1,size.width/2.+100.,size.height/2.+80.);
+                    pointer(&ui,2,size.width/2.+100.,size.height/2.+80.);
                     assert_eq!(session.borrow().model.state.marks.len(),1);assert!(ui.get_dirty());
-                    ui.invoke_action("undo".into());assert!(session.borrow().model.state.marks.is_empty());assert!(!ui.get_dirty());ui.invoke_action("redo".into());
+                    click(&ui,28.,71.);assert!(session.borrow().model.state.marks.is_empty(),"Pointer click must reach Undo through the focus scope");assert!(!ui.get_dirty());
+                    click(&ui,64.,71.);assert_eq!(session.borrow().model.state.marks.len(),1,"Pointer click must reach Redo");
+                    let before_menu=session.borrow().model.state.clone();
+                    click(&ui,size.width-28.,71.);assert!(ui.get_more(),"Pointer click must open More");
+                    key(&ui,slint::platform::Key::Escape);assert!(!ui.get_more());assert_eq!(session.borrow().model.state,before_menu);
+                    click(&ui,size.width-28.,71.);assert!(ui.get_more());
+                    click(&ui,100.,200.);assert!(!ui.get_more());assert_eq!(session.borrow().model.state,before_menu,"Outside click must only dismiss the menu");
                     let before=session.borrow().model.state.clone();
                     ui.invoke_action("category:0".into());ui.invoke_action("rotate".into());ui.invoke_action("flip".into());ui.invoke_action("crop-cancel".into());assert_eq!(session.borrow().model.state,before);
                     ui.invoke_action("category:0".into());ui.invoke_action("rotate".into());ui.invoke_action("crop-apply".into());assert_ne!(session.borrow().model.state,before);ui.invoke_action("undo".into());assert_eq!(session.borrow().model.state,before);
@@ -207,6 +220,21 @@ fn key(ui: &WorkbenchWindow, key: slint::platform::Key) {
         .dispatch_event(WindowEvent::KeyPressed { text: key.into() });
     ui.window()
         .dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+}
+fn pointer(ui: &WorkbenchWindow, kind: u8, x: f32, y: f32) {
+    use slint::platform::{PointerEventButton, WindowEvent};
+    let position = slint::LogicalPosition::new(x, y);
+    let button = PointerEventButton::Left;
+    ui.window().dispatch_event(match kind {
+        0 => WindowEvent::PointerPressed { position, button },
+        1 => WindowEvent::PointerMoved { position },
+        _ => WindowEvent::PointerReleased { position, button },
+    });
+}
+fn click(ui: &WorkbenchWindow, x: f32, y: f32) {
+    pointer(ui, 1, x, y);
+    pointer(ui, 0, x, y);
+    pointer(ui, 2, x, y);
 }
 fn snapshot(ui: &WorkbenchWindow, path: &Path) -> Result<(), String> {
     let p = ui.window().take_snapshot().map_err(|e| e.to_string())?;

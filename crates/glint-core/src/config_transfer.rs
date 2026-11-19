@@ -162,7 +162,7 @@ mod tests {
         assert_eq!(p.candidate.output.quality, 88);
         assert!(p.candidate.general.onboarding_complete);
         assert_eq!(p.changes.len(), 1);
-        assert_eq!(base.appearance.theme, Theme::Light);
+        assert_eq!(base.appearance.theme, Theme::System);
     }
     #[test]
     fn invalid_unknown_and_protected_fields_preserve_baseline_without_discarding_valid_changes() {

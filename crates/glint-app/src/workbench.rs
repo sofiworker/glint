@@ -27,8 +27,8 @@ mod export;
 #[path = "workbench_io.rs"]
 mod io;
 pub(crate) use io::decode;
-pub use io::open_file;
 use io::{choose_file, labels, leave, output, text_commit};
+pub use io::{open_clipboard, open_file};
 #[path = "workbench_smoke.rs"]
 pub mod smoke;
 #[derive(Clone)]
@@ -46,6 +46,10 @@ impl Presentation {
     pub fn from_resident(s: &crate::resident::AppState) -> Self {
         let saved =
             crate::probe::Presentation::from_config(s.session.preferences.saved(), &s.languages);
+        Self::from_capture(&saved)
+    }
+
+    pub fn from_capture(saved: &crate::probe::Presentation) -> Self {
         Self {
             english: saved.english,
             dark: saved.dark,
@@ -54,7 +58,7 @@ impl Presentation {
             accent: saved.accent,
             scale: saved.interface_scale,
             reduced: saved.reduce_motion,
-            output: saved.output,
+            output: saved.output.clone(),
         }
     }
 }
@@ -247,6 +251,20 @@ impl Drop for Session {
 thread_local! {
     static CURRENT:RefCell<Option<Rc<RefCell<Session>>>>=const{RefCell::new(None)};
     static DESKTOP_ALLOWED:std::cell::Cell<bool>=const{std::cell::Cell::new(true)};
+}
+
+pub fn open_handoff(doc: Document, presentation: Presentation) -> Result<(), String> {
+    if let Some(current) = CURRENT.with_borrow(Clone::clone)
+        && current.borrow().model.dirty()
+    {
+        return Err(tr(
+            presentation.english,
+            "请先保存或关闭编辑器中的当前文件。",
+            "Save or close the current file in the editor first.",
+        )
+        .into());
+    }
+    open(doc, presentation)
 }
 
 pub fn open(doc: Document, presentation: Presentation) -> Result<(), String> {
@@ -1193,13 +1211,19 @@ fn action(shared: &Rc<RefCell<Session>>, a: &str) -> Result<(), String> {
         s.crop = None;
         s.drag = None;
         s.selected = None;
-        let c = c.parse::<i32>().map_err(|e| e.to_string())?;
+        let (c, tool) = match c.split_once(':') {
+            Some((category, tool)) => (
+                category.parse::<i32>().map_err(|e| e.to_string())?,
+                Some(tool.parse::<i32>().map_err(|e| e.to_string())?),
+            ),
+            None => (c.parse::<i32>().map_err(|e| e.to_string())?, None),
+        };
         s.ui.set_category(c);
-        s.ui.set_tool(match c {
+        s.ui.set_tool(tool.unwrap_or(match c {
             2 => 4,
             3 => 6,
             _ => 0,
-        });
+        }));
         if c == 0 {
             s.crop = Some(s.model.state.clone());
             s.ui.set_crop_ratio(0);
@@ -1280,7 +1304,9 @@ fn action(shared: &Rc<RefCell<Session>>, a: &str) -> Result<(), String> {
             return leave(shared);
         }
         "escape" => {
-            if s.ui.get_text_editing() {
+            if s.ui.get_more() {
+                s.ui.set_more(false);
+            } else if s.ui.get_text_editing() {
                 s.ui.set_text_editing(false);
                 s.ui.invoke_focus_canvas();
             } else if s.ui.get_modal() > 0 {

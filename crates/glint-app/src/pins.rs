@@ -722,13 +722,7 @@ impl Manager {
             config.appearance.theme,
             glint_platform::system_dark_theme(),
         ));
-        let rgb = u32::from_str_radix(config.appearance.accent.trim_start_matches('#'), 16)
-            .unwrap_or(0x4b5cfa);
-        ui.set_accent(slint::Color::from_rgb_u8(
-            (rgb >> 16) as u8,
-            (rgb >> 8) as u8,
-            rgb as u8,
-        ));
+        ui.set_accent(crate::appearance::accent(&config.appearance.accent, ui.get_dark()));
         ui.set_picture(image);
         crate::motion::configure!(&ui, Motion, config.appearance.reduce_motion);
         crate::motion::install(&ui, config.appearance.reduce_motion);

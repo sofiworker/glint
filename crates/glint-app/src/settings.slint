@@ -4,6 +4,7 @@ import { FontPicker, FontLabels } from "@glint_ui/components/font_picker.slint";
 import { Motion } from "@glint_ui/widgets/motion.slint";
 import { Button, CheckBox, ComboBox, LineEdit, Slider, ScrollView, HorizontalBox, VerticalBox } from "@glint_ui/widgets/widgets.slint";
 import { ToolbarEditor, ToolbarRow } from "@glint_ui/components/toolbar_editor.slint";
+import { GlintIcons } from "@glint_ui/components/icons.slint";
 import { SpinBox } from "std-widgets.slint";
 
 export struct SettingRow { key: string, section: string, title: string, description: string, kind: int, editable: bool, checked: bool, text: string, options: [string], colors: [color], selected: int, number: float, minimum: float, maximum: float }
@@ -31,7 +32,15 @@ export component SettingsWindow inherits Window {
     focus-font => { font-picker.focus-search(); }
     in-out property <bool> reduce-motion <=> Motion.reduced;
     in property <float> interface-scale;
-    property <bool> compact-form: root.width < 900px;
+    property <bool> appearance-page: root.guide-step < 0 && root.category == 5 && !root.workbench;
+    property <bool> side-preview: root.appearance-page && root.width >= 1000px;
+    property <bool> compact-form: root.width < 820px;
+    property <bool> show-toolbar;
+    property <bool> show-details;
+    property <bool> show-diagnostics;
+    property <bool> show-about;
+    property <[image]> category-icons: [GlintIcons.crop, GlintIcons.video, GlintIcons.pin, GlintIcons.save, GlintIcons.text, GlintIcons.adjust, GlintIcons.settings, GlintIcons.redact];
+    property <bool> normal-settings: root.guide-step < 0 && !root.workbench;
     in property <string> session-help;
     in property <string> session-clear-label;
     in property <string> session-restore-label;
@@ -75,7 +84,7 @@ export component SettingsWindow inherits Window {
     in property <string> guide-skip-label;
     in property <bool> diagnostic-marker: false;
     title: "拾光 · Glint";
-    preferred-width: 1040px; preferred-height: 760px; min-width: 650px; min-height: 360px;
+    preferred-width: 1080px; preferred-height: 800px; min-width: 650px; min-height: 520px;
     default-font-family: Motion.ui-font-family; default-font-size: 14px;
     in property <bool> dark;
     in property <bool> contrast;
@@ -137,7 +146,7 @@ export component SettingsWindow inherits Window {
     callback choose-page(int);
     in-out property <int> navigation-focus-index: -1;
     in-out property <length> page-scroll-y;
-    changed category => { root.page-scroll-y = 0px; }
+    changed category => { root.page-scroll-y = 0px; root.show-toolbar = false; root.show-details = false; root.show-diagnostics = false; root.show-about = false; }
     callback record(string);
     callback shortcut-input(string, bool, bool, bool, bool);
     callback registered-shortcut(int);
@@ -169,28 +178,37 @@ export component SettingsWindow inherits Window {
         else { decision-cancel.focus(); }
     }
 
-    Rectangle { x: 0px; y: 0px; width: parent.width; height: 92px; background: root.surface;
-        Image { x: 24px; y: 24px; width: 44px; height: 44px; source: @image-url("../../../assets/brand/glint-app.svg"); }
-        Text { x: 82px; y: 18px; width: parent.width - 534px; text: root.heading; color: root.ink; font-size: Theme.text-display; font-weight: 500; overflow: elide; }
-        Text { x: 82px; y: 55px; width: parent.width - 534px; text: root.status == "" ? root.subtitle : root.status; color: root.muted; font-size: Theme.text-caption; overflow: elide; }
-        HorizontalLayout { visible: root.guide-step >= 0; x: parent.width - 300px; y: 27px; width: 276px; height: 38px; spacing: 8px;
+    Rectangle { x: 0px; y: 0px; width: parent.width; height: 64px; background: root.surface;
+        Image { x: 24px; y: 16px; width: 32px; height: 32px; source: @image-url("../../../assets/brand/glint-app.svg"); }
+        Text { x: 72px; y: 19px; width: parent.width - (root.guide-step >= 0 ? 384px : 96px); text: root.heading; color: root.ink; font-size: Theme.text-title; font-weight: 600; overflow: elide; }
+        Text { x: 72px; y: 42px; width: parent.width - 536px; text: root.status == "" ? (root.guide-step >= 0 ? root.subtitle : "") : root.status; color: root.muted; font-size: Theme.text-caption; overflow: elide; }
+        HorizontalLayout { visible: root.guide-step >= 0; x: parent.width - 300px; y: 17px; width: 276px; height: 38px; spacing: 8px;
             Button { text: root.guide-back-label; enabled: root.background-active && (root.guide-step > 0 && root.modal == 0); clicked => { root.action("guide-back"); } }
             Button { visible: root.guide-step == 4; text: root.guide-skip-label; enabled: root.background-active; clicked => { root.action("guide-next"); } }
             guide-next := AccentButton { text: root.guide-next-label; accent: root.accent; enabled: root.background-active && (root.modal == 0 && (root.guide-step < 5 || root.writable)); clicked => { root.action(root.guide-step == 5 ? "guide-complete" : "guide-next"); } }
         }
         Rectangle { x: 0px; width: parent.width; y: parent.height - 1px; height: 1px; background: root.line; }
     }
-    if root.guide-step < 0 && !root.workbench: Rectangle { x: 0px; y: 92px; height: parent.height - 92px; width: 190px; background: root.side;
+    if root.guide-step < 0 && !root.workbench: Rectangle { x: 0px; y: 64px; height: parent.height - 124px; width: 214px; background: root.side;
         ScrollView { x: 0px; y: 0px; width: parent.width; height: parent.height; content-width: self.visible-width;
-            VerticalBox { padding: 14px; spacing: 5px;
-                for name[index] in root.categories: Rectangle {
-                    height: 35px; border-radius: 5px;
+            VerticalBox { padding: 12px; spacing: 3px;
+                for name[index] in root.categories: VerticalLayout {
+                    spacing: 4px;
+                    if index == 0 || index == 4: Text {
+                        height: index == 4 ? 39px : 24px;
+                        text: index == 0 ? (root.font-english ? "Capture & output" : "采集与输出") : (root.font-english ? "Preferences" : "偏好");
+                        color: root.muted; font-size: 12px; vertical-alignment: bottom;
+                    }
+                    Rectangle {
+                    height: 35px; border-radius: 4px;
                     accessible-role: button; accessible-label: name; accessible-enabled: root.background-active;
                     accessible-action-default => { if root.background-active { root.choose-page(index); } }
                     forward-focus: category-keys;
-                    background: root.category == index ? root.surface : transparent;
-                    border-width: category-keys.has-focus ? 2px : root.category == index ? 1px : 0px; border-color: root.accent;
-                    Text { x: 14px; width: parent.width - 28px; font-size: 12px; wrap: word-wrap; text: name; color: root.category == index ? root.accent : root.ink; vertical-alignment: center; }
+                    background: root.category == index ? root.surface : category-pointer.has-hover ? root.ink.with-alpha(0.07) : transparent;
+                    border-width: category-keys.has-focus ? 2px : 0px; border-color: root.accent;
+                    if root.category == index: Rectangle { x: 3px; y: 8px; width: 3px; height: parent.height - 16px; border-radius: 1px; background: root.accent; }
+                    Image { x: 12px; y: (parent.height - 16px) / 2; width: 16px; height: 16px; source: root.category-icons[index]; colorize: root.muted; }
+                    Text { x: 38px; width: parent.width - 48px; font-size: 13px; font-weight: root.category == index ? 600 : 400; wrap: word-wrap; text: name; color: root.ink; vertical-alignment: center; }
                     category-keys := FocusScope {
                         enabled: root.background-active;
                         changed has-focus => {
@@ -202,85 +220,99 @@ export component SettingsWindow inherits Window {
                             return reject;
                         }
                     }
-                    TouchArea { enabled: root.background-active; mouse-cursor: pointer; clicked => { category-keys.focus(); root.choose-page(index); } }
+                    category-pointer := TouchArea { enabled: root.background-active; mouse-cursor: pointer; clicked => { category-keys.focus(); root.choose-page(index); } }
+                    }
                 }
             }
         }
     }
-    if !root.workbench: ScrollView { x: root.guide-step < 0 ? 190px : 0px; y: 92px; width: parent.width - self.x; height: parent.height - 92px; content-width: self.visible-width;
+    if !root.workbench: ScrollView { x: root.guide-step < 0 ? 214px : 0px; y: 64px; width: parent.width - self.x - (root.side-preview ? 272px : 0px); height: parent.height - (root.guide-step < 0 ? 124px : 64px); content-width: self.visible-width;
         viewport-y <=> root.page-scroll-y;
-        VerticalBox { padding: 28px; spacing: 14px; alignment: start;
+        VerticalBox { padding: 28px; spacing: 12px; alignment: start;
             HorizontalLayout { vertical-stretch: 0; spacing: 10px;
-                Text { vertical-stretch: 0; text: root.guide-step < 0 ? root.categories[root.category] : root.guide-title; color: root.ink; font-size: Theme.text-title; font-weight: 500; horizontal-stretch: 1; }
-                if root.guide-step < 0 && !root.workbench: page-reset := Button { text: root.reset-label; enabled: root.background-active && (root.writable); clicked => { root.action("reset"); } }
+                Text { vertical-stretch: 0; text: root.guide-step < 0 ? root.categories[root.category] : root.guide-title; color: root.ink; font-size: 20px; font-weight: 500; horizontal-stretch: 1; }
             }
-            Text { vertical-stretch: 0; text: root.page-note; color: root.muted; wrap: word-wrap; }
-            if root.guide-step < 0 && root.category == 6: VerticalBox {
+            if root.guide-step >= 0: Text { vertical-stretch: 0; text: root.page-note; color: root.muted; wrap: word-wrap; }
+            if root.guide-step < 0 && root.category == 6 && root.show-diagnostics: VerticalBox {
                 padding: 16px; spacing: 12px;
                 Text { vertical-stretch: 0; text: root.diagnostics-title; color: root.ink; font-weight: 400; }
                 Text { vertical-stretch: 0; text: root.diagnostics-hint; color: root.muted; wrap: word-wrap; }
                 Button { text: root.diagnostics-refresh; enabled: root.background-active && (!root.diagnostics-busy); clicked => { root.action("diagnostics-refresh"); } }
                 Text { vertical-stretch: 0; text: root.diagnostics-body; color: root.ink; wrap: word-wrap; }
             }
-            if root.guide-step < 0 && root.category == 7: Button {
-                text: root.recording-label;
-                enabled: root.background-active && root.modal == 0;
-                clicked => { root.action("record-open"); }
-            }
             if root.guide-step == 1: HorizontalBox { spacing: 12px; padding: 0px;
                 for chord in ["Ctrl+Shift+S", "F1", "Ctrl+Alt+A"]: Button { text: chord; enabled: root.background-active && (root.writable && root.modal == 0); clicked => { root.change("shortcuts.capture", chord); } }
             }
             if root.guide-step == 4: AccentButton { height: 38px; text: root.guide-practice-label; accent: root.accent; enabled: root.background-active && (root.writable && root.modal == 0); clicked => { root.action("guide-practice"); } }
-            if root.guide-step < 0 && root.category == 0: Button { text: root.guide-open-label; enabled: root.background-active && (root.writable); clicked => { root.action("guide-open"); } }
-            if root.guide-step < 0 && root.category == 7: HorizontalBox { padding: 0px; spacing: 12px;
-                Button { text: root.transfer-export-label; enabled: root.background-active && (root.writable && !root.transfer-busy); clicked => { root.action("config-export"); } }
-                Button { text: root.transfer-import-label; enabled: root.background-active && (root.writable && !root.transfer-busy); clicked => { root.action("config-import"); } }
+            if root.guide-step < 0 && root.category == 6 && root.show-about: HorizontalBox { padding: 0px; spacing: 12px; alignment: start;
+                Button { horizontal-stretch: 0; text: root.guide-open-label; enabled: root.background-active && root.writable; clicked => { root.action("guide-open"); } }
+                Button { horizontal-stretch: 0; text: root.transfer-export-label; enabled: root.background-active && (root.writable && !root.transfer-busy); clicked => { root.action("config-export"); } }
+                Button { horizontal-stretch: 0; text: root.transfer-import-label; enabled: root.background-active && (root.writable && !root.transfer-busy); clicked => { root.action("config-import"); } }
             }
-            if root.category == 2 && root.guide-step < 0: ToolbarEditor {
+            if root.category == 0 && root.normal-settings: Button {
+                text: root.show-toolbar ? (root.font-english ? "Hide toolbar settings" : "收起工具栏设置") : (root.font-english ? "Customize toolbar…" : "自定义工具栏…");
+                horizontal-stretch: 0; enabled: root.background-active;
+                clicked => { root.show-toolbar = !root.show-toolbar; }
+            }
+            if root.category == 0 && root.normal-settings && root.show-toolbar: ToolbarEditor {
                 rows: root.toolbar-rows; items: root.toolbar-items; labels: root.toolbar-labels; names: root.toolbar-names;
                 icons: root.toolbar-icons; position: root.toolbar-position; groups: root.toolbar-groups; customize-visible: root.toolbar-customize-visible; layout: root.toolbar-layout; columns: root.toolbar-columns; rows-count: root.toolbar-grid-rows; row-width: root.toolbar-width-setting;
                 writable: root.background-active && root.writable; ink: root.ink; muted: root.muted; line: root.line;
                 command(name, row, value) => { root.toolbar-command(name, row, value); }
             }
-            for row in root.rows: VerticalBox {
+            for row in root.rows: VerticalLayout {
+                vertical-stretch: 0;
+                if (row.kind != 5 || root.show-about) && (!row.key.starts-with("resources.") || root.show-diagnostics): VerticalBox {
                 padding: 0px; spacing: 10px;
                 if root.guide-step < 0 && row.section != "": Text {
-                    vertical-stretch: 0; text: row.section; color: root.ink;
-                    font-size: 16px; font-weight: 400; wrap: word-wrap;
+                    vertical-stretch: 0; text: row.section; color: root.muted;
+                    font-size: 12px; font-weight: 400; wrap: word-wrap;
                 }
                 field-card := FormCard {
                     title: row.title; description: row.description; compact: root.compact-form;
+                    interactive: root.background-active;
                     full-width-title: row.kind == 5;
                     description-visible: row.kind != 5 && !(root.modal == 3 && root.recording-key == row.key);
-                    height: root.modal == 3 && root.recording-key == row.key ? (root.compact-form ? 222px : 196px) : row.kind == 5 ? 164px : root.compact-form ? max(164px, self.title-height + self.description-height + 100px) : max(94px, self.description-bottom + 16px);
-                    if row.kind == 0: GlintSwitch { x: parent.width - 58px; y: root.compact-form ? parent.height - 48px : 28px; label: row.title; accent: root.accent; enabled: root.background-active && (row.editable); checked: row.checked; toggled(value) => { root.change(row.key, value ? "true" : "false"); } }
-                    if row.kind == 1: GlintChoice { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; height: 32px; enabled: root.background-active && (row.editable); choices: row.options; selected-index: row.selected; selected(value) => { root.change(row.key, value); } }
-                    if row.kind == 2 && row.key != "annotation.text_font" && row.key != "output.directory": LineEdit { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; enabled: root.background-active && (row.editable); text: row.text; edited(value) => { root.change(row.key, value); } }
+                    show-details: root.guide-step >= 0;
+                    height: root.modal == 3 && root.recording-key == row.key ? (root.compact-form ? 246px : 214px) : row.kind == 5 ? info-body.y + info-body.preferred-height + 24px : (root.compact-form ? max(104px, self.title-height + 76px) : max(52px, self.title-height + 26px)) + (self.show-details && self.description-visible && row.description != "" ? self.description-height + 10px : 0px);
+                    if row.kind == 0: GlintSwitch { x: parent.width - 58px; y: root.compact-form ? max(51px, (field-card.show-details && field-card.description-visible && row.description != "" ? field-card.description-bottom : field-card.title-bottom) + 8px) : 16px; label: row.title; accent: root.accent; enabled: root.background-active && (row.editable); checked: row.checked; toggled(value) => { root.change(row.key, value ? "true" : "false"); } }
+                    if row.kind == 1 && row.key != "appearance.theme": GlintChoice { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? max(51px, (field-card.show-details && field-card.description-visible && row.description != "" ? field-card.description-bottom : field-card.title-bottom) + 8px) : 12px; width: root.compact-form ? parent.width - 36px : 262px; height: 36px; enabled: root.background-active && (row.editable); choices: row.options; selected-index: row.selected; selected(value) => { root.change(row.key, value); } }
+                    if row.kind == 1 && row.key == "appearance.theme": HorizontalLayout {
+                        x: root.compact-form ? 18px : parent.width - 282px;
+                        y: root.compact-form ? 51px : 10px;
+                        width: root.compact-form ? parent.width - 36px : 262px;
+                        height: 34px; spacing: 4px;
+                        for option[index] in row.options: Button {
+                            text: option; primary: index == row.selected; enabled: root.background-active && row.editable;
+                            clicked => { root.change(row.key, option); }
+                        }
+                    }
+                    if row.kind == 2 && row.key != "annotation.text_font" && row.key != "output.directory": LineEdit { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? max(51px, (field-card.show-details && field-card.description-visible && row.description != "" ? field-card.description-bottom : field-card.title-bottom) + 8px) : 12px; width: root.compact-form ? parent.width - 36px : 262px; height: 36px; enabled: root.background-active && (row.editable); text: row.text; edited(value) => { root.change(row.key, value); } }
                     if row.kind == 2 && row.key == "annotation.text_font": HorizontalBox {
-                        x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px;
+                        x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? max(51px, (field-card.show-details && field-card.description-visible && row.description != "" ? field-card.description-bottom : field-card.title-bottom) + 8px) : 16px;
                         width: root.compact-form ? parent.width - 36px : 262px; height: 32px; padding: 0px; spacing: 6px;
                         LineEdit { text: row.text; enabled: root.background-active && (row.editable); edited(value) => { root.change(row.key, value); } }
                         Button { text: root.font-button; enabled: root.background-active && (row.editable && root.modal == 0); clicked => { root.font-command("open", row.text); } }
                     }
                     if row.kind == 2 && row.key == "output.directory": HorizontalBox {
-                        x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px;
+                        x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? max(51px, (field-card.show-details && field-card.description-visible && row.description != "" ? field-card.description-bottom : field-card.title-bottom) + 8px) : 16px;
                         width: root.compact-form ? parent.width - 36px : 262px; height: 32px; padding: 0px; spacing: 6px;
                         LineEdit { text: row.text; enabled: root.background-active && row.editable && !root.folder-busy; edited(value) => { root.change(row.key, value); } }
                         Button { text: root.folder-label; enabled: root.background-active && row.editable && !root.folder-busy && root.modal == 0; clicked => { root.action("output-folder"); } }
                     }
-                    if row.kind == 3: HorizontalBox { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; height: 36px; padding: 0px;
+                    if row.kind == 3: HorizontalBox { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? max(51px, (field-card.show-details && field-card.description-visible && row.description != "" ? field-card.description-bottom : field-card.title-bottom) + 8px) : 16px; width: root.compact-form ? parent.width - 36px : 262px; height: 36px; padding: 0px;
                         Slider { enabled: root.background-active && (row.editable); minimum: row.minimum; maximum: row.maximum; value: row.number; changed(value) => { root.change(row.key, round(value) + ""); } released => { root.commit(row.key); } }
                         Text { width: 48px; text: round(row.number); color: root.ink; horizontal-alignment: right; vertical-alignment: center; }
                     }
                     if row.kind == 7: SpinBox {
                         x: root.compact-form ? 18px : parent.width - 282px;
-                        y: root.compact-form ? parent.height - 48px : 28px;
+                        y: root.compact-form ? max(51px, (field-card.show-details && field-card.description-visible && row.description != "" ? field-card.description-bottom : field-card.title-bottom) + 8px) : 16px;
                         width: root.compact-form ? parent.width - 36px : 262px; height: 36px;
                         enabled: root.background-active && row.editable;
                         minimum: round(row.minimum); maximum: round(row.maximum); value: round(row.number);
                         edited(value) => { root.change(row.key, value + ""); }
                     }
-                    if row.kind == 4 && !(root.modal == 3 && root.recording-key == row.key): Button { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? parent.height - 48px : 28px; width: root.compact-form ? parent.width - 36px : 262px; enabled: (root.background-active || root.modal == 3) && row.editable; text: row.text == "" ? root.unbound-label : row.text; clicked => { root.record(row.key); } }
+                    if row.kind == 4 && !(root.modal == 3 && root.recording-key == row.key): Button { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? max(51px, (field-card.show-details && field-card.description-visible && row.description != "" ? field-card.description-bottom : field-card.title-bottom) + 8px) : 16px; width: root.compact-form ? parent.width - 36px : 262px; enabled: (root.background-active || root.modal == 3) && row.editable; text: row.text == "" ? root.unbound-label : row.text; clicked => { root.record(row.key); } }
                     if row.kind == 4 && root.modal == 3 && root.recording-key == row.key: InlineShortcut {
                         x: 18px; y: max(50px, field-card.title-bottom + 12px); width: parent.width - 36px; height: parent.height - self.y - 18px;
                         focus-state(recording, clear, confirm, cancel) => { root.shortcut-recorder-focused = recording; root.shortcut-clear-focused = clear; root.shortcut-accept-focused = confirm; root.shortcut-cancel-focused = cancel; }
@@ -291,19 +323,33 @@ export component SettingsWindow inherits Window {
                         input(text, control, alt, shift, meta) => { root.shortcut-input(text, control, alt, shift, meta); }
                         action(name) => { root.action(name); }
                     }
-                    if row.kind == 5: Text { x: 18px; y: 48px; width: parent.width - 36px; height: parent.height - 64px; text: row.text; color: root.muted; wrap: word-wrap; }
-                    if row.kind == 6: HorizontalBox { x: root.compact-form ? 18px : parent.width - 220px; y: root.compact-form ? parent.height - 48px : 30px; width: 200px; height: 34px; padding: 0px; spacing: 12px;
-                        for color[index] in row.colors: Rectangle { width: 32px; height: 32px; background: color; border-radius: 16px; border-width: 3px; border-color: row.selected == index ? root.ink : transparent;
+                    info-body := Text { visible: row.kind == 5; x: 16px; y: field-card.title-bottom + 8px; width: parent.width - 32px; text: row.text; color: root.muted; wrap: word-wrap; }
+                    if row.kind == 6: HorizontalBox { x: root.compact-form ? 18px : parent.width - 282px; y: root.compact-form ? max(51px, (field-card.show-details && field-card.description-visible && row.description != "" ? field-card.description-bottom : field-card.title-bottom) + 8px) : 12px; width: min(262px, parent.width - 36px); height: 36px; padding: 0px; spacing: 8px;
+                        for color[index] in row.colors: Rectangle { width: 25px; height: 25px; background: color; border-radius: 16px; border-width: 3px; border-color: row.selected == index ? root.ink : transparent;
                             accessible-role: button; accessible-label: row.options[index]; accessible-enabled: root.background-active && row.editable;
                             accessible-action-default => { if root.background-active && row.editable { root.change(row.key, row.options[index]); } }
                             focus := FocusScope { enabled: root.background-active && (row.editable); key-pressed(event) => { if event.text == " " || event.text == Key.Return { root.change(row.key, row.options[index]); return accept; } return reject; } }
                             TouchArea { enabled: root.background-active && (row.editable); mouse-cursor: pointer; clicked => { focus.focus(); root.change(row.key, row.options[index]); } }
                             if focus.has-focus: Rectangle { border-radius: 18px; border-width: 1px; border-color: root.accent; background: transparent; }
                         }
+                        LineEdit {
+                            min-width: 86px; max-width: 96px;
+                            text: row.text == "system" ? "" : row.text;
+                            placeholder-text: "#RRGGBB";
+                            enabled: root.background-active && row.editable;
+                            accessible-label: root.font-english ? "Custom accent color (hex)" : "自定义强调色（HEX）";
+                            accepted => { root.change(row.key, self.text); }
+                        }
                     }
                 }
                 }
-            if root.guide-step < 0 && root.category == 5: VerticalBox { padding: 16px; spacing: 12px; alignment: start;
+                }
+            if root.normal-settings && root.category == 6: HorizontalBox {
+                padding: 0px; spacing: 8px; alignment: start;
+                Button { text: root.font-english ? "Diagnostics & resources" : "诊断与资源"; enabled: root.background-active; clicked => { root.show-diagnostics = !root.show-diagnostics; } }
+                Button { text: root.font-english ? "About Glint" : "关于拾光"; enabled: root.background-active; clicked => { root.show-about = !root.show-about; } }
+            }
+            if root.guide-step < 0 && root.category == 7: VerticalBox { padding: 16px; spacing: 12px; alignment: start;
                 Text { text: root.log-help; wrap: word-wrap; color: root.muted; vertical-stretch: 0; }
                 Text { text: root.log-status; wrap: word-wrap; color: root.ink; vertical-stretch: 0; }
                 HorizontalBox { height: 36px; padding: 0px; spacing: 10px;
@@ -312,10 +358,10 @@ export component SettingsWindow inherits Window {
                 }
             }
             if root.guide-step < 0 && root.category == 3: Rectangle {
-                height: max(80px, filename-info.preferred-height + 28px); background: root.side; border-radius: 5px;
+                height: filename-info.preferred-height + 28px; background: root.side; border-radius: 5px;
                 filename-info := Text { x: 14px; y: 14px; width: parent.width - 28px; text: root.filename-preview; wrap: word-wrap; color: root.ink; }
             }
-            if root.guide-step < 0 && root.category == 4: VerticalBox { padding: 16px; spacing: 12px; alignment: start;
+            if root.guide-step < 0 && root.category == 2: VerticalBox { padding: 16px; spacing: 12px; alignment: start;
                 Text { text: root.session-help; wrap: word-wrap; color: root.muted; vertical-stretch: 0; }
                 Text { text: root.session-status; wrap: word-wrap; color: root.ink; vertical-stretch: 0; }
                 HorizontalBox { height: 36px; padding: 0px; spacing: 10px;
@@ -329,19 +375,59 @@ export component SettingsWindow inherits Window {
             }
         }
     }
-    if root.workbench: Rectangle { x: 28px; y: 120px; width: parent.width - 56px; height: parent.height - 148px;
-        background: root.surface; border-radius: 8px; border-width: 1px; border-color: root.line;
-        ScrollView { width: parent.width; height: parent.height; content-width: self.visible-width;
-        VerticalBox { padding: 28px; spacing: 22px; alignment: start;
-            Text { text: root.workbench-title; color: root.ink; font-size: Theme.text-title; vertical-stretch: 0; }
-            Text { text: root.workbench-note; color: root.muted; wrap: word-wrap; vertical-stretch: 0; }
-            HorizontalBox { height: 38px; padding: 0px; spacing: 14px;
-                AccentButton { text: root.local-open-label; accent: root.accent; enabled: root.background-active && (root.modal == 0); clicked => { root.action("open-local"); } }
-                Button { text: root.workbench-capture-label; enabled: root.background-active && (root.modal == 0); clicked => { root.action("capture"); } }
-                Button { text: root.workbench-settings-label; enabled: root.background-active && (root.modal == 0); clicked => { root.action("workbench-privacy"); } }
+    if root.side-preview: VerticalLayout {
+        x: parent.width - 272px; y: 98px; width: 248px; height: 224px; spacing: 10px;
+        Text { text: root.font-english ? "Capture preview" : "截图浮层预览"; color: root.muted; font-size: 12px; height: 18px; }
+        Rectangle {
+            background: root.side; border-radius: Theme.card-radius;
+            Rectangle {
+                x: 14px; y: 16px; width: parent.width - 28px; height: 105px;
+                background: root.surface; border-radius: Theme.control-radius; border-width: 1px; border-color: root.line;
+                Text { x: 12px; y: 8px; text: root.font-english ? "Project notes" : "交接记录"; color: root.ink; font-size: 13px; }
+                Rectangle {
+                    x: 25px; y: 32px; width: parent.width - 49px; height: 50px;
+                    border-width: 2px; border-color: root.accent; background: transparent;
+                    Rectangle { x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px; border-width: 1px; border-color: root.line; background: transparent; }
+                }
             }
-            Button { height: 35px; text: root.workbench-output-label; enabled: root.background-active && (root.modal == 0); clicked => { root.action("workbench-output"); } }
+            HorizontalLayout {
+                x: 20px; y: 124px; width: parent.width - 40px; height: 29px; spacing: 8px; alignment: center;
+                for item[i] in [GlintIcons.select, GlintIcons.rect, GlintIcons.arrow, GlintIcons.redact, GlintIcons.undo]: Rectangle {
+                    width: 24px; border-radius: 4px; background: i == 0 ? root.accent.with-alpha(0.16) : transparent;
+                    Image { x: 4px; y: 6px; width: 16px; height: 16px; source: item; colorize: root.ink; }
+                }
+            }
+            HorizontalLayout {
+                x: 12px; y: 162px; width: parent.width - 24px; height: 29px; spacing: 4px; alignment: end;
+                for action[i] in (root.font-english ? ["Cancel", "Save", "Pin", "Copy"] : ["取消", "保存", "贴图", "复制"]): Rectangle {
+                    width: 49px; border-radius: 4px; background: i == 3 ? root.accent : root.surface;
+                    Text { text: action; color: i == 3 ? Theme.on-accent : root.ink; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
         }
+    }
+    if root.guide-step < 0 && !root.workbench: Rectangle {
+        y: parent.height - 60px; width: parent.width; height: 60px; background: root.surface;
+        Rectangle { x: 0px; y: 0px; width: parent.width; height: 1px; background: root.line; }
+        HorizontalBox {
+            padding: 12px; padding-left: 20px; padding-right: 20px; spacing: 10px;
+            Text { text: root.dirty ? (root.font-english ? "Unsaved changes" : "有未保存的修改") : ""; color: root.muted; vertical-alignment: center; horizontal-stretch: 1; }
+            Button { text: root.reset-label; enabled: root.background-active && root.writable; clicked => { root.action("reset"); } }
+            Button { text: root.cancel-label; enabled: root.background-active && root.dirty; clicked => { root.action("cancel"); } }
+            AccentButton { horizontal-stretch: 0; width: 130px; text: root.save-label; accent: root.accent; enabled: root.background-active && root.dirty && root.writable; clicked => { root.action("save"); } }
+        }
+    }
+    if root.workbench: Rectangle {
+        x: 0px; y: 64px; width: parent.width; height: parent.height - 64px;
+        Button { x: parent.width - self.width - 24px; y: 16px; text: root.workbench-settings-label; enabled: root.background-active; clicked => { root.action("open"); } }
+        VerticalLayout {
+            x: (parent.width - self.width)/2; y: (parent.height - self.height)/2 - 24px;
+            width: min(480px, parent.width - 48px); height: 110px; spacing: 16px;
+            HorizontalLayout { spacing: 12px;
+                AccentButton { text: root.local-open-label; accent: root.accent; enabled: root.background-active; clicked => { root.action("open-local"); } }
+                Button { text: root.workbench-capture-label; enabled: root.background-active; clicked => { root.action("capture"); } }
+            }
+            Text { text: "PNG · JPEG · WebP · BMP · TIFF · ICO · GIF · MP4 · MOV · MKV · WebM"; color: root.muted; wrap: word-wrap; horizontal-alignment: center; }
         }
     }
         recorder := FocusScope { width: parent.width; height: parent.height; focus-on-tab-navigation: false; focus-on-click: false;

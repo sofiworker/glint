@@ -80,7 +80,7 @@ fn defaults_roundtrip_and_keep_privacy_opt_in() {
     assert!(!config.privacy.history && !config.privacy.history_disk && !config.privacy.diagnostics);
     assert!(!config.output.auto_save && !config.pins.restore_session && !config.pins.passthrough);
     assert_eq!(config.output.finish, FinishAction::Copy);
-    assert_eq!(config.appearance.theme, Theme::Light);
+    assert_eq!(config.appearance.theme, Theme::System);
     assert_eq!(
         Config::from_toml(&config.to_toml().unwrap()).unwrap(),
         config

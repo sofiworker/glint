@@ -84,6 +84,8 @@ fn text(ui: &CaptureProbe, id: Message) -> &'static str {
 
 #[derive(Default)]
 struct Session {
+    #[cfg(windows)]
+    editor: Option<crate::workbench::Presentation>,
     fixed_selection: bool,
     loupe_point: Option<(u32, u32)>,
     picker_pressed: bool,
@@ -637,6 +639,8 @@ pub fn resident_capture_region(
     ui.set_diagnostic(false);
     let output = presentation.output.clone();
     let preview_budget = presentation.preview_budget_mib;
+    #[cfg(windows)]
+    let editor = crate::workbench::Presentation::from_capture(&presentation);
     presentation.apply(&ui);
     let frame = snapshot.frame;
     let origin = (frame.x, frame.y);
@@ -646,6 +650,10 @@ pub fn resident_capture_region(
     {
         let mut state = state.borrow_mut();
         state.output = output;
+        #[cfg(windows)]
+        {
+            state.editor = Some(editor);
+        }
         state.windows = snapshot
             .windows
             .iter()
@@ -839,6 +847,8 @@ fn prepare_capture(
     ui.window()
         .set_position(slint::PhysicalPosition::new(frame.x, frame.y));
     let state = Rc::new(RefCell::new(Session {
+        #[cfg(windows)]
+        editor: None,
         preview: Preview::with_budget_mib(preview_budget_mib),
         source: Some(frame.clone()),
         source_origin: (frame.x, frame.y),
@@ -1387,6 +1397,52 @@ fn prepare_capture(
             return;
         }
         if s.selection.width == 0 || s.selection.height == 0 {
+            return;
+        }
+        #[cfg(windows)]
+        if action == "edit-capture" && ui.get_editor_available() {
+            if let Some(presentation) = s.editor.clone() {
+                let Some(slot) = OutputSlot::acquire() else {
+                    ui.set_status(text(&ui, Message::CaptureOutputPending).into());
+                    return;
+                };
+                let frame = frame.clone();
+                let crop = s.selection;
+                let edits = s.edits.clone();
+                let owner = ui.as_weak();
+                ui.set_editor_error("".into());
+                ui.set_busy(true);
+                let worker = std::thread::Builder::new()
+                    .name("glint-capture-editor".into())
+                    .spawn(move || {
+                        let result = glint_core::ImageDocument::from_selection(
+                            &frame.rgba, frame.width, frame.height, crop, &edits,
+                        ).map_err(str::to_owned);
+                        let _ = owner.upgrade_in_event_loop(move |ui| {
+                            drop(slot);
+                            if ui.get_closed() {
+                                return;
+                            }
+                            ui.set_busy(false);
+                            match result.and_then(|image| {
+                                crate::workbench::open_handoff(
+                                    crate::workbench::Document::capture(Arc::new(image)),
+                                    presentation,
+                                )
+                            }) {
+                                Ok(()) => {
+                                    ui.set_exit_reason(CaptureExit::Editor);
+                                    ui.invoke_finished();
+                                }
+                                Err(error) => ui.set_editor_error(error.into()),
+                            }
+                        });
+                    });
+                if let Err(error) = worker {
+                    ui.set_busy(false);
+                    ui.set_editor_error(error.to_string().into());
+                }
+            }
             return;
         }
         let skip_automatic = action == "save-without-auto" && ui.get_auto_save_failed();

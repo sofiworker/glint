@@ -94,11 +94,19 @@ pub(crate) fn queue_selection(
     ui: &SettingsWindow,
     picker: impl FnOnce(&SettingsWindow) -> Result<Option<PathBuf>, String> + 'static,
 ) {
+    queue_picker(shared, ui, false, picker);
+}
+
+fn queue_picker(
+    shared: &Rc<RefCell<AppState>>,
+    ui: &SettingsWindow,
+    standalone: bool,
+    picker: impl FnOnce(&SettingsWindow) -> Result<Option<PathBuf>, String> + 'static,
+) {
     let generation = {
         let mut state = shared.borrow_mut();
         if state.local_dialog
-            || !ui.window().is_visible()
-            || !ui.get_workbench()
+            || (!standalone && (!ui.window().is_visible() || !ui.get_workbench()))
             || ui.get_modal() != 0
             || state.capture.is_some()
             || state.capturing
@@ -121,8 +129,7 @@ pub(crate) fn queue_selection(
             return;
         };
         let current = |state: &AppState| {
-            ui.window().is_visible()
-                && ui.get_workbench()
+            (standalone || (ui.window().is_visible() && ui.get_workbench()))
                 && ui.get_modal() == 0
                 && !state.lifecycle.blocked()
                 && state.lifecycle.generation == generation
@@ -165,7 +172,10 @@ fn choose(ui: &SettingsWindow) -> Result<Option<PathBuf>, String> {
                 return Err("Not a Win32 window".into());
             };
             unsafe {
-                glint_platform::choose_local_image_path(handle.hwnd.get() as *mut std::ffi::c_void)
+                glint_platform::choose_editor_file(
+                    handle.hwnd.get() as *mut std::ffi::c_void,
+                    false,
+                )
             }
         })
         .unwrap_or_else(|| Err("Window unavailable".into()))
@@ -176,10 +186,14 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, ui: &SettingsWindow)
         // Rescue and service failure recovery remain usable during file choice.
         return !matches!(action, "rescue-pins" | "toggle-pins" | "hotkey-error");
     }
-    if action != "open-local" {
-        return false;
+    match action {
+        "open-local" => queue_selection(shared, ui, choose),
+        "open-editor-file" => queue_picker(shared, ui, true, |_| {
+            // The tray has no visible owner window.
+            unsafe { glint_platform::choose_editor_file(std::ptr::null_mut(), false) }
+        }),
+        _ => return false,
     }
-    queue_selection(shared, ui, choose);
     true
 }
 

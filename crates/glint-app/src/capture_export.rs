@@ -291,39 +291,6 @@ fn spawn_output(ui: &CaptureProbe, request: Request, slot: OutputSlot) {
                         (error, saved, false)
                     })
             });
-            #[cfg(windows)]
-            let thumbnail = if matches!(&result, Ok(None)) {
-                glint_core::ImageDocument::from_selection(
-                    &request.frame.rgba,
-                    request.frame.width,
-                    request.frame.height,
-                    request.crop,
-                    &request.edits,
-                )
-                .ok()
-                .and_then(|document| crate::result_float::prepare_capture(Arc::new(document)).ok())
-                .map(|mut pending| {
-                    if let Some(path) = request
-                        .receipt
-                        .lock()
-                        .ok()
-                        .and_then(|r| r.saved_files().last().cloned())
-                    {
-                        pending.document.name = path
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .into_owned();
-                        pending.document.file_identity = std::fs::metadata(&path)
-                            .ok()
-                            .map(|m| (m.len(), m.modified().ok()));
-                        pending.document.path = Some(path);
-                    }
-                    pending
-                })
-            } else {
-                None
-            };
             let _ = weak.upgrade_in_event_loop(move |ui| {
                 if ui.get_closed() {
                     return;
@@ -355,10 +322,6 @@ fn spawn_output(ui: &CaptureProbe, request: Request, slot: OutputSlot) {
                         ui.invoke_request_pin(image, x, y);
                     }
                     Ok(None) => {
-                        #[cfg(windows)]
-                        if let Some(thumbnail) = thumbnail {
-                            crate::result_float::pending(thumbnail);
-                        }
                         ui.set_completion_kind(if request.save { 2 } else { 1 });
                         ui.invoke_output_succeeded(
                             request.crop.x as i32,

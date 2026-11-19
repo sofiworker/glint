@@ -76,7 +76,7 @@ impl LiveCaptureFrame {
             })
             .clone()?;
         let (x, y, w, h) = region;
-        if w < 32 || h < 64 {
+        if w < 16 || h < 16 {
             return Err("Invalid live capture region".into());
         }
         let vx = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
@@ -266,7 +266,7 @@ impl LiveBorder {
             })
             .clone()?;
         let (x, y, w, h) = region;
-        if w < 32 || h < 64 {
+        if w < 16 || h < 16 {
             return Err("Invalid live capture region".into());
         }
         let vx = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };

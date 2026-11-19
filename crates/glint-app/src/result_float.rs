@@ -1,7 +1,7 @@
 //! One short-lived capture result. No history files and no focus activation.
 use crate::workbench::{CaptureResultWindow, Document, Presentation};
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
-use std::{cell::RefCell, sync::Arc, time::Duration};
+use std::{cell::RefCell, time::Duration};
 
 pub struct Pending {
     pub document: Document,
@@ -13,11 +13,7 @@ struct Float {
     _timer: slint::Timer,
 }
 thread_local! {
-    static PENDING:RefCell<Option<Pending>>=const{RefCell::new(None)};
     static FLOAT:RefCell<Option<Float>>=const{RefCell::new(None)};
-}
-pub fn prepare_capture(document: Arc<glint_core::ImageDocument>) -> Result<Pending, String> {
-    prepare_document(Document::capture(document))
 }
 pub fn prepare_document(document: Document) -> Result<Pending, String> {
     let image_document = &document.image;
@@ -44,20 +40,11 @@ pub fn prepare_document(document: Document) -> Result<Pending, String> {
         thumbnail: image::imageops::thumbnail(&image, 440, 228),
     })
 }
-pub fn pending(value: Pending) {
-    PENDING.with_borrow_mut(|p| *p = Some(value));
-}
-pub fn take_pending() -> Option<Pending> {
-    PENDING.with_borrow_mut(Option::take)
-}
 pub fn dismiss() {
     FLOAT.with_borrow_mut(|f| {
         if let Some(f) = f.take() {
             let _ = f.ui.hide();
         }
-    });
-    PENDING.with_borrow_mut(|p| {
-        p.take();
     });
 }
 pub fn show(result: Pending, presentation: Presentation, saved: bool) -> Result<(), String> {

@@ -68,12 +68,12 @@ impl Run {
                 }
                 super::snapshot(ui, &dir.join("workbench-en.png"))?;
                 ui.invoke_action("workbench-output".into());
-                if ui.get_workbench() || ui.get_category() != 5 {
+                if ui.get_workbench() || ui.get_category() != 3 {
                     return Err("Workbench output navigation failed".into());
                 }
                 ui.invoke_action("workbench".into());
                 ui.invoke_action("workbench-privacy".into());
-                if ui.get_workbench() || ui.get_category() != 7 {
+                if ui.get_workbench() || ui.get_category() != 5 {
                     return Err("Workbench privacy navigation failed".into());
                 }
                 ui.invoke_action("workbench".into());

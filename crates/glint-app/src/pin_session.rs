@@ -339,7 +339,7 @@ fn failure(state: &mut AppState, ui: &SettingsWindow, error: Message, kind: Kind
     }
     ui.set_workbench(false);
     ui.set_guide_step(-1);
-    ui.set_category(6);
+    ui.set_category(crate::settings::fields::PINS);
     let _ = crate::resident::show_settings(ui);
 }
 fn instantiate(

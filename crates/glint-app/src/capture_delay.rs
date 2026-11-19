@@ -39,13 +39,7 @@ impl Run {
             config.appearance.theme,
             glint_platform::system_dark_theme(),
         ));
-        let rgb =
-            u32::from_str_radix(&config.appearance.accent[1..], 16).map_err(|e| e.to_string())?;
-        ui.set_accent(slint::Color::from_rgb_u8(
-            (rgb >> 16) as u8,
-            (rgb >> 8) as u8,
-            rgb as u8,
-        ));
+        ui.set_accent(crate::appearance::accent(&config.appearance.accent, ui.get_dark()));
         let weak = settings.as_weak();
         ui.on_cancel(move || {
             if let Some(settings) = weak.upgrade() {

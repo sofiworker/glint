@@ -15,7 +15,6 @@ use std::{
     hash::{Hash, Hasher},
     path::PathBuf,
     rc::Rc,
-    time::Duration,
 };
 use tray_icon::{
     MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent,
@@ -23,8 +22,6 @@ use tray_icon::{
 };
 
 pub struct AppState {
-    pub settings_pending: Option<String>,
-    pub settings_commit_timer: slint::Timer,
     pub log: Rc<RefCell<glint_platform::diagnostic_log::DiagnosticLog>>,
     pub output_settings: crate::output_settings::State,
     pub diagnostics: crate::runtime_diagnostics::State,
@@ -73,6 +70,7 @@ pub struct AppState {
 }
 pub struct TrayLabels {
     workbench: MenuItem,
+    edit_clipboard: MenuItem,
     scroll_capture: MenuItem,
     screen_recording: MenuItem,
     repeat: MenuItem,
@@ -131,6 +129,7 @@ impl AppState {
         ui.set_can_save(self.session.preferences.is_dirty() || self.session.repair_pending);
         if let Some(TrayLabels {
             workbench,
+            edit_clipboard,
             scroll_capture,
             screen_recording,
             repeat,
@@ -150,7 +149,16 @@ impl AppState {
                 self.session.preferences.saved().general.language,
                 &self.languages,
             );
-            workbench.set_text(messages::text(Message::Workbench, english));
+            edit_clipboard.set_text(settings::fields::label(
+                english,
+                "编辑剪贴板图片",
+                "Edit clipboard image",
+            ));
+            workbench.set_text(settings::fields::label(
+                english,
+                "打开图片或视频…",
+                "Open image or video…",
+            ));
             scroll_capture.set_text(settings::fields::label(
                 english,
                 "滚动长截图…",
@@ -543,8 +551,6 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         output_settings: Default::default(),
         diagnostics: Default::default(),
         lifecycle: Default::default(),
-        settings_pending: None,
-        settings_commit_timer: slint::Timer::default(),
         pin_session: Default::default(),
         workbench_pending: false,
         local_path: None,
@@ -661,7 +667,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             return;
         }
         if let Some(ui) = weak.upgrade() {
-            ui.set_category(category.clamp(0, 7));
+            ui.set_category(category.clamp(0, settings::fields::CATEGORIES.len() as i32 - 1));
             shared.borrow().sync(&ui);
         }
     });
@@ -696,57 +702,6 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             && state.session.preferences.draft.appearance.scale != previous_scale
         {
             crate::scale_preview::begin(&mut state, &shared, &ui, previous_scale);
-        }
-        // Auto-apply per the platform settings guidance: switches and choice
-        // controls persist at once; sliders persist on release (commit);
-        // free-text fields debounce so typing does not write on every key.
-        let immediate = matches!(
-            settings::fields::row_kind(&key),
-            Some(0) | Some(1) | Some(4) | Some(6)
-        );
-        if immediate {
-            state.settings_pending = None;
-            state.settings_commit_timer.stop();
-            // "save" re-enters the action dispatcher, which borrows AppState
-            // again; release this borrow before dispatching.
-            drop(state);
-            ui.invoke_action("save".into());
-        } else if !matches!(settings::fields::row_kind(&key), Some(3) | Some(7)) {
-            state.settings_pending = Some(key.to_string());
-            let owner = ui.as_weak();
-            state.settings_commit_timer.start(
-                slint::TimerMode::SingleShot,
-                Duration::from_millis(800),
-                move || {
-                    if let Some(ui) = owner.upgrade() {
-                        ui.invoke_commit("".into());
-                    }
-                },
-            );
-        }
-    });
-    let shared = state.clone();
-    let weak = ui.as_weak();
-    ui.on_commit(move |key| {
-        let Some(ui) = weak.upgrade() else {
-            return;
-        };
-        let mut state = shared.borrow_mut();
-        // An empty key flushes whichever text field is still pending.
-        let pending = if key.is_empty() {
-            state.settings_pending.take()
-        } else {
-            state.settings_pending = None;
-            Some(key.to_string())
-        };
-        if pending.is_some() && !state.session.preferences.is_dirty() {
-            return;
-        }
-        if pending.is_some() {
-            // Same dispatcher re-entry hazard as on_change: dispatch after
-            // the borrow ends.
-            drop(state);
-            ui.invoke_action("save".into());
         }
     });
     let shared = state.clone();
@@ -1130,6 +1085,13 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                     });
                     return;
                 }
+            }
+            "edit-clipboard"
+                if !state.capturing && state.capture.is_none() && !state.lifecycle.blocked() =>
+            {
+                crate::workbench::open_clipboard(crate::workbench::Presentation::from_resident(
+                    &state,
+                ));
             }
             "clipboard-pin"
                 if !state.capturing && state.capture.is_none() && !state.clipboard_pin_pending =>
@@ -1550,6 +1512,19 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                         }
                     })
                     .and_then(|(capture, pin_payload)| {
+                        let recording = &state.session.preferences.saved().recording;
+                        capture.set_record_format(i32::from(
+                            recording.format == glint_core::config::VideoFormat::Gif,
+                        ));
+                        capture.set_record_cursor(recording.cursor);
+                        capture.set_record_system_audio(recording.system_audio);
+                        capture.set_record_microphone(recording.microphone);
+                        capture.set_editor_available(
+                            !state.guide_practice
+                                && !capture.get_color_only()
+                                && !capture.get_pin_editing()
+                                && !capture.get_scroll_editor(),
+                        );
                         if !capture.get_scroll_editor() {
                             capture.set_capture_mode(state.capture_mode);
                             if state.capture_mode > 0 {
@@ -1883,10 +1858,15 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 state.capture_mode = 0;
                 state.scroll_capture.take();
                 let blocked = state.lifecycle.blocked();
-                let restore_settings = std::mem::take(&mut state.capture_settings_visible);
+                let opened_editor = state.capture.as_ref().is_some_and(|capture| {
+                    capture.get_exit_reason() == crate::probe::CaptureExit::Editor
+                });
+                let restore_settings =
+                    std::mem::take(&mut state.capture_settings_visible) && !opened_editor;
                 // External focus restoration checks ownership before hiding the overlay.
                 if let Some(focus) = state.capture_focus.take()
                     && !blocked
+                    && !opened_editor
                     && !restore_settings
                 {
                     let _ = focus.restore();
@@ -1895,31 +1875,16 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 state.edit_pin = None;
                 if let Some(capture) = state.capture.take() {
                     let _ = capture.hide();
-                    if !blocked {
-                        let thumbnail = crate::result_float::take_pending();
-                        let has_thumbnail = thumbnail.is_some();
-                        if let Some(thumbnail) = thumbnail {
-                            let presentation =
-                                crate::workbench::Presentation::from_resident(&state);
-                            if let Err(error) = crate::result_float::show(
-                                thumbnail,
-                                presentation,
-                                capture.get_completion_kind() == 2,
-                            ) {
-                                state.feedback = error;
-                            }
-                        }
-                        if !has_thumbnail || capture.get_feedback_mode() == 2 {
-                            crate::completion::show(
-                                crate::completion::mode(capture.get_feedback_mode()),
-                                capture.get_completion_kind(),
-                                capture.get_english(),
-                                capture.get_dark(),
-                                capture.get_accent(),
-                                capture.get_interface_scale(),
-                                capture.get_reduce_motion(),
-                            );
-                        }
+                    if !blocked && !opened_editor {
+                        crate::completion::show(
+                            crate::completion::mode(capture.get_feedback_mode()),
+                            capture.get_completion_kind(),
+                            capture.get_english(),
+                            capture.get_dark(),
+                            capture.get_accent(),
+                            capture.get_interface_scale(),
+                            capture.get_reduce_motion(),
+                        );
                     }
                 }
                 let restored = if blocked {
@@ -1961,10 +1926,10 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             "open" | "workbench-privacy" | "workbench-output" => {
                 ui.set_workbench(false);
                 if action == "workbench-privacy" {
-                    ui.set_category(7);
+                    ui.set_category(settings::fields::PRIVACY);
                 }
                 if action == "workbench-output" {
-                    ui.set_category(5);
+                    ui.set_category(settings::fields::OUTPUT);
                 }
                 state.languages = glint_platform::preferred_ui_languages().unwrap_or_default();
                 if let Err(error) = show_settings(&ui) {
@@ -2011,22 +1976,13 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 state.quit_pending = false;
             }
             "cancel" => {
-                // Page-scoped: revert only the keys shown on the current page.
-                let keys = settings::fields::page_keys(ui.get_category().clamp(0, 7) as usize);
-                match state.session.preferences.cancel_keys(&keys) {
-                    Ok(()) => {
-                        state.feedback.clear();
-                        if state.session.preferences.is_dirty() {
-                            ui.invoke_action("save".into());
-                        }
-                    }
-                    Err(error) => state.feedback = format!("{error}"),
-                }
+                state.session.preferences.cancel();
+                state.feedback.clear();
             }
             "reset" => settings::modal(&ui, 2, state.en(), ""),
             "confirm-reset" => {
                 let previous_scale = state.session.preferences.draft.appearance.scale;
-                let keys = settings::fields::page_keys(ui.get_category().clamp(0, 7) as usize);
+                let keys = settings::fields::page_keys(ui.get_category() as usize);
                 match state.session.preferences.restore_key_defaults(&keys) {
                     Ok(()) => {
                         state.feedback.clear();
@@ -2034,9 +1990,6 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                         state.sync(&ui);
                         if state.session.preferences.draft.appearance.scale != previous_scale {
                             crate::scale_preview::begin(&mut state, &shared, &ui, previous_scale);
-                        }
-                        if state.session.preferences.is_dirty() {
-                            ui.invoke_action("save".into());
                         }
                     }
                     Err(error) => state.feedback = format!("{error}"),
@@ -2207,9 +2160,15 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         true,
         None,
     );
+    let edit_clipboard = MenuItem::with_id(
+        "edit-clipboard",
+        settings::fields::label(english, "编辑剪贴板图片", "Edit clipboard image"),
+        true,
+        None,
+    );
     let workbench = MenuItem::with_id(
-        "workbench",
-        messages::text(Message::Workbench, english),
+        "open-editor-file",
+        settings::fields::label(english, "打开图片或视频…", "Open image or video…"),
         true,
         None,
     );
@@ -2287,23 +2246,27 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     );
     menu.append_items(&[
         &capture,
+        &window,
+        &current_screen,
+        &all_screens,
+        &repeat,
+        &PredefinedMenuItem::separator(),
         &scroll_capture,
         &screen_recording,
-        &window,
-        &all_screens,
-        &current_screen,
         &color_picker,
-        &repeat,
+        &PredefinedMenuItem::separator(),
         &clipboard,
         &toggle,
         &rescue,
         &PredefinedMenuItem::separator(),
-        &open,
         &workbench,
+        &edit_clipboard,
+        &open,
         &PredefinedMenuItem::separator(),
         &quit,
     ])?;
     state.borrow_mut().tray_labels = Some(TrayLabels {
+        edit_clipboard,
         workbench,
         scroll_capture,
         screen_recording,

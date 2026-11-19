@@ -386,15 +386,22 @@ pub fn smoke_stage(
             if run.sampling.running() || run.automatic_timer.running() {
                 return Err("Acquisition timer survived finish".into());
             }
+            if !run.controls.get_pending() || !run.controls.get_review() {
+                return Err("Pending join controls missing from the toolbar".into());
+            }
+            if !run.controls.get_repair_mode() {
+                let action = scroll_action(run.ticket, ScrollCommand::Repair);
+                drop(state);
+                settings.invoke_action(action.into());
+                return Ok(false);
+            }
+            if !smoke_verify_live(run, directory, "native-live-review.png")? {
+                return Ok(false);
+            }
             save_smoke_snapshot(&run.ui, &directory.join("scroll-finished-review.png"))?;
             #[cfg(feature = "input-probe")]
             if std::env::var("GLINT_SCROLL_PROBE_INPUT").as_deref() == Ok("1") {
-                input_smoke::click(
-                    &run.ui,
-                    0.7,
-                    1. - 25. * run.ui.window().scale_factor()
-                        / run.ui.window().size().height as f32,
-                )?;
+                input_smoke::click(&run.controls, 0.95, 22. / 86.)?;
                 return Ok(true);
             }
             let action = scroll_action(run.ticket, ScrollCommand::Cancel);
@@ -573,12 +580,7 @@ pub fn smoke_stage(
             save_smoke_snapshot(&run.ui, &directory.join("automatic-document-preview.png"))?;
             #[cfg(feature = "input-probe")]
             if std::env::var("GLINT_SCROLL_PROBE_INPUT").as_deref() == Ok("1") {
-                input_smoke::click(
-                    &run.ui,
-                    0.9,
-                    1. - 25. * run.ui.window().scale_factor()
-                        / run.ui.window().size().height as f32,
-                )?;
+                input_smoke::click(&run.controls, 0.83, 0.5)?;
                 return Ok(true);
             }
             let action = scroll_action(run.ticket, ScrollCommand::Copy);
@@ -695,6 +697,27 @@ fn smoke_verify_live(
     if !run._border.visible() || !toolbar.visible || !toolbar.topmost {
         return Err(format!(
             "Live border/controls not visibly topmost: {toolbar:?}"
+        ));
+    }
+    let scale = run.controls.window().scale_factor();
+    let gap = (8. * scale).round() as i32;
+    let width = (384. * scale).round() as i32;
+    let height = ((if run.ui.get_review() && run.ui.get_pending() {
+        86.
+    } else {
+        44.
+    }) * scale)
+        .round() as i32;
+    let expected_x = (run.region.0 + (run.region.2 as i32 - width) / 2)
+        .clamp(run.work.0, run.work.0 + run.work.2 as i32 - width);
+    let expected_y = run.region.1 + run.region.3 as i32 + gap;
+    if (toolbar.x - expected_x).abs() > 1
+        || (toolbar.y - expected_y).abs() > 1
+        || (toolbar.height - height).abs() > 1
+        || !controls.receives_pointer_at(toolbar.x + width / 2, toolbar.y + gap)?
+    {
+        return Err(format!(
+            "Toolbar is not centered below the test selection: {toolbar:?}"
         ));
     }
     let preview = native(run.ui.window())?;
@@ -1026,6 +1049,7 @@ fn prepare(
 fn configure_controller(
     window: &slint::Window,
     region: (i32, i32, u32, u32),
+    pass_through_overlap: bool,
 ) -> Result<(), String> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     window
@@ -1036,12 +1060,15 @@ fn configure_controller(
             };
             let native =
                 unsafe { glint_platform::NativePinWindow::from_raw(handle.hwnd.get() as *mut _) };
-            native.configure(true, false)?;
             let panel = native.state()?;
             let intersects = i64::from(panel.x) < i64::from(region.0) + i64::from(region.2)
                 && i64::from(panel.x) + i64::from(panel.width) > i64::from(region.0)
                 && i64::from(panel.y) < i64::from(region.1) + i64::from(region.3)
                 && i64::from(panel.y) + i64::from(panel.height) > i64::from(region.1);
+            window
+                .set_cursor_hittest(!(intersects && pass_through_overlap))
+                .map_err(|error| error.to_string())?;
+            native.configure(true, intersects && pass_through_overlap)?;
             if intersects {
                 native.exclude_from_capture()
             } else {
@@ -1049,6 +1076,74 @@ fn configure_controller(
             }
         })
         .ok_or("Capture controller not initialized")?
+}
+
+fn resize_preview(
+    ui: &ScrollCaptureWindow,
+    work: (i32, i32, u32, u32),
+    region: (i32, i32, u32, u32),
+    width: u32,
+) {
+    let scale = ui.window().scale_factor();
+    let padding = (12. * scale).round() as u32;
+    let available = work.3.saturating_sub(2 * padding).max(1);
+    let image_height = if ui.get_has_picture() {
+        (width.saturating_sub(padding) as f32 * ui.get_picture_height()
+            / ui.get_picture_width().max(1.))
+        .ceil() as u32
+    } else {
+        (72. * scale) as u32
+    };
+    let recovery = (ui.get_recovery_height() * scale).round() as u32;
+    let height = image_height
+        .saturating_add(padding)
+        .saturating_add(recovery)
+        .clamp(((44. * scale) as u32).min(available), available);
+    let y_min = work.1 + padding as i32;
+    let y_max = work.1 + work.3.saturating_sub(height + padding) as i32;
+    let position = ui.window().position();
+    let size = slint::PhysicalSize::new(width, height);
+    if ui.window().size() != size {
+        ui.window().set_size(size);
+    }
+    let y = region.1.clamp(y_min.min(y_max), y_max);
+    if y != position.y {
+        ui.window()
+            .set_position(slint::PhysicalPosition::new(position.x, y));
+    }
+}
+
+fn position_controls(
+    controls: &ScrollControlWindow,
+    work: (i32, i32, u32, u32),
+    region: (i32, i32, u32, u32),
+    scale: f32,
+) -> i64 {
+    crate::live_toolbar::position(
+        controls.window(),
+        work,
+        region,
+        slint::LogicalSize::new(controls.get_toolbar_width(), controls.get_toolbar_height()),
+        scale,
+    )
+}
+
+fn sync_review_controls(run: &Run) -> bool {
+    let height = run.controls.get_toolbar_height();
+    run.controls.set_review(run.ui.get_review());
+    run.controls.set_pending(run.ui.get_pending());
+    run.controls.set_repair_mode(run.ui.get_repair_mode());
+    run.controls.set_unresolved(run.ui.get_unresolved());
+    let resized = height != run.controls.get_toolbar_height();
+    if resized {
+        position_controls(
+            &run.controls,
+            run.work,
+            run.region,
+            run.controls.window().scale_factor(),
+        );
+    }
+    resized
 }
 
 fn start(
@@ -1126,6 +1221,11 @@ fn start(
     let controls =
         crate::motion::create_settings(ScrollControlWindow::new).map_err(|e| e.to_string())?;
     controls.set_english(english);
+    controls.set_busy(true);
+    controls.set_maximum_overlap(ui.get_maximum_overlap());
+    controls.set_overlap(ui.get_overlap());
+    controls.set_dark(capture.get_dark());
+    controls.set_accent(capture.get_accent());
     controls.set_status(tr(Message::ScrollBusy, english));
     let owner = settings.as_weak();
     controls.on_action(move |action| {
@@ -1133,6 +1233,15 @@ fn start(
             && let Some(action) = scroll_ui_action(ticket, &action)
         {
             owner.invoke_action(action.into());
+        }
+    });
+    let preview = ui.as_weak();
+    let controls_ref = controls.as_weak();
+    controls.on_overlap_edited(move |value| {
+        if let (Some(preview), Some(controls)) = (preview.upgrade(), controls_ref.upgrade()) {
+            preview.set_overlap(value);
+            controls.set_overlap(value);
+            preview.invoke_action("preview".into());
         }
     });
     let owner = settings.as_weak();
@@ -1148,55 +1257,34 @@ fn start(
         });
     })?;
     let scale = ui.window().scale_factor();
-    let panel_width = (300. * scale) as u32;
-    let panel_height = (h + (80. * scale) as u32)
-        .clamp((300. * scale) as u32, (720. * scale) as u32)
-        .min(work.3.saturating_sub(24));
-    ui.window()
-        .set_size(slint::PhysicalSize::new(panel_width, panel_height));
-    let right = i64::from(region.0) + i64::from(region.2) + 12;
+    let controls_right = position_controls(&controls, work, region, scale);
+    let selection_right = i64::from(region.0) + i64::from(region.2) + 12;
     let work_right = i64::from(work.0) + i64::from(work.2);
-    let left = i64::from(region.0) - i64::from(panel_width) - 12;
-    // Prefer beside the live selection; if neither side fits, use the work-area
-    // edge. The reviewed panel appears only after finishing, so later
-    // acquisitions never include it while it is hidden.
-    let x = if right + i64::from(panel_width) <= work_right {
-        right
-    } else if left >= i64::from(work.0) {
-        left
+    let minimum = (120. * scale) as u32;
+    let clear_of_controls = selection_right.max(controls_right + 8);
+    let right = if work_right - clear_of_controls - 8 >= i64::from(minimum) {
+        clear_of_controls
     } else {
-        (work_right - i64::from(panel_width)).max(i64::from(work.0))
+        selection_right
     };
-    ui.window().set_position(slint::PhysicalPosition::new(
-        x as i32,
-        region
-            .1
-            .max(work.1 + 12)
-            .min(work.1 + work.3.saturating_sub(panel_height + 12) as i32),
-    ));
-    let controls_width = (430. * scale) as u32;
-    let controls_height = (76. * scale) as u32;
-    controls
-        .window()
-        .set_size(slint::PhysicalSize::new(controls_width, controls_height));
-    // The control strip sits centered right below the selection, like the
-    // reviewed prototype; it never overlaps the source pixels.
-    controls.window().set_position(slint::PhysicalPosition::new(
-        (i64::from(region.0) + i64::from(region.2) / 2 - i64::from(controls_width) / 2).clamp(
-            i64::from(work.0),
-            i64::from(work.0) + i64::from(work.2) - i64::from(controls_width),
-        ) as i32,
-        (i64::from(region.1) + i64::from(region.3) + 8)
-            .min(i64::from(work.1) + i64::from(work.3) - i64::from(controls_height) - 8)
-            as i32,
-    ));
+    let right_space = (work_right - right - 8).max(0) as u32;
+    let panel_width = right_space
+        .max(minimum)
+        .min((280. * scale) as u32)
+        .min(work.2);
+    let x = right
+        .min(work_right - i64::from(panel_width))
+        .max(i64::from(work.0));
+    ui.window()
+        .set_position(slint::PhysicalPosition::new(x as i32, region.1));
+    resize_preview(&ui, work, region, panel_width);
     // Visible-first handoff with an explicit z-order: the shade and border sit
     // below the control strip and the preview card, so the dim can never darken
     // them. A stalled setup still leaves the ring, strip and card visible.
     frame.show();
     border.show();
-    controls.show().map_err(|e| e.to_string())?;
     ui.show().map_err(|e| e.to_string())?;
+    controls.show().map_err(|e| e.to_string())?;
     let weak_ui = ui.as_weak();
     let weak_controls = controls.as_weak();
     let owner = settings.as_weak();
@@ -1279,6 +1367,7 @@ fn queue(run: &mut Run, settings: &SettingsWindow, task: Task) {
     };
     glint_platform::diagnostic_log::emit(glint_platform::diagnostic_log::Event::ScrollQueued);
     run.ui.set_busy(true);
+    run.controls.set_busy(true);
     run.ui.set_status(tr(Message::ScrollBusy, run.english));
     let region = run.region;
     // Pixel evidence is opt-in and restricted to the explicit diagnostic run.
@@ -1386,7 +1475,11 @@ fn queue(run: &mut Run, settings: &SettingsWindow, task: Task) {
                 }
                 // Every explicit acquisition/edit publishes a fresh bounded
                 // preview. Never compose full images on pointer/scroll events.
-                if prepared.is_none() && image.is_none() && session.count() > 0 {
+                if prepared.is_none()
+                    && image.is_none()
+                    && !matches!(notice, Message::ScrollDuplicate)
+                    && session.count() > 0
+                {
                     match if reviewing {
                         live_preview(&session, overlap)
                     } else {
@@ -1492,15 +1585,23 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             let mut state = shared.borrow_mut();
             if !state.lifecycle.blocked()
                 && let Some(run) = &mut state.scroll_capture
+                && run.result.is_none()
             {
+                let was_reviewing = run.ui.get_review();
                 run.ui.set_review(false);
+                run.ui.set_repair_mode(false);
                 run.controls.set_stopped(false);
+                if was_reviewing {
+                    sync_review_controls(run);
+                    let _ = configure_controller(run.ui.window(), run.region, true);
+                    let _ = configure_controller(run.controls.window(), run.region, false);
+                }
                 queue(run, settings, Task::Capture);
             }
             return true;
         }
         // Keep settings/other capture modes from entering the live capture region.
-        // Tray Settings also serves as recovery if the panel was moved offscreen.
+        // Tray Settings also brings the existing capture controls forward.
         if shared.borrow().scroll_capture.is_some()
             && matches!(
                 action,
@@ -1519,18 +1620,16 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             if !state.lifecycle.blocked()
                 && let Some(run) = &mut state.scroll_capture
             {
-                run.ui.window().set_position(slint::PhysicalPosition::new(
-                    run.work.0 + 20,
-                    run.work.1 + 20,
-                ));
                 // Shade and border first, then the controller windows, so the
                 // dim can never cover the panel or the control strip.
                 run._frame.show();
                 run._border.show();
-                // Moving the panel can make it overlap the source. Reapply its
-                // capture policy before accepting another acquisition.
                 if run.capture_affinity
-                    && let Err(error) = configure_controller(run.ui.window(), run.region)
+                    && let Err(error) =
+                        configure_controller(run.ui.window(), run.region, !run.ui.get_review())
+                            .and_then(|_| {
+                                configure_controller(run.controls.window(), run.region, false)
+                            })
                 {
                     run.capture_affinity = false;
                     run.automatic_timer.stop();
@@ -1582,8 +1681,14 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             // afterwards must end up above the shade, never dimmed by it.
             run._frame.show();
             run._border.show();
-            configure_controller(run.controls.window(), run.region)?;
-            configure_controller(run.ui.window(), run.region)?;
+            position_controls(
+                &run.controls,
+                run.work,
+                run.region,
+                run.controls.window().scale_factor(),
+            );
+            configure_controller(run.ui.window(), run.region, true)?;
+            configure_controller(run.controls.window(), run.region, false)?;
             Ok(())
         })();
         let initialized = initialized.and_then(|()| {
@@ -1657,12 +1762,33 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                 return true;
             }
             run.ui.set_busy(false);
+            run.controls.set_busy(false);
+            let previous_review = run.ui.get_review();
             if matches!(result.notice, Message::ScrollBudget | Message::ScrollFailed) {
                 run.automatic_timer.stop();
                 run.controls.set_automatic(false);
+                run.auto_sampling = false;
+                run.ui.set_notice(tr(result.notice, run.english));
+            } else if !matches!(result.notice, Message::ScrollDuplicate) {
+                let notice = if !previous_review
+                    && !matches!(result.notice, Message::ScrollReviewHint)
+                    && result.session.pending_height().is_some()
+                {
+                    if run.english {
+                        "Some frames need alignment. Keep scrolling or finish to review."
+                    } else {
+                        "部分画面待拼接，可继续滚动或结束后检查。"
+                    }
+                } else {
+                    ""
+                };
+                run.ui.set_notice(notice.into());
             }
             run.ui
                 .set_pending(result.session.pending_height().is_some());
+            if !run.ui.get_pending() || run.output_requested {
+                run.ui.set_repair_mode(false);
+            }
             run.ui
                 .set_unresolved(result.session.unresolved_count() as i32);
             run.ui.set_join_position(
@@ -1676,6 +1802,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             run.ui.set_can_undo(
                 result.session.count() > 1 || result.session.pending_height().is_some(),
             );
+            run.controls.set_can_undo(run.ui.get_can_undo());
             run.ui.set_can_finish(result.session.count() > 0);
             run.controls.set_ready(result.session.count() > 0);
             if matches!(result.notice, Message::ScrollReviewHint) {
@@ -1749,21 +1876,29 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                         .map_or(2, |source| source.idle_step_limit());
                     if run.auto_idle_steps >= idle_limit {
                         run.controls.set_automatic(false);
-                        run.ui.set_status(
-                            (if run.english {
-                                "No further movement detected; finish or continue manually"
-                            } else {
-                                "未检测到继续滚动，可结束或手动继续"
-                            })
-                            .into(),
-                        );
+                        let notice = if run.english {
+                            "Auto-scroll stopped. Scroll manually to continue."
+                        } else {
+                            "自动滚动已停止，可用滚轮继续。"
+                        };
+                        run.ui.set_status(notice.into());
+                        run.ui.set_notice(notice.into());
                     }
                 } else if run.auto_attempts >= 16 {
                     run.auto_sampling = false;
-                    run.controls.set_automatic(false);
-                    run.ui.set_status((if run.english { "Page has not settled. Auto scroll paused; sources retained. Continue manually or retry." } else { "页面尚未稳定，已暂停自动滚动并保留片段，可手动继续或重试。" }).into());
+                    if !run.auto_progress {
+                        run.controls.set_automatic(false);
+                        let notice = if run.english {
+                            "Page is still moving. Scroll manually or retry auto-scroll."
+                        } else {
+                            "页面仍在变化，可手动滚动或重试自动滚动。"
+                        };
+                        run.ui.set_status(notice.into());
+                        run.ui.set_notice(notice.into());
+                    }
                 }
             }
+            let preview_width = run.ui.window().size().width;
             if let Some(preview) = result.preview {
                 let pending_seam = preview.pending_seam;
                 run.ui.set_picture_width(preview.pixels.width() as f32);
@@ -1788,10 +1923,18 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                 } else {
                     run.ui.invoke_reveal_latest();
                 }
-            } else {
+            } else if result.session.count() == 0 {
                 // Never display a stale result after undoing/changing a join.
                 run.ui.set_picture(slint::Image::default());
                 run.ui.set_has_picture(false);
+            }
+            resize_preview(&run.ui, run.work, run.region, preview_width);
+            let controls_resized = sync_review_controls(run);
+            if previous_review != run.ui.get_review() {
+                let _ = configure_controller(run.ui.window(), run.region, !run.ui.get_review());
+            }
+            if previous_review != run.ui.get_review() || controls_resized {
+                let _ = configure_controller(run.controls.window(), run.region, false);
             }
             run.session = Some(result.session);
             // Feishu-style layout: the live preview card and the control strip
@@ -1807,9 +1950,12 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                     .controls
                     .show()
                     .map_err(|e| e.to_string())
-                    .and_then(|_| configure_controller(run.controls.window(), run.region))
+                    .and_then(|_| configure_controller(run.controls.window(), run.region, false))
                     .and_then(|_| run.ui.show().map_err(|e| e.to_string()))
-                    .and_then(|_| configure_controller(run.ui.window(), run.region));
+                    .and_then(|_| {
+                        configure_controller(run.ui.window(), run.region, !run.ui.get_review())
+                    })
+                    .and_then(|_| configure_controller(run.controls.window(), run.region, false));
                 run.capture_affinity = shown.is_ok();
                 if let Err(error) = shown {
                     run.controls.set_stopped(true);
@@ -1835,7 +1981,6 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
                     // A single result-level recovery state. Never force serial
                     // seam confirmations or silently copy an incomplete image.
                     run.output = None;
-                    run.ui.set_repair_mode(false);
                 } else {
                     queue(run, settings, Task::Edit);
                 }
@@ -1851,6 +1996,11 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
     if let ScrollCommand::Wheel { up } = command {
         if run.controls.get_stopped() {
             return true;
+        }
+        if run.controls.get_automatic() {
+            run.controls.set_automatic(false);
+            run.automatic_timer.stop();
+            run.auto_sampling = false;
         }
         run.upward = up;
         // Every notch restarts the burst: intermediate frames while the page is
@@ -1892,11 +2042,18 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             return true;
         }
         let enabled = !run.controls.get_automatic();
+        run.ui.set_notice("".into());
         run.controls.set_automatic(enabled);
         run.automatic_timer.stop();
         run.auto_sampling = false;
         run.auto_idle_steps = 0;
         if enabled {
+            if run.source.is_err() {
+                if let Some(target) = &run.target {
+                    let _ = target.restore();
+                }
+                run.source = glint_platform::ScrollSource::new(run.region);
+            }
             run.upward = false;
             schedule_auto(run, settings);
         }
@@ -1916,7 +2073,15 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             .and_then(|source| source.scroll_down());
         if let Err(error) = result {
             run.controls.set_automatic(false);
-            run.ui.set_status(error.into());
+            run.source = Err(error);
+            let notice = if run.english {
+                "Auto-scroll could not reach the page. Scroll manually or retry."
+            } else {
+                "自动滚动未能到达页面，可手动滚动或重试。"
+            };
+            run.ui.set_status(notice.into());
+            run.ui.set_notice(notice.into());
+            resize_preview(&run.ui, run.work, run.region, run.ui.window().size().width);
             return true;
         }
         // Observe successive frames before issuing another wheel step.
@@ -1967,6 +2132,9 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
     }
     if command == ScrollCommand::Settled {
         run.sampling.stop();
+        if run.result.is_some() && !run.controls.get_stopped() {
+            run.dirty = true;
+        }
     }
     if run.result.is_some() {
         return true;
@@ -1983,6 +2151,7 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
         ScrollCommand::Capture => Task::Capture,
         ScrollCommand::Repair => {
             run.ui.set_repair_mode(true);
+            sync_review_controls(run);
             Task::Preview(Some(overlap))
         }
         ScrollCommand::ReviewNext => Task::ReviewNext,
@@ -2007,6 +2176,10 @@ pub fn handle(action: &str, shared: &Rc<RefCell<AppState>>, settings: &SettingsW
             run.output_requested = false;
             run.output = None;
             run.controls.set_stopped(false);
+            run.ui.set_notice("".into());
+            sync_review_controls(run);
+            let _ = configure_controller(run.ui.window(), run.region, true);
+            let _ = configure_controller(run.controls.window(), run.region, false);
             run.controls
                 .set_status(tr(Message::ScrollReady, run.english));
             return true;

@@ -19,9 +19,9 @@ pub fn capture_exit(log: &mut DiagnosticLog, capture: &crate::probe::CaptureProb
         CaptureExit::Pin => Cause::Pin,
         CaptureExit::ColorCopy => Cause::ColorCopy,
         CaptureExit::PinUpdate => Cause::PinUpdate,
-        CaptureExit::Direct => Cause::Direct,
+        CaptureExit::Direct | CaptureExit::Editor => Cause::Direct,
     };
-    log.record(if capture.get_completion_kind() > 0 {
+    log.record(if capture.get_completion_kind() > 0 || capture.get_exit_reason() == CaptureExit::Editor {
         Event::CaptureCompleted
     } else {
         Event::CaptureCancelled
