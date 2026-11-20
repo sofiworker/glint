@@ -1,1 +1,2 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#202b42" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5M4 4l6 6m5 10h5v-5m0 5-6-6"/></svg>
+<!-- SPDX-License-Identifier: ISC AND MIT; Lucide lucide-static v1.77.0; Copyright (c) 2026 Lucide Icons and Contributors. Feather-derived icons: Copyright (c) 2013-present Cole Bemis. ISC/MIT terms: assets/icons/lucide/LICENSE.txt. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#202b42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M14 15H9v-5" /><path d="M16 3h5v5" /><path d="M21 3 9 15" /></svg>

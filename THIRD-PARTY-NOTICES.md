@@ -11,11 +11,11 @@ Glint 自有代码与 HTML 原型采用 `GPL-3.0-only`，全文见 [LICENSE](LIC
 - Glint 对 Slint 框架选择 **GPL-3.0-only** 路径；本项目的 GPL 文本取自该版本上游的 `LICENSES/GPL-3.0-only.txt`。
 - Slint 文档、示例和第三方资产可能有独立许可，以各文件声明及上游 REUSE 元数据为准；复制这些内容时保留相应声明。
 - `crates/glint-ui/ui/widgets/` 包含 Slint v1.18.1 Fluent 控件的有限修改副本（按钮、复选框、下拉框、滑块、滚动区及公共基础），保留原版权和三选一 SPDX 声明，本项目选择 GPL-3.0-only。修改用于按窗口控制动效，并以公开接口替换内部引用；来源、修改说明与升级复核要求见该目录 README。
-- 该目录 Fluent SVG 图标来自上游同版本的 `internal/compiler/widgets/fluent/`；上游 REUSE 声明为 Microsoft Corporation 版权所有、MIT 许可。图标保持原样，随附逐文件 `.license` 声明、MIT 全文 `LICENSE-MIT-Fluent-icons.txt` 及上游 REUSE 元数据。
+- 该目录保留的 Fluent SVG 图标来自上游同版本的 `internal/compiler/widgets/fluent/`；上游 REUSE 声明为 Microsoft Corporation 版权所有、MIT 许可。图标保持原样，随附逐文件 `.license` 声明、MIT 全文 `LICENSE-MIT-Fluent-icons.txt` 及上游 REUSE 元数据；仅保留来源记录，Glint 控件现统一引用 Lucide。SpinBox 及其公共基础同样取自 Slint 1.18.1，保留原版权和三选一 SPDX 声明，Glint 选择 GPL-3.0-only；修改说明见该目录 README。
 
 ## 项目图标与字体
 
-- `crates/glint-ui/ui/icons/*.svg` 是本项目原创操作图标，由 `prototype/icons.js` 中的共享路径生成，按项目自有代码的 `GPL-3.0-only` 分发；不属于上述 Microsoft Fluent 图标集合，不依赖 Lucide 或字体字符。原型路径与原生资源的对应关系及生成命令见该目录 README。
+- 界面操作图标统一采用 [Lucide](https://lucide.dev/icons/categories)，固定 `lucide-static` 1.77.0。上游：https://github.com/lucide-icons/lucide 。未经修改的 SVG 子集、包来源、SHA-512 包完整性及逐文件 SHA-256 记录于 `assets/icons/lucide/`。图形采用 ISC 许可（Copyright (c) 2026 Lucide Icons and Contributors），其中源自 Feather 的图形还保留 MIT 许可（Copyright (c) 2013-present Cole Bemis）；完整上游文本及对应图标列表见 `assets/icons/lucide/LICENSE.txt`。这些宽松许可与项目 GPLv3 兼容，素材继续保留上游条款。`prototype/icons.js`、`crates/glint-ui/ui/icons/*.svg` 及原生控件共享同一语义映射，由 `tools/sync_icons.py` 离线生成；原生只调整描边颜色以供主题着色，不修改几何。开发包将原始素材、来源清单和许可复制至 `licenses/lucide/`，对应源码也包含相同材料。
 - `assets/brand/*.svg` 是项目原创标志，采用 GPL-3.0-only。构建时从 SVG 生成托盘、窗口及 Windows 可执行文件的图标，不含第三方图标素材。HTML 示例桌面由原型代码绘制，不能作为原生截图资源。
 - 应用界面优先使用用户的系统界面字体；系统字体仅调用，不复制分发。批注字体与界面字体策略独立。
 - 内置回退字体：Noto Sans SC Variable，Copyright 2014–2021 Adobe，Reserved Font Name “Source”；采用 SIL Open Font License 1.1（OFL-1.1），允许随 GPL 应用嵌入与再分发，字体本身继续遵守 OFL。未修改上游字体。原始许可与版权：`assets/fonts/OFL-NotoSansSC.txt`；来源、固定提交及 SHA-256：`assets/fonts/provenance.json`。

@@ -20,7 +20,7 @@ use std::{
 glint_ui::slint! {
     export { Theme } from "@glint_ui/theme.slint";
     export { Motion } from "@glint_ui/widgets/motion.slint";
-    export { WorkbenchWindow, CaptureResultWindow, EditorLabels, EditorObject, EditorClip, EditorTimedMark, EditorGrip } from "src/workbench.slint";
+    export { WorkbenchWindow, CaptureResultWindow, EditorLabels, EditorObject, EditorClip, EditorTimedMark, EditorGrip, EditorTooltipProbe } from "src/workbench.slint";
 }
 #[path = "workbench_export.rs"]
 mod export;

@@ -4,6 +4,7 @@
 
 import { Palette } from "std-widgets.slint";
 import { Theme } from "../../theme.slint";
+import { GlintIcons } from "../../components/icons.slint";
 import { ColorSchemeSelector } from "color-scheme.slint";
 
 export struct TextStyle {
@@ -90,22 +91,22 @@ export global FluentPalette {
 }
 
 export global Icons {
-    out property <image> arrow-down: @image-url("_arrow-down.svg");
-    out property <image> arrow-up: @image-url("_arrow-up.svg");
-    out property <image> check-mark: @image-url("_check-mark.svg");
-    out property <image> chevron-down: @image-url("_chevron-down.svg");
-    out property <image> chevron-up: @image-url("_chevron-up.svg");
-    out property <image> down: @image-url("_down.svg");
-    out property <image> dropdown: @image-url("_dropdown.svg");
-    out property <image> left: @image-url("_left.svg");
-    out property <image> right: @image-url("_right.svg");
-    out property <image> up: @image-url("_up.svg");
-    out property <image> keyboard: @image-url("_keyboard.svg");
-    out property <image> clock: @image-url("_clock.svg");
-    out property <image> arrow-back: @image-url("_arrow_back.svg");
-    out property <image> arrow-forward: @image-url("_arrow_forward.svg");
-    out property <image> edit: @image-url("_edit.svg");
-    out property <image> calendar: @image-url("_calendar.svg");
+    out property <image> arrow-down: GlintIcons.arrow-down;
+    out property <image> arrow-up: GlintIcons.arrow-up;
+    out property <image> check-mark: GlintIcons.check;
+    out property <image> chevron-down: GlintIcons.down;
+    out property <image> chevron-up: GlintIcons.up;
+    out property <image> down: GlintIcons.down;
+    out property <image> dropdown: GlintIcons.down;
+    out property <image> left: GlintIcons.left;
+    out property <image> right: GlintIcons.right;
+    out property <image> up: GlintIcons.up;
+    out property <image> keyboard: GlintIcons.keyboard;
+    out property <image> clock: GlintIcons.clock;
+    out property <image> arrow-back: GlintIcons.left;
+    out property <image> arrow-forward: GlintIcons.right;
+    out property <image> edit: GlintIcons.pen;
+    out property <image> calendar: GlintIcons.calendar;
 }
 
 export global FluentSizeSettings {

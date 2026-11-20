@@ -18,6 +18,12 @@
 #glint-postprocess .gp-brand img{display:block;width:28px;height:28px}#glint-postprocess .gp-desktop-taskbar>span{display:flex;align-items:center;gap:8px}
 
 /* Keep commands close to the document; avoid permanent tutorial text. */
+/* Window-wide hint overlay: never clipped by rows, canvas, or the timeline. */
+#glint-postprocess .gp-tooltip{position:fixed;z-index:1000;pointer-events:none;max-width:calc(100vw - 16px);padding:6px 9px;border:1px solid var(--gp-line);border-radius:4px;background:var(--gp-ink);color:var(--gp-paper);font-size:11px;line-height:1.5;overflow-wrap:anywhere;box-shadow:0 2px 8px var(--gp-shadow)}
+/* Keep numeric text clear of its steppers; timing fields wrap as whole units. */
+#glint-postprocess .gp-compact-field{flex-shrink:0;white-space:nowrap}
+#glint-postprocess .gp-compact-field input[data-field=mark-from],#glint-postprocess .gp-compact-field input[data-field=mark-to]{width:96px;min-width:96px}
+#glint-postprocess .gp-playback{flex-shrink:0;flex-wrap:wrap}
 #glint-postprocess .gp-titlebar{min-height:48px;padding-block:8px}#glint-postprocess .gp-commandbar{min-height:44px;padding-block:6px}#glint-postprocess .gp-context{min-height:44px;padding-block:6px}#glint-postprocess .gp-context-note,#glint-postprocess .gp-view-note{display:none}#glint-postprocess .gp-stage{padding:20px}#glint-postprocess input:not([type=range]),#glint-postprocess select{background:var(--gp-paper)}
 #glint-postprocess[data-mode=video] .gp-stage{height:clamp(160px,calc(100dvh - 402px),560px);min-height:0}
 #glint-postprocess .gp-toolrail{min-width:0}

@@ -64,10 +64,13 @@ pub fn run(directory: &Path, interactive: bool) -> Result<(), Box<dyn std::error
     let result = done.clone();
     let started = Instant::now();
     let mut phase = 0;
+    let mut hint_index = 0usize;
+    let mut hint_started: Option<Instant> = None;
+    let mut hint_before: Option<image::RgbaImage> = None;
     let timer = slint::Timer::default();
     timer.start(slint::TimerMode::Repeated,Duration::from_millis(60),move||{
         let check=(|| -> Result<bool,String>{
-            if started.elapsed()>Duration::from_secs(30){return Err(format!("Workbench QA timeout in phase {phase}"));}
+            if started.elapsed()>Duration::from_secs(60){return Err(format!("Workbench QA timeout in phase {phase}, tooltip {hint_index}"));}
             let Some(session)=CURRENT.with_borrow(Clone::clone)else{return Ok(false);};
             let ui=session.borrow().ui.clone_strong();
             if ui.get_busy(){return Ok(false);}
@@ -202,8 +205,88 @@ pub fn run(directory: &Path, interactive: bool) -> Result<(), Box<dyn std::error
                     assert!(export::selection(&session.borrow(),false).is_err());
                     snapshot(&ui,&output.join("format-unavailable-small.png"))?;
                     ui.invoke_action("modal-cancel".into());
-                    std::fs::write(output.join("result.txt"),"PASS: native image/video adapters, crop/text/history, dirty/quit guards, modal keyboard isolation, Esc cancellation, GIF seek/playback, image/MP4/GIF/MOV/MKV/WebM export panels, unavailable format guard, output scaling separate from document, codec checks, software snapshots, nonactivating clickable thumbnail. This does not verify physical input, mixed DPI or long recordings.").map_err(|e|e.to_string())?;
-                    return Ok(true);
+                }
+                15..=35=>{
+                    let case=((phase-15)/3) as usize;
+                    let (english,width,height,scale)=LAYOUT_CASES[case];
+                    match (phase-15)%3 {
+                        0=>{
+                            // Create each scale with the normal presentation path. Directly
+                            // dispatching DPI then snapshotting before the OS resize leaves
+                            // winit's pixel buffer and the software renderer at different sizes.
+                            let mut policy=presentation.clone();
+                            policy.english=english;
+                            policy.dark=english;
+                            policy.theme=if english { glint_core::config::Theme::Dark } else { glint_core::config::Theme::Light };
+                            policy.scale=scale;
+                            let document=session.borrow().doc.clone();
+                            create(document,policy)?;
+                        }
+                        1=>{
+                            // Winit converts LogicalSize with the monitor DPI, while
+                            // Glint can use an independent UI scale. Request pixels
+                            // explicitly so this case really has the intended logical size.
+                            let factor=crate::interface_scale::factor(scale);
+                            ui.window().set_size(slint::PhysicalSize::new((width*factor).round() as u32,(height*factor).round() as u32));
+                            ui.invoke_action("category:2".into());
+                            ui.invoke_pointer(0,40.,50.,1.);
+                            ui.set_text_value("Layout".into());
+                            ui.invoke_action("text-commit".into());
+                        }
+                        _=>{
+                            assert!(ui.get_selected(),"The video annotation must remain selected");
+                            let actual=ui.window().size().to_logical(ui.window().scale_factor());
+                            if (actual.width-width).abs()>1. || (actual.height-height).abs()>1. {return Ok(false);}
+                            let expected_scale=crate::interface_scale::factor(scale);
+                            if (ui.window().scale_factor()-expected_scale).abs()>0.01 {return Ok(false);}
+                            ui.set_mark_from(12345.6);
+                            ui.set_mark_to(86400.);
+                            ui.set_time_label("01:23:45.6 / 24:00:00.0".into());
+                            let filename=format!("video-selected-{}-{}-scale-{}.png",if english {"en"} else {"zh"},width as u32,(expected_scale*100.) as u32);
+                            snapshot(&ui,&output.join(filename))?;
+                            assert!(ui.get_timing_content_fits(),"Video timing text clipped in layout case {case}");
+                            assert!(ui.get_video_layout_fits(),"Video playback/labels clipped in layout case {case}");
+                        }
+                    }
+                }
+                36|39=>{
+                    let mut policy=presentation.clone();
+                    policy.english=phase==39;
+                    policy.dark=phase==39;
+                    policy.theme=if phase==39 { glint_core::config::Theme::Dark } else { glint_core::config::Theme::Light };
+                    let document=session.borrow().doc.clone();
+                    create(document,policy)?;
+                    hint_index=0;hint_started=None;hint_before=None;
+                }
+                37|40=>{
+                    ui.window().set_size(slint::PhysicalSize::new(if phase==37 {1100} else {740},if phase==37 {780} else {540}));
+                    ui.invoke_action("category:5".into());
+                }
+                38|41=>{
+                    let probes=ui.get_tooltip_probes();
+                    if let Some(probe)=probes.row_data(hint_index) {
+                        if hint_started.is_none() {
+                            pointer(&ui,1,0.,0.);
+                            hint_before=Some(window_pixels(&ui)?);
+                            pointer(&ui,1,probe.x,probe.y);
+                            hint_started=Some(Instant::now());
+                            return Ok(false);
+                        }
+                        if hint_started.unwrap().elapsed()<Duration::from_millis(650) {return Ok(false);}
+                        let pixels=window_pixels(&ui)?;
+                        pixels.save(output.join(format!("tooltip-{}-{hint_index:02}.png",if phase==38 {"zh"} else {"en"}))).map_err(|e|e.to_string())?;
+                        verify_tooltip(hint_before.as_ref().unwrap(),&pixels,&probe,ui.window().scale_factor()).map_err(|e|format!("Tooltip {hint_index}, phase {phase}: {e}"))?;
+                        hint_index+=1;hint_started=None;hint_before=None;
+                        return Ok(false);
+                    }
+                    // A visible tooltip must not intercept the button's click.
+                    let more=probes.row_data(13).unwrap();
+                    click(&ui,more.x,more.y);assert!(ui.get_more());
+                    key(&ui,slint::platform::Key::Escape);assert!(!ui.get_more());
+                    if phase==41 {
+                        std::fs::write(output.join("result.txt"),"PASS: native image/video adapters and export panels; selected annotation timing/layout in Chinese/English, 740x540 and 1100x780, actual 100/125/150/175 percent rendering; rendered tooltip text bounds above property rows/canvas/timeline for all 20 toolbar, playback and zoom icons in Chinese/light and English/dark, right-edge containment and pointer click-through. This does not verify physical input, mixed DPI or long recordings.").map_err(|e|e.to_string())?;
+                        return Ok(true);
+                    }
                 }
                 _=>return Ok(true),
             }
@@ -213,6 +296,55 @@ pub fn run(directory: &Path, interactive: bool) -> Result<(), Box<dyn std::error
     });
     slint::run_event_loop()?;
     done.borrow().clone().map_err(Into::into)
+}
+const LAYOUT_CASES: [(bool, f32, f32, glint_core::config::Scale); 7] = {
+    use glint_core::config::Scale::*;
+    [
+        (false, 740., 540., Percent100),
+        (false, 1100., 780., Percent100),
+        (true, 740., 540., Percent100),
+        (true, 1100., 780., Percent100),
+        (true, 740., 540., Percent125),
+        (true, 740., 540., Percent150),
+        (true, 740., 540., Percent175),
+    ]
+};
+fn window_pixels(ui: &WorkbenchWindow) -> Result<image::RgbaImage, String> {
+    let pixels = ui.window().take_snapshot().map_err(|e| e.to_string())?;
+    image::RgbaImage::from_raw(pixels.width(), pixels.height(), pixels.as_bytes().to_vec())
+        .ok_or_else(|| "Invalid window snapshot".into())
+}
+fn verify_tooltip(
+    before: &image::RgbaImage,
+    after: &image::RgbaImage,
+    target: &EditorTooltipProbe,
+    scale: f32,
+) -> Result<(), String> {
+    if before.dimensions() != after.dimensions() {
+        return Err("Window resized during hover".into());
+    }
+    let (mut left, mut top, mut right, mut bottom) = (after.width(), after.height(), 0, 0);
+    for (x, y, pixel) in after.enumerate_pixels() {
+        let in_button = (x as f32 - target.x * scale).abs() <= 18. * scale
+            && (y as f32 - target.y * scale).abs() <= 18. * scale;
+        if !in_button && pixel != before.get_pixel(x, y) {
+            left = left.min(x);
+            top = top.min(y);
+            right = right.max(x);
+            bottom = bottom.max(y);
+        }
+    }
+    let wide = right.saturating_sub(left) as f32 / scale;
+    let high = bottom.saturating_sub(top) as f32 / scale;
+    // Measure rendered pixels beyond the hovered button: a partially occluded
+    // inline hint must fail even when its declared rectangle has the right size.
+    if wide + 1. < target.text_width + 14. || high + 1. < target.text_height + 8. {
+        return Err(format!(
+            "Rendered hint is {wide}x{high}; label needs {}x{} plus padding",
+            target.text_width, target.text_height
+        ));
+    }
+    Ok(())
 }
 fn key(ui: &WorkbenchWindow, key: slint::platform::Key) {
     use slint::platform::WindowEvent;

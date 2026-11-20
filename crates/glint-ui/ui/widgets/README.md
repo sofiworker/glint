@@ -10,3 +10,7 @@ Upstream sources: https://github.com/slint-ui/slint/tree/v1.18.1/internal/compil
 Asset license declaration: https://github.com/slint-ui/slint/blob/v1.18.1/REUSE.toml
 
 Component extraction (2026-10-22): moved unchanged assets and licensing into glint-ui; Motion.fast/normal now supply animation durations without changing defaults or reduced-motion bypass behavior.
+
+Lucide unification (2026-11-20): `fluent/styling.slint` now maps every Icons property to the shared GlintIcons assets. The historical Microsoft SVGs and their notices remain for provenance, with no active control references. Added the Slint v1.18.1 Fluent SpinBox and unchanged common SpinBoxBase so numeric-input arrows use the same Lucide chevrons; removed its unused icon-color animation (the color has no state-dependent binding). Application CheckBox and SpinBox imports now use this local widget module. Lucide licensing and pinned source are in `assets/icons/lucide/` and the root THIRD-PARTY-NOTICES.md.
+
+Compact numeric controls (2026-11-20): SpinBox places its Lucide steppers in a 20px vertical column and reserves the remaining width for text, matching the prototype's numeric fields. This fixes 74–76px controls whose previous two horizontal 28px steppers squeezed the value to zero width. The native workbench regression checks actual value text bounds and selected video timing/playback at narrow sizes, both languages and multiple software rendering scales.

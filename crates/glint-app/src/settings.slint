@@ -2,10 +2,9 @@ import { Theme } from "@glint_ui/theme.slint";
 import { AccentButton, GlintCheck, GlintChoice, GlintSwitch, InlineShortcut, FormCard } from "@glint_ui/glint-ui.slint";
 import { FontPicker, FontLabels } from "@glint_ui/components/font_picker.slint";
 import { Motion } from "@glint_ui/widgets/motion.slint";
-import { Button, CheckBox, ComboBox, LineEdit, Slider, ScrollView, HorizontalBox, VerticalBox } from "@glint_ui/widgets/widgets.slint";
+import { Button, CheckBox, ComboBox, LineEdit, Slider, ScrollView, SpinBox, HorizontalBox, VerticalBox } from "@glint_ui/widgets/widgets.slint";
 import { ToolbarEditor, ToolbarRow } from "@glint_ui/components/toolbar_editor.slint";
 import { GlintIcons } from "@glint_ui/components/icons.slint";
-import { SpinBox } from "std-widgets.slint";
 
 export struct SettingRow { key: string, section: string, title: string, description: string, kind: int, editable: bool, checked: bool, text: string, options: [string], colors: [color], selected: int, number: float, minimum: float, maximum: float }
 export component SettingsWindow inherits Window {

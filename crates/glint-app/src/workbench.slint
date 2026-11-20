@@ -2,8 +2,7 @@ import { Theme } from "@glint_ui/theme.slint";
 import { Motion } from "@glint_ui/widgets/motion.slint";
 import { ToolbarAssets } from "@glint_ui/components/toolbar_editor.slint";
 import { GlintIcons } from "@glint_ui/components/icons.slint";
-import { ComboBox, LineEdit, Slider, ScrollView } from "@glint_ui/widgets/widgets.slint";
-import { SpinBox, CheckBox } from "std-widgets.slint";
+import { ComboBox, LineEdit, Slider, ScrollView, SpinBox, CheckBox } from "@glint_ui/widgets/widgets.slint";
 
 export struct EditorLabels {
     clean: string, dirty: string, copy: string, save: string, export: string,
@@ -26,6 +25,7 @@ export struct EditorObject { label: string, selected: bool }
 export struct EditorClip { left: float, wide: float, label: string, selected: bool }
 export struct EditorTimedMark { left: float, wide: float, label: string, selected: bool, index: int }
 export struct EditorGrip { x: float, y: float }
+export struct EditorTooltipProbe { x: float, y: float, text_width: float, text_height: float }
 component ToolButton inherits Rectangle {
     in property <string> label;
     in property <image> icon;
@@ -37,10 +37,12 @@ component ToolButton inherits Rectangle {
     in property <bool> icon-only;
     forward-focus: keys;
     out property <bool> has-focus: keys.has-focus;
+    out property <bool> label-fits: root.icon-only || title.width >= title.preferred-width;
+    out property <EditorTooltipProbe> tooltip-probe: { x: (root.absolute-position.x + root.width/2)/1px, y: (root.absolute-position.y + root.height/2)/1px, text_width: title.preferred-width/1px, text_height: title.preferred-height/1px };
     callback clicked;
     callback held(bool);
     height: 32px;
-    min-width: root.icon-only ? 32px : title.preferred-width + (root.icon.width > 0 ? 42px : 24px);
+    min-width: root.icon-only ? 32px : title.preferred-width + (root.icon.width > 0 ? 46px : 24px);
     horizontal-stretch: 0;
     border-radius: 6px;
     background: root.primary ? Theme.accent : root.active ? Theme.accent.with-alpha(0.10) : touch.has-hover ? Theme.sidebar : transparent;
@@ -65,11 +67,9 @@ component ToolButton inherits Rectangle {
             if e.kind == PointerEventKind.cancel || e.kind == PointerEventKind.up { root.held(false); }
         }
     }
-    if touch.has-hover && root.icon-only: Rectangle {
-        z: 8; y: 35px; x: (parent.width - self.width)/2; width: hint.preferred-width + 16px; height: 26px;
-        background: Theme.ink; border-radius: 4px;
-        hint := Text { x: 8px; height: parent.height; text: root.label; color: Theme.surface; font-size: 11px; vertical-alignment: center; }
-    }
+    // Slint's input-transparent tooltip popup is rendered above all window
+    // content, including later property rows, the canvas, timeline and dialogs.
+    if root.icon-only && !root.blocked: Tooltip { text: @markdown("\{root.label}"); }
 }
 export component WorkbenchWindow inherits Window {
     title: root.filename + " · Glint";
@@ -133,6 +133,20 @@ export component WorkbenchWindow inherits Window {
     property <bool> pan-started;
     in-out property <int> modal;
     property <bool> background-active: root.modal == 0 && !root.busy;
+    out property <bool> video-layout-fits: !root.video || (stage.height >= 80px && video-toolbar.width >= video-toolbar.min-width && split-button.label-fits && audio-button.label-fits);
+    out property <bool> timing-content-fits: !root.video || !root.selected || (timing-from.content-fits && timing-to.content-fits && timing-row.width >= timing-row.min-width);
+    // Pointer locations and natural label metrics for rendered tooltip regression.
+    out property <[EditorTooltipProbe]> tooltip-probes: [
+        undo-button.tooltip-probe, redo-button.tooltip-probe, crop-button.tooltip-probe,
+        tool-probe(1), tool-probe(2), tool-probe(3), tool-probe(4), tool-probe(5), tool-probe(6), tool-probe(7), tool-probe(8),
+        adjust-button.tooltip-probe, compare-button.tooltip-probe, more-button.tooltip-probe,
+        zoom-out-button.tooltip-probe, zoom-in-button.tooltip-probe, fit-button.tooltip-probe,
+        frame-back-button.tooltip-probe, play-button.tooltip-probe, frame-next-button.tooltip-probe
+    ];
+    pure function tool-probe(offset: int) -> EditorTooltipProbe {
+        // Repeated tools share a row height; their labels have different widths.
+        return { x: crop-button.tooltip-probe.x + offset*36, y: crop-button.tooltip-probe.y, text_width: 0, text_height: crop-button.tooltip-probe.text_height };
+    }
     out property <bool> modal-cancel-focused: modal-cancel.has-focus;
     changed modal => {
         root.space=false;
@@ -241,25 +255,26 @@ export component WorkbenchWindow inherits Window {
             Rectangle {
                 height: 44px; background: Theme.surface;
                 HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 4px;
-                    ToolButton { blocked: !root.background-active; label: root.labels.undo; icon-only: true; icon: ToolbarAssets.images[9]; enabled: root.can-undo && !root.busy; clicked => { root.command("undo"); } }
-                    ToolButton { blocked: !root.background-active; label: root.labels.redo; icon-only: true; icon: ToolbarAssets.images[10]; enabled: root.can-redo && !root.busy; clicked => { root.command("redo"); } }
+                    undo-button := ToolButton { blocked: !root.background-active; label: root.labels.undo; icon-only: true; icon: ToolbarAssets.images[9]; enabled: root.can-undo && !root.busy; clicked => { root.command("undo"); } }
+                    redo-button := ToolButton { blocked: !root.background-active; label: root.labels.redo; icon-only: true; icon: ToolbarAssets.images[10]; enabled: root.can-redo && !root.busy; clicked => { root.command("redo"); } }
                     Rectangle { horizontal-stretch: 1; }
-                    ToolButton { blocked: !root.background-active; icon-only: true; label: root.labels.crop; icon: GlintIcons.crop; active: root.category == 0; clicked => { root.command("category:0"); } }
+                    crop-button := ToolButton { blocked: !root.background-active; icon-only: true; label: root.labels.crop; icon: GlintIcons.crop; active: root.category == 0; clicked => { root.command("category:0"); } }
                     for t[i] in [0,1,2,3,4,5,6,7]: ToolButton {
                         blocked: !root.background-active; icon-only: true;
                         label: [root.labels.select, root.labels.rect, root.labels.arrow, root.labels.pen, root.labels.text, root.labels.highlight, root.labels.solid, root.labels.mosaic][i];
                         icon: ToolbarAssets.images[t]; active: root.category >= 1 && root.category <= 3 && root.tool == t;
                         clicked => { root.command("category:" + (t == 4 ? 2 : t >= 6 ? 3 : 1) + ":" + t); }
                     }
-                    ToolButton { blocked: !root.background-active; icon-only: true; label: root.labels.adjust; icon: GlintIcons.adjust; active: root.category == 4; clicked => { root.command("category:4"); } }
+                    adjust-button := ToolButton { blocked: !root.background-active; icon-only: true; label: root.labels.adjust; icon: GlintIcons.adjust; active: root.category == 4; clicked => { root.command("category:4"); } }
                     Rectangle { horizontal-stretch: 1; }
-                    ToolButton { blocked: !root.background-active; label: root.labels.compare; icon: GlintIcons.compare; icon-only: true; active: root.comparing; clicked => {} held(down) => { root.value("compare", down ? 1 : 0); } }
-                    ToolButton { blocked: !root.background-active; label: root.labels.more; icon-only: true; icon: ToolbarAssets.images[14]; clicked => { root.more = !root.more; } }
+                    compare-button := ToolButton { blocked: !root.background-active; label: root.labels.compare; icon: GlintIcons.compare; icon-only: true; active: root.comparing; clicked => {} held(down) => { root.value("compare", down ? 1 : 0); } }
+                    more-button := ToolButton { blocked: !root.background-active; label: root.labels.more; icon-only: true; icon: ToolbarAssets.images[14]; clicked => { root.more = !root.more; } }
                 }
             }
             Rectangle { height: 1px; background: Theme.line; }
-            if root.category != 1 || root.tool != 0 || root.selected: Rectangle {
-                height: 44px; background: Theme.surface;
+            Rectangle {
+                visible: root.category != 1 || root.tool != 0 || root.selected;
+                height: !self.visible ? 0px : root.video && root.selected ? 84px : 44px; background: Theme.surface;
                 HorizontalLayout { y: 6px; height: 32px; width: parent.width; padding-left: 16px; padding-right: 16px; spacing: 8px;
                     if root.category == 0: HorizontalLayout {
                         spacing: 8px;
@@ -314,6 +329,16 @@ export component WorkbenchWindow inherits Window {
                             ToolButton { blocked: !root.background-active; label: root.labels.delete; clicked => { root.command("delete"); } }
                         }
                     }
+                }
+                timing-row := HorizontalLayout {
+                    visible: root.video && root.selected;
+                    x: 16px; y: 46px; height: 32px; width: parent.width - 32px; spacing: 8px;
+                    Text { text: root.labels.from; color: Theme.muted; vertical-alignment: center; horizontal-stretch: 0; }
+                    timing-from := SpinBox { enabled: root.background-active; width: 104px; minimum: 0; maximum: 864000; value: round(root.mark-from*10); edited(v) => { root.value("from",v/10); } }
+                    Text { text: root.labels.to; color: Theme.muted; vertical-alignment: center; horizontal-stretch: 0; }
+                    timing-to := SpinBox { enabled: root.background-active; width: 104px; minimum: 1; maximum: 864000; value: round(root.mark-to*10); edited(v) => { root.value("to",v/10); } }
+                    Text { text: "× 0.1 s"; color: Theme.muted; vertical-alignment: center; horizontal-stretch: 0; }
+                    Rectangle { horizontal-stretch: 1; }
                 }
             }
             Rectangle { height: 1px; background: Theme.line; }
@@ -386,36 +411,31 @@ export component WorkbenchWindow inherits Window {
             }
             Rectangle {
                 height: 36px;
+                background: Theme.background;
                 HorizontalLayout { padding-left: 16px; padding-right: 12px; spacing: 6px;
                     Text { text: root.media-info; color: Theme.muted; vertical-alignment: center; }
                     Rectangle { horizontal-stretch: 1; }
-                    ToolButton { blocked: !root.background-active; label: root.labels.zoom-out; icon: GlintIcons.minus; icon-only: true; clicked => { root.magnify(1/1.2); } }
+                    zoom-out-button := ToolButton { blocked: !root.background-active; label: root.labels.zoom-out; icon: GlintIcons.minus; icon-only: true; clicked => { root.magnify(1/1.2); } }
                     ToolButton { blocked: !root.background-active; label: root.zoom==0 ? root.labels.fit : round(root.zoom*100)+"%"; clicked => { root.zoom=1;root.pan-x=0px;root.pan-y=0px; } }
-                    ToolButton { blocked: !root.background-active; label: root.labels.zoom-in; icon: GlintIcons.plus; icon-only: true; clicked => { root.magnify(1.2); } }
-                    ToolButton { blocked: !root.background-active; label: root.labels.fit; icon: GlintIcons.fit; icon-only: true; clicked => { root.zoom=0;root.pan-x=0px;root.pan-y=0px; } }
+                    zoom-in-button := ToolButton { blocked: !root.background-active; label: root.labels.zoom-in; icon: GlintIcons.plus; icon-only: true; clicked => { root.magnify(1.2); } }
+                    fit-button := ToolButton { blocked: !root.background-active; label: root.labels.fit; icon: GlintIcons.fit; icon-only: true; clicked => { root.zoom=0;root.pan-x=0px;root.pan-y=0px; } }
                 }
             }
-            if root.video: Rectangle {
-                height: 184px; background: Theme.surface;
+            Rectangle {
+                visible: root.video;
+                height: root.video ? 184px : 0px; background: Theme.surface;
                 Rectangle { height: 1px; background: Theme.line; }
-                HorizontalLayout { x: 16px; y: 8px; width: parent.width - 32px; height: 32px; spacing: 8px;
-                    ToolButton { blocked: !root.background-active; visible: !root.selected; label: root.labels.split; icon: GlintIcons.split; clicked => { root.command("split"); } }
-                    ToolButton { blocked: !root.background-active; visible: !root.selected; label: root.labels.delete; icon: GlintIcons.trash; icon-only: true; clicked => { root.command("delete-clip"); } }
-                    ToolButton { blocked: !root.background-active; visible: !root.selected; label: root.labels.clip; icon: GlintIcons.clip; icon-only: true; active: root.category == 5; clicked => { root.command("category:5"); } }
-                    if root.selected: HorizontalLayout {
-                        spacing: 4px;
-                        Text { text: root.labels.from; color: Theme.muted; vertical-alignment: center; }
-                        SpinBox { enabled: root.background-active; width: 74px; minimum: 0; maximum: 864000; value: round(root.mark-from*10); edited(v) => { root.value("from",v/10); } }
-                        Text { text: root.labels.to; color: Theme.muted; vertical-alignment: center; }
-                        SpinBox { enabled: root.background-active; width: 74px; minimum: 1; maximum: 864000; value: round(root.mark-to*10); edited(v) => { root.value("to",v/10); } }
-                    }
+                video-toolbar := HorizontalLayout { x: 16px; y: 8px; width: parent.width - 32px; height: 32px; spacing: 8px;
+                    split-button := ToolButton { blocked: !root.background-active; label: root.labels.split; icon: GlintIcons.split; clicked => { root.command("split"); } }
+                    ToolButton { blocked: !root.background-active; label: root.labels.delete; icon: GlintIcons.trash; icon-only: true; clicked => { root.command("delete-clip"); } }
+                    ToolButton { blocked: !root.background-active; label: root.labels.clip; icon: GlintIcons.clip; icon-only: true; active: root.category == 5; clicked => { root.command("category:5"); } }
                     Rectangle { horizontal-stretch: 1; }
-                    ToolButton { blocked: !root.background-active; label: root.labels.frame-back; icon: GlintIcons.frame-back; icon-only: true; clicked => { root.command("frame-back"); } }
-                    ToolButton { blocked: !root.background-active; label: root.playing ? root.labels.pause : root.labels.play; icon: root.playing ? GlintIcons.pause : GlintIcons.play; icon-only: true; clicked => { root.command("play"); } }
-                    ToolButton { blocked: !root.background-active; label: root.labels.frame-next; icon: GlintIcons.frame-next; icon-only: true; clicked => { root.command("frame-next"); } }
-                    Text { text: root.time-label; color: Theme.muted; vertical-alignment: center; }
+                    frame-back-button := ToolButton { blocked: !root.background-active; label: root.labels.frame-back; icon: GlintIcons.frame-back; icon-only: true; clicked => { root.command("frame-back"); } }
+                    play-button := ToolButton { blocked: !root.background-active; label: root.playing ? root.labels.pause : root.labels.play; icon: root.playing ? GlintIcons.pause : GlintIcons.play; icon-only: true; clicked => { root.command("play"); } }
+                    frame-next-button := ToolButton { blocked: !root.background-active; label: root.labels.frame-next; icon: GlintIcons.frame-next; icon-only: true; clicked => { root.command("frame-next"); } }
+                    Text { text: root.time-label; color: Theme.muted; vertical-alignment: center; horizontal-stretch: 0; }
                     Rectangle { horizontal-stretch: 1; }
-                    ToolButton { blocked: !root.background-active; label: root.labels.audio; icon: root.muted ? GlintIcons.muted : GlintIcons.audio; active: root.category==6; clicked => { root.command("category:6"); } }
+                    audio-button := ToolButton { blocked: !root.background-active; label: root.labels.audio; icon: root.muted ? GlintIcons.muted : GlintIcons.audio; active: root.category==6; clicked => { root.command("category:6"); } }
                 }
                 timeline := Rectangle {
                     x: 24px; y: 52px; width: parent.width - 48px; height: 88px;
@@ -435,7 +455,8 @@ export component WorkbenchWindow inherits Window {
                     for m in root.timed-marks: Rectangle {
                         x: m.left*parent.width; y: 64px; width: max(2px,m.wide*parent.width - 2px); height: 18px;
                         border-radius: 3px; background: Theme.accent.with-alpha(m.selected ? 0.4 : 0.16);
-                        Text { x: 6px; width: parent.width - 8px; height: parent.height; text: m.label; color: Theme.ink; font-size: 10px; overflow: elide; }
+                        clip: true;
+                        Text { x: min(6px, parent.width); width: max(0px, parent.width - 8px); height: parent.height; text: m.label; color: Theme.ink; font-size: 10px; overflow: elide; vertical-alignment: center; }
                         TouchArea { clicked => { root.action("object:"+m.index); } }
                     }
                     Rectangle { x: root.position/max(0.01,root.duration)*parent.width; width: 1px; height: parent.height; background: Theme.accent; }

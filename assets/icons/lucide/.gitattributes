@@ -1,0 +1,3 @@
+# Preserve the upstream bytes used by manifest.json SHA-256 checks on Windows.
+*.svg text eol=lf
+LICENSE.txt text eol=lf

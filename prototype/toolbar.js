@@ -1,6 +1,5 @@
 // Shared toolbar editor for settings and in-capture customization.
 const toolbarKeys=['toolbarLayout','toolbarColumns','toolbarRows','toolbarWidth','toolbarMode','toolbarPosition','toolbarGroups','toolbarCustomize','toolbarOrder','toolbarHidden'];
-const iconPaths=GlintIcons.paths;
 function toolbarIcon(name){return GlintIcons.svg(name);}
 function toolbarConfig(){return state.modal?.type==='toolbar-customize'?state.toolbarDraft:draft;}
 function normalizeToolbar(c){if(!['grid','scroll','single'].includes(c.toolbarLayout))c.toolbarLayout='single';for(const [key,min,max,fallback] of [['toolbarColumns',2,20,8],['toolbarRows',1,6,2],['toolbarWidth',100,1200,640]])c[key]=Math.max(min,Math.min(max,Number(c[key])||fallback));const valid=toolList.map(([id])=>id);c.toolbarOrder=[...new Set([...(Array.isArray(c.toolbarOrder)?c.toolbarOrder:[]).filter(x=>valid.includes(x)),...valid])];c.toolbarHidden=(Array.isArray(c.toolbarHidden)?c.toolbarHidden:[]).filter(x=>valid.includes(x)&&x!=='select');if(!['both','icons'].includes(c.toolbarMode))c.toolbarMode='both';if(!['follow','top','bottom'].includes(c.toolbarPosition))c.toolbarPosition='follow';}

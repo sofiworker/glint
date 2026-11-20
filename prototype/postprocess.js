@@ -7,7 +7,27 @@
   const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const names={select:'选择',crop:'裁剪',shape:'标注',rect:'矩形',arrow:'箭头',pen:'画笔',highlight:'高亮',text:'文字',redact:'遮盖',mosaic:'像素化',adjust:'调整',clip:'片段',audio:'声音'};
   const icon=k=>GlintIcons.svg(k);
-  const symbols=()=>{$$('button,summary,[data-crop-handle]').forEach(n=>n.classList.add('cursor-interaction'));GlintIcons.render(root);};
+  const symbols=()=>{hideTooltip();$$('button,summary,[data-crop-handle]').forEach(n=>n.classList.add('cursor-interaction'));GlintIcons.render(root);};
+  // One input-transparent overlay for the entire workbench. Keeping hints out
+  // of toolbar rows prevents the next opaque panel from covering their text.
+  const tooltip=document.createElement('div');tooltip.className='gp-tooltip';tooltip.hidden=true;tooltip.role='tooltip';root.append(tooltip);
+  let tooltipAnchor=null,tooltipTimer=null,tooltipPoint={x:0,y:0};
+  function hideTooltip(){clearTimeout(tooltipTimer);tooltipTimer=null;tooltip.hidden=true;tooltipAnchor=null;}
+  function placeTooltip(){
+    const box=tooltip.getBoundingClientRect(),gap=8;
+    const x=clamp(tooltipPoint.x,gap,Math.max(gap,innerWidth-box.width-gap));
+    let y=tooltipPoint.y+gap;if(y+box.height>innerHeight-gap)y=tooltipPoint.y-box.height-gap;
+    tooltip.style.left=x+'px';tooltip.style.top=clamp(y,gap,Math.max(gap,innerHeight-box.height-gap))+'px';
+  }
+  root.addEventListener('pointerover',e=>{
+    const button=e.target.closest('button[data-tooltip],button.gp-icon[aria-label]');
+    if(!button||button===tooltipAnchor)return;hideTooltip();tooltipAnchor=button;tooltipPoint={x:e.clientX,y:e.clientY};
+    tooltipTimer=setTimeout(()=>{if(tooltipAnchor!==button||!button.isConnected)return;tooltip.textContent=button.dataset.tooltip||button.getAttribute('aria-label');tooltip.hidden=false;placeTooltip();},500);
+  });
+  root.addEventListener('pointerout',e=>{if(tooltipAnchor?.contains(e.target)&&!tooltipAnchor.contains(e.relatedTarget))hideTooltip();});
+  root.addEventListener('pointermove',e=>{tooltipPoint={x:e.clientX,y:e.clientY};if(!tooltip.hidden)placeTooltip();});
+  root.addEventListener('pointerdown',hideTooltip);root.addEventListener('keydown',hideTooltip);
+  window.addEventListener('blur',hideTooltip);window.addEventListener('resize',hideTooltip);window.addEventListener('scroll',hideTooltip,true);
   const design={appearance:'system',accent:'#4b5cfa'};
   const initial=(kind,w=1280,h=800,duration=32)=>({width:w,height:h,crop:{x:0,y:0,w,h},rotation:0,flip:false,brightness:100,contrast:100,saturation:100,marks:kind==='image'?[{id:1,kind:'redact',x:325,y:710,w:286,h:37,color:'#24262b',line:4},{id:2,kind:'rect',x:190,y:420,w:720,h:65,color:'#4b5cfa',line:4}]:[{id:3,kind:'text',x:780,y:130,w:290,h:48,text:'这一步是重点',font:40,color:'#4b5cfa',line:4,from:4,to:12}],clips:[{id:1,start:0,end:duration}],volume:100,muted:false});
   const assets=[{id:'image',kind:'image',name:'截图 11-16.png',w:1280,h:800,duration:0,url:null,s:initial('image'),history:[],redo:[],time:0},{id:'video',kind:'video',name:'操作演示 11-16.mp4',w:1280,h:800,duration:32,url:null,s:initial('video'),history:[],redo:[],time:8}];

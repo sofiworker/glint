@@ -328,6 +328,7 @@ def main() -> None:
         shutil.copyfile(source / name, portable / name)
     shutil.copytree(source / "crates/glint-ui/ui/widgets", portable / "licenses/glint-modified-slint-widgets")
     shutil.copytree(source / "assets/fonts", portable / "licenses/fonts")
+    shutil.copytree(source / "assets/icons/lucide", portable / "licenses/lucide")
     (source / "BUILDING.md").write_text(
         "# Rebuild this Windows development build\n\nInstall Python3.11+ (for packaging), Rust " + release +
         " with the x86_64-pc-windows-msvc target, Visual Studio C++ build tools and Windows SDK. Toolchain/SDK installation is a prerequisite and can require a network connection.\n\n"
